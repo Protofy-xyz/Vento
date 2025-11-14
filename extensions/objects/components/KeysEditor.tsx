@@ -48,11 +48,12 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     const [showModifiers, setShowModifiers] = useState("")
     const modifiersOptions = ["search", "static", "secret", "display", "textArea"]
     const allModifiers = ModifiersNames.options.map((o: any) => o.value) ?? []
+    const types = ["string", "number", "boolean", "array", "union"]
 
     const hasModifier = (k: string, v: string) => data?.[k]?.modifiers?.some((m: any) => m.name === v) ?? false
 
     const setType = useCallback(
-        (k: string, v: "string" | "number" | "boolean" | "array" | "union") => {
+        (k: string, v: typeof types[number]) => {
             const next = { ...data }
             const prev = next[k]
             const updated: any = { ...prev, type: v }
@@ -125,7 +126,7 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
         const isId = hasModifier(k, "id")
         const isOptional = hasModifier(k, "optional")
         const [isHovered, setIsHovered] = useState(false)
-        const isEditableType = ["string", "number", "boolean", "array", "union"].includes(data[k]?.type)
+        const isEditableType = types.includes(data[k]?.type)
 
         const commitName = () => {
             if (draftName.trim() && draftName !== k) renameKey(k, draftName)
@@ -191,11 +192,11 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
                                 </Button>
                             </Popover.Trigger>
                             <Popover.Content maxHeight={240} padding="$2" gap="$1" bc="$gray1" borderColor="$gray5" borderWidth={1}>
-                                {["string", "number", "boolean", "array", "union"].map((typeOption) => (
+                                {types.map((typeOption) => (
                                     <Button
                                         key={typeOption}
                                         onPress={() => {
-                                            setType(k, typeOption as "string" | "number" | "boolean" | "array" | "union")
+                                            setType(k, typeOption)
                                             setShowModifiers("")
                                         }}
                                         backgroundColor={data[k]?.type === typeOption ? "$color2" : "transparent"}

@@ -1,7 +1,7 @@
 {
   "defaultHomeserver": 0,
   "homeserverList": [
-    "http://localhost:8080"
+    "http://localhost:8008"
   ],
   "allowCustomHomeservers": true,
 
@@ -13,7 +13,7 @@
     "rooms": [
 
     ],
-    "servers": ["http://localhost:8080"]
+    "servers": ["http://localhost:8008"]
   },
 
   "hashRouter": {

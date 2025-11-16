@@ -1,4 +1,5 @@
 const path = require('path')
+const fs = require('fs')
 
 const services = [
       {
@@ -14,7 +15,10 @@ const services = [
         disabledRoute: (req) => {
           if (req.url.startsWith('/chat/') || req.url == '/chat') {
             let r = req.url.split('?')[0]
-            const file = path.join("/data/pages/", r)
+            let file = path.join("/data/pages/", r)
+            if(!fs.existsSync('../../'+file)){
+              file = path.join("/data/pages/chat/index.html")
+            }
             return "file://" + file
           }
         }

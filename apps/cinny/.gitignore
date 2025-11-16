@@ -2,7 +2,7 @@ experiment
 dist
 node_modules
 devAssets
-
+!types
 .DS_Store
 .idea
 .yarn

@@ -6,6 +6,7 @@
   "workspaces": [
     "apps/adminpanel",
     "apps/api",
+    "apps/chat",
     "apps/core",
     "apps/launcher",
     "packages/app",

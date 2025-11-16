@@ -20,6 +20,13 @@ if (process.platform === 'darwin') {
     }
 }
 
+//remove apps/cinny/node_modules
+const cinnyNodeModulesPath = path.join(dirname, 'apps', 'cinny', 'node_modules');
+if (fs.existsSync(cinnyNodeModulesPath)) {
+    rimraf.sync(cinnyNodeModulesPath);
+    console.log('apps/cinny/node_modules directory has been removed');
+}
+
 //remove apps/adminpanel/.next
 const nextPath = path.join(dirname, 'apps', 'adminpanel', '.next');
 if (fs.existsSync(nextPath)) {

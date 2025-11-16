@@ -13122,6 +13122,12 @@ __metadata:
   languageName: node
   linkType: hard
 
+"chat@workspace:apps/chat":
+  version: 0.0.0-use.local
+  resolution: "chat@workspace:apps/chat"
+  languageName: unknown
+  linkType: soft
+
 "cheap-ruler@npm:^3.0.1":
   version: 3.0.2
   resolution: "cheap-ruler@npm:3.0.2"

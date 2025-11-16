@@ -1,0 +1,131 @@
+@font-face {
+  font-family: Twemoji;
+  src: url('../public/font/Twemoji.Mozilla.v15.1.0.woff2'),
+    url('../public/font/Twemoji.Mozilla.v15.1.0.ttf');
+  font-display: swap;
+}
+
+:root {
+  --tc-link: hsl(213deg 100% 45%);
+
+  /* user mxid colors */
+  --mx-uc-1: hsl(208, 100%, 45%);
+  --mx-uc-2: hsl(302, 100%, 30%);
+  --mx-uc-3: hsl(163, 100%, 30%);
+  --mx-uc-4: hsl(343, 100%, 45%);
+  --mx-uc-5: hsl(24, 100%, 45%);
+  --mx-uc-6: hsl(181, 100%, 30%);
+  --mx-uc-7: hsl(242, 100%, 45%);
+  --mx-uc-8: hsl(94, 100%, 35%);
+
+  --font-emoji: 'Twemoji_DISABLED';
+  --font-secondary: 'InterVariable', var(--font-emoji), sans-serif;
+}
+
+.dark-theme,
+.butter-theme {
+  --tc-link: hsl(213deg 100% 80%);
+
+  --mx-uc-1: hsl(208, 100%, 75%);
+  --mx-uc-2: hsl(301, 100%, 80%);
+  --mx-uc-3: hsl(163, 100%, 70%);
+  --mx-uc-4: hsl(343, 100%, 75%);
+  --mx-uc-5: hsl(24, 100%, 70%);
+  --mx-uc-6: hsl(181, 100%, 60%);
+  --mx-uc-7: hsl(243, 100%, 80%);
+  --mx-uc-8: hsl(94, 100%, 80%);
+
+  --font-secondary: 'InterVariable', var(--font-emoji), sans-serif;
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font-secondary);
+  font-size: 16px;
+  font-weight: 400;
+
+  /*Why font-variant-ligatures => https://github.com/rsms/inter/issues/222 */
+  font-variant-ligatures: no-contextual;
+}
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-tap-highlight-color: transparent;
+}
+a {
+  color: var(--tc-link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+[data-mx-spoiler][aria-pressed='true'] a {
+  color: transparent;
+  pointer-events: none;
+}
+
+b {
+  font-weight: 500;
+}
+label {
+  margin: 0;
+  padding: 0;
+}
+button,
+textarea {
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  border: none;
+}
+button {
+  max-width: 100%;
+  text-transform: none;
+  text-align: inherit;
+  overflow: visible;
+  -webkit-appearance: button;
+}
+textarea,
+input,
+input[type],
+input[type='text'],
+input[type='username'],
+input[type='password'],
+input[type='email'],
+input[type='checkbox'] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+textarea {
+  color: inherit;
+  word-spacing: inherit;
+}
+
+audio:not([controls]) {
+  display: none !important;
+}

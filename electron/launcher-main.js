@@ -218,6 +218,10 @@ app.whenReady().then(async () => {
         await require(downloadBinariesScript)(AdmZip, require('tar'));
         console.log('download-bins script executed');
 
+        const downloadDendriteScript = path.join(projectFolderPath, 'scripts', 'download-dendrite.js');
+        await require(downloadDendriteScript)(AdmZip, require('tar'));
+        console.log('download-dendrite script executed');
+
         // >>> ADD: mark JSON status
         updateProjectStatus(projectName, 'downloaded');
 

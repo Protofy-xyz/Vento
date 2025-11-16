@@ -20,6 +20,13 @@ if (process.platform === 'darwin') {
     }
 }
 
+//remove apps/dendrite/bin
+const dendriteBinPath = path.join(dirname, 'apps', 'dendrite', 'bin');
+if (fs.existsSync(dendriteBinPath)) {
+    rimraf.sync(dendriteBinPath);
+    console.log('apps/dendrite/bin directory has been removed');
+}
+
 //remove apps/cinny/node_modules
 const cinnyNodeModulesPath = path.join(dirname, 'apps', 'cinny', 'node_modules');
 if (fs.existsSync(cinnyNodeModulesPath)) {
@@ -160,3 +167,22 @@ if (fs.existsSync(keysPath)) {
     console.log('data/keys directory does not exist');
 }
 
+
+//remove data/dendrite/* except for data/dendrite/dendrite.yaml
+const dendriteDataPath = path.join(dirname, 'data', 'dendrite');
+if (fs.existsSync(dendriteDataPath)) {
+    fs.readdirSync(dendriteDataPath).forEach(file => {
+        if (file !== 'dendrite.yaml') { // Keep the dendrite.yaml file
+            const filePath = path.join(dendriteDataPath, file);
+            if (fs.lstatSync(filePath).isDirectory()) {
+                rimraf.sync(filePath);
+                console.log(`Removed directory: ${filePath}`);
+            } else {
+                fs.unlinkSync(filePath);
+                console.log(`Removed file: ${filePath}`);
+            }
+        }
+    });
+} else {
+    console.log('data/dendrite directory does not exist');
+}

@@ -1,0 +1,12 @@
+{
+    "name": "dendrite",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "prepare-dev": "node prepare.js"
+    },
+    "dependencies": {
+        "adm-zip": "0.5.16",
+        "tar": "7.4.3"
+    }
+}

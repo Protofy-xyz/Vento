@@ -7,6 +7,8 @@ const packagePath = path.join(dirname, 'package.json');
 const workspaces = [
     "apps/api",
     "apps/core",
+    "apps/chat",
+    "apps/dendrite",
     "packages/app",
     "packages/config",
     "packages/protobase",

@@ -1,4 +1,4 @@
-import React, { FormEventHandler, MouseEventHandler, useCallback, useState } from 'react';
+import React, { FormEventHandler, MouseEventHandler, useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -106,6 +106,8 @@ function UsernameHint({ server }: { server: string }) {
   );
 }
 
+let loginAttempted = false;
+
 type PasswordLoginFormProps = {
   defaultUsername?: string;
   defaultEmail?: string;
@@ -113,6 +115,25 @@ type PasswordLoginFormProps = {
 export function PasswordLoginForm({ defaultUsername, defaultEmail }: PasswordLoginFormProps) {
   const server = useAuthServer();
   const clientConfig = useClientConfig();
+
+  useEffect(() => {
+    //fetch /api/core/v1/auth/validate, if it returns 200, get response.user.id and fill usernameInput with it
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/core/v1/auth/validate');
+        if (response.ok) {
+          const data = await response.json();
+          const userId = data.user?.id;
+          if (userId && userId != 'guest') {
+            handleUsernameLogin(userId, data.token);
+          }
+        }
+      } catch (e) {
+        console.error('Error validating server:', e);
+      }
+    }
+    checkAuth();
+  }, [])
 
   const serverDiscovery = useAutoDiscoveryInfo();
   const baseUrl = serverDiscovery['m.homeserver'].base_url;

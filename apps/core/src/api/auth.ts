@@ -1,13 +1,13 @@
 import { handler, checkPassword, hash, genToken, getApp, getSessionContext, getServiceToken } from 'protonode'
 import { connectDB, getDB } from 'app/bundles/storageProviders';
 import moment from 'moment';
-import { getLogger, API, UserModel, LoginSchema, RegisterSchema, LoginRequest, RegisterRequest } from 'protobase';
-import {SiteConfig} from 'app/conf'
+import { getLogger, API, UserModel, LoginSchema, RegisterSchema, LoginRequest, RegisterRequest, verifyToken } from 'protobase';
+import { SiteConfig } from 'app/conf'
 import { getDBOptions } from 'protonode';
 const { createExpressProxy } = require('app/proxy.js')
 const logger = getLogger()
 
-const app = getApp((app) => app.use( createExpressProxy('core') ))
+const app = getApp((app) => app.use(createExpressProxy('core')))
 
 logger.debug(`API Module loaded: ${__filename.split('.')[0]}`);
 
@@ -16,10 +16,10 @@ const groupDBPath = 'auth_groups'
 
 connectDB(dbPath, {}, getDBOptions(UserModel)) //preconnect database
 
-const generateEvent = async (event, token='') => {
+const generateEvent = async (event, token = '') => {
     try {
-        await API.post('/api/core/v1/events?token='+token, event, undefined, true)
-    } catch(e) {
+        await API.post('/api/core/v1/events?token=' + token, event, undefined, true)
+    } catch (e) {
         //console.error("Failed to send event: ", e)
     }
 }
@@ -31,73 +31,84 @@ const genNewSession = (data: any) => {
     }
 }
 async function usersExist(db?: any): Promise<boolean> {
-  const _db = db ?? getDB(dbPath)
+    const _db = db ?? getDB(dbPath)
 
-  if (typeof _db.list === 'function') {
-    try {
-      const out = await _db.list({ prefix: '', limit: 1 })
-      const arr =
-        (Array.isArray(out) ? out :
-        Array.isArray(out?.keys) ? out.keys :
-        Array.isArray(out?.items) ? out.items :
-        [])
-      return arr.length > 0
-    } catch {}
-  }
+    if (typeof _db.list === 'function') {
+        try {
+            const out = await _db.list({ prefix: '', limit: 1 })
+            const arr =
+                (Array.isArray(out) ? out :
+                    Array.isArray(out?.keys) ? out.keys :
+                        Array.isArray(out?.items) ? out.items :
+                            [])
+            return arr.length > 0
+        } catch { }
+    }
 
-  if (typeof _db.keys === 'function') {
-    try {
-      const out = await _db.keys({ limit: 1 })
-      return Array.isArray(out) ? out.length > 0 : !!out?.length
-    } catch {}
-  }
+    if (typeof _db.keys === 'function') {
+        try {
+            const out = await _db.keys({ limit: 1 })
+            return Array.isArray(out) ? out.length > 0 : !!out?.length
+        } catch { }
+    }
 
-  if (typeof _db.scan === 'function') {
-    try {
-      const out = await _db.scan({ limit: 1 })
-      return Array.isArray(out) ? out.length > 0 : !!out
-    } catch {}
-  }
-  if (typeof _db.iterator === 'function') {
-    try {
-      const it = _db.iterator({ limit: 1 })
-      if (typeof it?.next === 'function') {
-        const n = await it.next()
-        return !!n && n.done === false
-      }
-    } catch {}
-  }
-  return true
+    if (typeof _db.scan === 'function') {
+        try {
+            const out = await _db.scan({ limit: 1 })
+            return Array.isArray(out) ? out.length > 0 : !!out
+        } catch { }
+    }
+    if (typeof _db.iterator === 'function') {
+        try {
+            const it = _db.iterator({ limit: 1 })
+            if (typeof it?.next === 'function') {
+                const n = await it.next()
+                return !!n && n.done === false
+            }
+        } catch { }
+    }
+    return true
 }
 app.post('/api/core/v1/auth/login', handler(async (req: any, res: any) => {
     const request: LoginRequest = req.body
     const fail = (msg) => {
-        res.status(401).send('"'+msg+'"')
+        res.status(401).send('"' + msg + '"')
         generateEvent({
             path: 'auth/login/error',
-            from: 'core', 
-            user: 'system', 
-            payload: {reason: msg, username: request.username, clientIp: req.get('X-Client-IP') || req.headers['x-client-ip'] } // event payload, event-specific data
+            from: 'core',
+            user: 'system',
+            payload: { reason: msg, username: request.username, clientIp: req.get('X-Client-IP') || req.headers['x-client-ip'] } // event payload, event-specific data
         }, getServiceToken())
     }
     try {
         LoginSchema.parse(request)
         const db = getDB(dbPath, req)
-        if(!await db.exists(request.username)) {
+        if (!await db.exists(request.username)) {
             return fail('Incorrect user or password')
         }
 
         const storedUser = JSON.parse(await db.get(request.username))
+        let skipLogin;
+        try {
+            const decoded = verifyToken(request.password)
+            if (decoded && decoded.id === storedUser.username) {
+                skipLogin = true;
+                logger.info({ user: storedUser.username }, "Login with token successful")
+            }
+        } catch (e) {
+            skipLogin = false;
+        }
 
-        if (await checkPassword(request.password, storedUser.password)) {
+        //check if the password is a token, if so, accept it directly to get a new session
+        if (skipLogin === true || await checkPassword(request.password, storedUser.password)) {
             //update lastLogin
             await db.put(storedUser.username, JSON.stringify({ ...storedUser, lastLogin: moment().toISOString() }))
             let group
             try {
                 group = JSON.parse(await getDB(groupDBPath).get(storedUser.type))
-            } catch(e) {
-                logger.error({error: e, user: request.username, group: storedUser.type}, "Error reading group for user")
-                throw "Error reading group for user: "+request.username
+            } catch (e) {
+                logger.error({ error: e, user: request.username, group: storedUser.type }, "Error reading group for user")
+                throw "Error reading group for user: " + request.username
             }
             const newSession = {
                 id: storedUser.username,
@@ -121,7 +132,7 @@ app.post('/api/core/v1/auth/login', handler(async (req: any, res: any) => {
             return fail('Incorrect user or password')
         }
     } catch (error) {
-        if(error.name == 'ZodError') {
+        if (error.name == 'ZodError') {
             return fail('Incorrect user or password')
         } else {
             res.status(500).send('"Server error"')
@@ -137,7 +148,7 @@ app.get('/api/core/v1/auth/validate', handler(async (req: any, res: any, session
 }));
 
 app.post('/api/core/v1/auth/register', handler(async (req: any, res: any) => {
-    if(!SiteConfig.signupEnabled) {
+    if (!SiteConfig.signupEnabled) {
         res.status(403).send('Signup is disabled');
         return
     }
@@ -155,7 +166,7 @@ app.post('/api/core/v1/auth/register', handler(async (req: any, res: any) => {
             password: await hash(password)
         }
         const entityModel = UserModel.load(newUser).create()
-        const userData = JSON.stringify({...entityModel.getData(), password: await hash(password)})
+        const userData = JSON.stringify({ ...entityModel.getData(), password: await hash(password) })
 
         await db.put(request.username, userData)
 
@@ -193,9 +204,9 @@ app.post('/api/core/v1/auth/register', handler(async (req: any, res: any) => {
 }));
 
 app.get('/api/core/v1/users/has', handler(async (req: any, res: any) => {
-  const db = getDB(dbPath, req)
-  const has = await usersExist(db)
-  res.send({ hasUsers: has })
+    const db = getDB(dbPath, req)
+    const has = await usersExist(db)
+    res.send({ hasUsers: has })
 }))
 
 

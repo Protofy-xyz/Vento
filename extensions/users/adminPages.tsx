@@ -71,7 +71,7 @@ export const UsersView = ({ all, groups, itemData, initialItems, pageState }) =>
                 }
             }}
             columns={DataTable2.columns(
-                DataTable2.column("email", row => row.username, "username"),
+                DataTable2.column("username", row => row.username, "username"),
                 DataTable2.column("type", row => row.type, "tyoe", row => <Chip text={row.type?.toUpperCase()} color={row.type == 'admin' ? '$color5' : '$gray5'} />),
                 DataTable2.column("from", row => row.from, "from", row => <Chip text={row.from?.toUpperCase()} color={row.from == 'cmd' ? '$blue5' : '$gray5'} />),
                 DataTable2.column("created", row => row.createdAt, "createdAt", row => moment(row.createdAt).format(format)),

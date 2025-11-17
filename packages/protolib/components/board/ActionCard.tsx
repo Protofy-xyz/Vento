@@ -9,7 +9,7 @@ import { Pin } from "@tamagui/lucide-icons";
 import { useTheme, getVariableValue } from 'tamagui';
 import { CardPicker } from "./CardPicker";
 import { Toggle } from "../Toggle";
-
+import { AgentsSelector } from "../AgentSelector";
 
 export const Icon = ({ name, size = 24, color, style }) => {
     const theme = useTheme();
@@ -198,9 +198,16 @@ export const ParamsForm = ({ data, children }) => {
 
                             {!isBoolean && (
                                 <>
-                                    {(!["json", "array", "boolean", "path"].includes(type)) &&
-                                        (cfg?.options?.length ? (
-                                            <YStack mx="10px">
+                                    {(!["json", "array", "boolean", "path"].includes(type)) && (
+                                        cfg.selector === "agents" ? (
+                                            // 🔽 UI especial para seleccionar un agent (board)
+                                            <AgentsSelector
+                                                value={value ?? defaultValue}
+                                                onChange={(v) => setParam(key, v)}
+                                                placeholder={placeholder}
+                                            />
+                                        ) : cfg?.options?.length ? (
+                                            <YStack>
                                                 <SelectList
                                                     title={key}
                                                     elements={cfg.options}

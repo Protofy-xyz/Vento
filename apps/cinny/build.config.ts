@@ -1,3 +1,3 @@
 export default {
-  base: '/chat',
+  base: '/chat/',
 };

@@ -1,4 +1,5 @@
 import { deepClone } from './utils'
+import type { ComponentTemplate, ComponentTemplateContext } from './templateTypes'
 
 export const buildADXLComponents = (adxlConfig: any, i2cBuses: string[]): any[] => {
   if (!adxlConfig) return []
@@ -27,4 +28,60 @@ export const buildADXLComponents = (adxlConfig: any, i2cBuses: string[]): any[] 
       },
     }
   })
+}
+
+export const buildADXLTemplate = (
+  context: ComponentTemplateContext
+): ComponentTemplate => {
+  const adxlIndex = (context.componentCounts['adxl345'] || 0) + 1
+  const firstBus = context.availableI2CBuses[0] || 'i2c_bus'
+  return {
+    label: 'Sensor ADXL345',
+    description: 'Sensor acelerómetro basado en bus I2C.',
+    fields: [
+      { name: 'id', label: 'ID interno', type: 'text', required: true },
+      { name: 'label', label: 'Nombre visible', type: 'text' },
+      {
+        name: 'i2c_id',
+        label: 'Bus I2C',
+        type: 'text',
+        suggestions: context.availableI2CBuses,
+        placeholder: firstBus,
+      },
+    ],
+    defaults: {
+      id: context.ensureUniqueId(`ADXL${adxlIndex}`),
+      label: `Accelerometer ADXL${adxlIndex}`,
+      i2c_id: firstBus,
+    },
+    build: (values, helpers) => {
+      const id = helpers.ensureUniqueId(values.id || `ADXL${adxlIndex}`)
+      const label = values.label || `Accelerometer ${id}`
+      const i2cTarget = values.i2c_id || helpers.availableI2CBuses[0] || 'i2c_bus'
+      return {
+        id,
+        type: 'device',
+        label,
+        category: 'adxl345',
+        meta: {
+          kind: 'adxl345',
+          raw: {
+            id,
+            name: label,
+            i2c_id: i2cTarget,
+          },
+        },
+        pins: {
+          left: [
+            {
+              name: 'i2c_bus',
+              description: 'I2C bus',
+              connectedTo: i2cTarget,
+            },
+          ],
+          right: [],
+        },
+      }
+    },
+  }
 }

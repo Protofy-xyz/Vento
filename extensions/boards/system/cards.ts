@@ -191,23 +191,30 @@ export const registerCards = async () => {
             displayResponse: true,
             displayIcon: true,
             params: {
-                board: "board name where the target agent is located",
-                name: "name of the agent"
+                agent: "board name where the target agent is located",
+                name: "name of the agent",
+                message: "message to send to the agent"
             },
             configParams: {
-                board: {
+                agent: {
                     visible: true,
                     defaultValue: "",
-                    type: "string"
+                    type: "string",
+                    selector: "agents" 
                 },
                 name: {
                     visible: false,
                     defaultValue: "agent_input",
                     type: "string"
+                },
+                message: {
+                    visible: true,
+                    defaultValue: "",
+                    type: "string"
                 }
             },
             description: "Actions can perform tasks, automate processes, and enhance user interactions. It can also trigger other action-type cards on the board.\n\n  #### Key Features\n  - Run actions from rules.\n  - Chain/trigger other action cards.\n  - Parameterized execution.\n  - Customize parameters.\n  - Customize the card view (UI/render).",
-            rulesCode: "const { board: reqBoardName, name: reqName, ...reqParams } = params;\r\n\r\nconst queryString = new URLSearchParams({\r\n  ...reqParams,\r\n  token\r\n}).toString();\r\n\r\nreturn await context.apis.fetch(\r\n  'get',\r\n  `/api/agents/v1/${reqBoardName}/${reqName}?${queryString}`\r\n);",
+            rulesCode: "const { agent: reqBoardName, name: reqName, ...reqParams } = params;\r\n\r\nconst queryString = new URLSearchParams({\r\n  ...reqParams,\r\n  token\r\n}).toString();\r\n\r\nreturn await context.apis.fetch(\r\n  'get',\r\n  `/api/agents/v1/${reqBoardName}/${reqName}?${queryString}`\r\n);",
             html: "//@card/react\n\nfunction Widget(card) {\n  const value = card.value;\n\n  const content = <YStack f={1}  mt={\"20px\"} ai=\"center\" jc=\"center\" width=\"100%\">\n      {card.icon && card.displayIcon !== false && (\n          <Icon name={card.icon} size={48} color={card.color}/>\n      )}\n      {card.displayResponse !== false && (\n          <CardValue mode={card.markdownDisplay ? 'markdown' : card.htmlDisplay ? 'html' : 'normal'} value={value ?? \"N/A\"} />\n      )}\n  </YStack>\n\n  return (\n      <Tinted>\n        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n          <ActionCard data={card}>\n            {card.displayButton !== false ? <ParamsForm data={card}>{content}</ParamsForm> : card.displayResponse !== false && content}\n          </ActionCard>\n        </ProtoThemeProvider>\n      </Tinted>\n  );\n}\n"
         }
     })

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tinted } from 'protolib/components/Tinted'
+import { API } from 'protobase'
 import {
   ReactFlow,
   Background,
@@ -9,47 +10,12 @@ import {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import DeviceNode from '@extensions/esphome/network/DeviceNode'
-
-const normalizeGpioHandle = (value?: string | number) => {
-  if (value === undefined || value === null) return ''
-  const str = String(value).trim().toUpperCase()
-  if (!str) return ''
-  if (str.startsWith('GPIO')) return str
-  if (/^\d+$/.test(str)) return `GPIO${str}`
-  return str
-}
-
-const extractPinNumber = (value?: string | number) => {
-  if (value === undefined || value === null) return undefined
-  const str = String(value)
-  const match = str.match(/(\d+)/)
-  return match ? Number(match[1]) : undefined
-}
-
-type TemplateField = {
-  name: string
-  label: string
-  type: 'text' | 'number' | 'boolean'
-  required?: boolean
-  placeholder?: string
-  description?: string
-  suggestions?: string[]
-  useConnectionDatalist?: boolean
-}
-
-type ComponentTemplate = {
-  label: string
-  description?: string
-  fields: TemplateField[]
-  defaults: Record<string, any>
-  build: (
-    values: Record<string, any>,
-    helpers: {
-      ensureUniqueId: (baseId: string) => string
-      availableI2CBuses: string[]
-    }
-  ) => any
-}
+import { buildComponentTemplates } from '@extensions/esphome/components/templates'
+import type {
+  ComponentTemplate,
+  TemplateField,
+  TemplateHelpers,
+} from '@extensions/esphome/components/templates'
 
 const CurvyEdge = (props: any) => {
   const [edgePath] = getBezierPath({ ...props, curvature: 0.3 })
@@ -82,6 +48,15 @@ export const NetworkGraphView = ({
   const [newComponentType, setNewComponentType] = useState('')
   const [newComponentValues, setNewComponentValues] = useState<Record<string, any>>({})
   const lastTemplateTypeRef = useRef<string | null>(null)
+  const [subsystemActionStatus, setSubsystemActionStatus] = useState<
+    Record<
+      string,
+      {
+        state: 'idle' | 'loading' | 'success' | 'error'
+        message?: string
+      }
+    >
+  >({})
 
   useEffect(() => {
     setComponents(schematic?.components || [])
@@ -297,6 +272,77 @@ export const NetworkGraphView = ({
     [components, selectedNodeId]
   )
 
+  const componentSubsystems = useMemo(() => {
+    if (!selectedComponent) return []
+    const candidateIds = new Set<string>()
+    const possibleIds = [
+      selectedComponent.id,
+      selectedComponent.meta?.raw?.id,
+      selectedComponent.meta?.raw?.name,
+    ].filter((value): value is string => typeof value === 'string' && value.length > 0)
+    possibleIds.forEach((value) => candidateIds.add(value))
+    if (!candidateIds.size) return []
+    return (schematic?.subsystems || []).filter((subsystem: any) => {
+      const targetId =
+        (typeof subsystem?.componentId === 'string' && subsystem.componentId) ||
+        (typeof subsystem?.name === 'string' && subsystem.name) ||
+        (typeof subsystem?.id === 'string' && subsystem.id)
+      return !!targetId && candidateIds.has(targetId)
+    })
+  }, [schematic?.subsystems, selectedComponent])
+
+  const deviceName = schematic?.config?.esphome?.name
+
+  const handleSubsystemAction = useCallback(
+    async (subsystemName: string, action: any) => {
+      const key = `${subsystemName}:${action?.name}`
+      if (!subsystemName || !action?.name) return
+      if (!deviceName) {
+        setSubsystemActionStatus((prev) => ({
+          ...prev,
+          [key]: { state: 'error', message: 'Configura esphome.name para ejecutar acciones.' },
+        }))
+        return
+      }
+      setSubsystemActionStatus((prev) => ({
+        ...prev,
+        [key]: { state: 'loading' },
+      }))
+      try {
+        let url = `/api/core/v1/devices/${encodeURIComponent(
+          deviceName
+        )}/subsystems/${encodeURIComponent(subsystemName)}/actions/${encodeURIComponent(action.name)}`
+        const valueParam =
+          action.value ??
+          action.defaultValue ??
+          action.payload?.value ??
+          action.params?.value ??
+          null
+        if (valueParam !== null && valueParam !== undefined && valueParam !== '') {
+          url += `/${encodeURIComponent(String(valueParam))}`
+        }
+        const result: any = await API.get(url)
+        if (result?.isError) {
+          throw result.error || new Error('Error ejecutando la acción')
+        }
+        setSubsystemActionStatus((prev) => ({
+          ...prev,
+          [key]: { state: 'success', message: 'Acción ejecutada' },
+        }))
+      } catch (error: any) {
+        setSubsystemActionStatus((prev) => ({
+          ...prev,
+          [key]: {
+            state: 'error',
+            message: error?.message || 'No se pudo ejecutar la acción',
+          },
+        }))
+        console.error('Error executing subsystem action', error)
+      }
+    },
+    [deviceName]
+  )
+
   const connectionOptions = useMemo(() => {
     const handles = new Set<string>()
     components.forEach((component) => {
@@ -340,376 +386,15 @@ export const NetworkGraphView = ({
     [components]
   )
 
-  const componentTemplates = useMemo<Record<string, ComponentTemplate>>(() => {
-    const relayIndex = (componentCounts['switch'] || 0) + 1
-    const uartIndex = (componentCounts['uart'] || 0) + 1
-    const i2cBusIndex = (componentCounts['i2c-bus'] || 0) + 1
-    const adxlIndex = (componentCounts['adxl345'] || 0) + 1
-    const adsIndex = (componentCounts['ads1115'] || 0) + 1
-
-    return {
-      switch: {
-        label: 'Relé / Switch GPIO',
-        description: 'Crea un relé controlado por un pin digital.',
-        fields: [
-          { name: 'id', label: 'ID interno', type: 'text', required: true },
-          { name: 'label', label: 'Nombre visible', type: 'text' },
-          {
-            name: 'pin',
-            label: 'GPIO',
-            type: 'text',
-            required: true,
-            placeholder: 'GPIO25',
-            useConnectionDatalist: true,
-          },
-          {
-            name: 'alwaysOn',
-            label: 'Arranca encendido',
-            type: 'boolean',
-            description: 'Mantiene el relé activado tras reinicio.',
-          },
-        ],
-        defaults: {
-          id: ensureUniqueId(`Relay${relayIndex}`),
-          label: `Relay ${relayIndex}`,
-          pin: '',
-          alwaysOn: false,
-        },
-        build: (values, helpers) => {
-          const id = helpers.ensureUniqueId(values.id || `Relay${relayIndex}`)
-          const label = values.label || id
-          const pin = normalizeGpioHandle(values.pin)
-          const pinNumber = extractPinNumber(pin)
-          return {
-            id,
-            type: 'device',
-            label,
-            category: 'switch',
-            meta: {
-              kind: 'switch',
-              raw: {
-                id,
-                name: label,
-                platform: 'gpio',
-                pin: pinNumber,
-                restore_mode: values.alwaysOn ? 'ALWAYS_ON' : 'ALWAYS_OFF',
-              },
-            },
-            editableProps: {
-              alwaysOn: {
-                type: 'boolean',
-                label: 'Always On',
-                description:
-                  'If enabled, the relay reset state will be always on.',
-                default: !!values.alwaysOn,
-              },
-            },
-            pins: {
-              left: [
-                {
-                  name: 'control',
-                  description: 'Control pin to activate the relay',
-                  connectedTo: pin,
-                  type: 'input',
-                },
-              ],
-              right: [],
-            },
-          }
-        },
-      },
-      uart: {
-        label: 'UART',
-        description: 'Configura un bus UART con TX/RX.',
-        fields: [
-          { name: 'id', label: 'ID interno', type: 'text', required: true },
-          { name: 'label', label: 'Nombre visible', type: 'text' },
-          {
-            name: 'tx_pin',
-            label: 'GPIO TX',
-            type: 'text',
-            required: true,
-            placeholder: 'GPIO1',
-            useConnectionDatalist: true,
-          },
-          {
-            name: 'rx_pin',
-            label: 'GPIO RX',
-            type: 'text',
-            required: true,
-            placeholder: 'GPIO3',
-            useConnectionDatalist: true,
-          },
-          {
-            name: 'baud_rate',
-            label: 'Baud rate',
-            type: 'number',
-            placeholder: '115200',
-          },
-        ],
-        defaults: {
-          id: ensureUniqueId(`UART${uartIndex}`),
-          label: `UART ${uartIndex}`,
-          tx_pin: '',
-          rx_pin: '',
-          baud_rate: 115200,
-        },
-        build: (values, helpers) => {
-          const id = helpers.ensureUniqueId(values.id || `UART${uartIndex}`)
-          const label = values.label || id
-          const txPin = normalizeGpioHandle(values.tx_pin)
-          const rxPin = normalizeGpioHandle(values.rx_pin)
-          const baudRate =
-            values.baud_rate === '' || values.baud_rate === undefined
-              ? 115200
-              : Number(values.baud_rate)
-          return {
-            id,
-            type: 'device',
-            label,
-            category: 'uart',
-            meta: {
-              kind: 'uart',
-              raw: {
-                id,
-                name: label,
-                baud_rate: baudRate,
-                tx_pin: extractPinNumber(txPin),
-                rx_pin: extractPinNumber(rxPin),
-              },
-            },
-            editableProps: {
-              baud: {
-                type: 'number',
-                label: 'Baud Rate',
-                description: 'Baud rate for UART communication',
-                default: baudRate,
-              },
-            },
-            pins: {
-              left: [
-                {
-                  name: 'tx',
-                  description: 'tx pin of UART bus',
-                  connectedTo: txPin,
-                  type: 'input',
-                },
-                {
-                  name: 'rx',
-                  description: 'rx pin of UART bus',
-                  connectedTo: rxPin,
-                  type: 'input',
-                },
-              ],
-              right: [
-                {
-                  name: 'uart_bus',
-                  description: 'UART bus',
-                  connectedTo: null,
-                  type: 'output',
-                },
-              ],
-            },
-          }
-        },
-      },
-      'i2c-bus': {
-        label: 'Bus I2C',
-        description: 'Crea un bus I2C con SDA/SCL y salida compartida.',
-        fields: [
-          { name: 'id', label: 'ID interno', type: 'text', required: true },
-          {
-            name: 'label',
-            label: 'Nombre visible',
-            type: 'text',
-            placeholder: `I2C Bus ${i2cBusIndex}`,
-          },
-          {
-            name: 'busId',
-            label: 'Nombre del bus (i2c_id)',
-            type: 'text',
-            required: true,
-            placeholder: `i2c_bus${i2cBusIndex}`,
-          },
-          {
-            name: 'sda',
-            label: 'GPIO SDA',
-            type: 'text',
-            required: true,
-            placeholder: 'GPIO21',
-            useConnectionDatalist: true,
-          },
-          {
-            name: 'scl',
-            label: 'GPIO SCL',
-            type: 'text',
-            required: true,
-            placeholder: 'GPIO22',
-            useConnectionDatalist: true,
-          },
-        ],
-        defaults: {
-          id: ensureUniqueId(`I2C-Bus${i2cBusIndex}`),
-          label: `I2C Bus ${i2cBusIndex}`,
-          busId: `i2c_bus${i2cBusIndex}`,
-          sda: '',
-          scl: '',
-        },
-        build: (values, helpers) => {
-          const id = helpers.ensureUniqueId(values.id || `I2C-Bus${i2cBusIndex}`)
-          const label = values.label || `I2C Bus ${i2cBusIndex}`
-          const busId = values.busId || `i2c_bus${i2cBusIndex}`
-          const sda = normalizeGpioHandle(values.sda)
-          const scl = normalizeGpioHandle(values.scl)
-          return {
-            id,
-            type: 'device',
-            label,
-            category: 'i2c-bus',
-            meta: {
-              kind: 'i2c-bus',
-              raw: {
-                id: busId,
-                sda: extractPinNumber(sda),
-                scl: extractPinNumber(scl),
-              },
-              busId,
-            },
-            pins: {
-              left: [
-                {
-                  name: 'SDA',
-                  description: 'SDA pin of I2C bus',
-                  connectedTo: sda,
-                  type: 'input',
-                },
-                {
-                  name: 'SCL',
-                  description: 'SCL pin of I2C bus',
-                  connectedTo: scl,
-                  type: 'input',
-                },
-              ],
-              right: [
-                {
-                  name: busId,
-                  description: 'I2C bus',
-                  connectedTo: null,
-                  type: 'output',
-                },
-              ],
-            },
-          }
-        },
-      },
-      adxl345: {
-        label: 'Sensor ADXL345',
-        description: 'Sensor acelerómetro basado en bus I2C.',
-        fields: [
-          { name: 'id', label: 'ID interno', type: 'text', required: true },
-          { name: 'label', label: 'Nombre visible', type: 'text' },
-          {
-            name: 'i2c_id',
-            label: 'Bus I2C',
-            type: 'text',
-            suggestions: availableI2CBuses,
-            placeholder: availableI2CBuses[0] || 'i2c_bus',
-          },
-        ],
-        defaults: {
-          id: ensureUniqueId(`ADXL${adxlIndex}`),
-          label: `Accelerometer ADXL${adxlIndex}`,
-          i2c_id: availableI2CBuses[0] || 'i2c_bus',
-        },
-        build: (values, helpers) => {
-          const id = helpers.ensureUniqueId(values.id || `ADXL${adxlIndex}`)
-          const label = values.label || `Accelerometer ${id}`
-          const i2cTarget = values.i2c_id || helpers.availableI2CBuses[0] || 'i2c_bus'
-          return {
-            id,
-            type: 'device',
-            label,
-            category: 'adxl345',
-            meta: {
-              kind: 'adxl345',
-              raw: {
-                id,
-                name: label,
-                i2c_id: i2cTarget,
-              },
-            },
-            pins: {
-              left: [
-                {
-                  name: 'i2c_bus',
-                  description: 'I2C bus',
-                  connectedTo: i2cTarget,
-                },
-              ],
-              right: [],
-            },
-          }
-        },
-      },
-      ads1115: {
-        label: 'ADC ADS1115',
-        description: 'Convertidor analógico a digital vía I2C.',
-        fields: [
-          { name: 'id', label: 'ID interno', type: 'text', required: true },
-          { name: 'label', label: 'Nombre visible', type: 'text' },
-          {
-            name: 'i2c_id',
-            label: 'Bus I2C',
-            type: 'text',
-            suggestions: availableI2CBuses,
-            placeholder: availableI2CBuses[0] || 'i2c_bus',
-          },
-          {
-            name: 'address',
-            label: 'Dirección I2C',
-            type: 'text',
-            placeholder: '0x48',
-          },
-        ],
-        defaults: {
-          id: ensureUniqueId(`ADS1115_${adsIndex}`),
-          label: `ADC ADS1115${adsIndex}`,
-          i2c_id: availableI2CBuses[0] || 'i2c_bus',
-          address: '0x48',
-        },
-        build: (values, helpers) => {
-          const id = helpers.ensureUniqueId(values.id || `ADS1115_${adsIndex}`)
-          const label = values.label || `ADS1115 ${id}`
-          const i2cTarget = values.i2c_id || helpers.availableI2CBuses[0] || 'i2c_bus'
-          return {
-            id,
-            type: 'device',
-            label,
-            category: 'ads1115',
-            meta: {
-              kind: 'ads1115',
-              raw: {
-                id,
-                name: label,
-                i2c_id: i2cTarget,
-                address: values.address || '0x48',
-              },
-            },
-            pins: {
-              left: [
-                {
-                  name: 'i2c_bus',
-                  description: 'I2C bus',
-                  connectedTo: i2cTarget,
-                },
-              ],
-              right: [],
-            },
-          }
-        },
-      },
-    }
-  }, [availableI2CBuses, componentCounts, ensureUniqueId])
+  const componentTemplates = useMemo<Record<string, ComponentTemplate>>(
+    () =>
+      buildComponentTemplates({
+        componentCounts,
+        ensureUniqueId,
+        availableI2CBuses,
+      }),
+    [availableI2CBuses, componentCounts, ensureUniqueId]
+  )
 
   useEffect(() => {
     if (!newComponentType) {
@@ -793,7 +478,7 @@ export const NetworkGraphView = ({
     []
   )
 
-  const templateHelpers = useMemo(
+  const templateHelpers = useMemo<TemplateHelpers>(
     () => ({
       ensureUniqueId,
       availableI2CBuses,
@@ -1008,6 +693,127 @@ export const NetworkGraphView = ({
                       ))
                   )}
                 </>
+              )}
+              {componentSubsystems.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <label style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                    Subsistemas asociados
+                  </label>
+                  <div
+                    style={{
+                      border: '1px solid var(--gray6)',
+                      borderRadius: 8,
+                      padding: 8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      background: 'var(--bg)',
+                    }}
+                  >
+                    {componentSubsystems.map((subsystem: any, idx: number) => {
+                      const subsystemName =
+                        subsystem.name || subsystem.componentId || `Subsystem ${idx + 1}`
+                      return (
+                        <div
+                          key={`${subsystem.name || subsystem.componentId || idx}`}
+                          style={{
+                            borderBottom:
+                              idx < componentSubsystems.length - 1
+                                ? '1px solid var(--gray6)'
+                                : 'none',
+                            paddingBottom: idx < componentSubsystems.length - 1 ? 8 : 0,
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            {subsystemName}
+                            {subsystem.type && (
+                              <span style={{ fontSize: 11, opacity: 0.7 }}> - {subsystem.type}</span>
+                            )}
+                          </div>
+                          {subsystem.actions?.length ? (
+                            <div style={{ marginBottom: 6 }}>
+                              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+                                Acciones
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {subsystem.actions.map((action: any) => {
+                                  const actionKey = `${subsystemName}:${action.name}`
+                                  const status = subsystemActionStatus[actionKey]?.state || 'idle'
+                                  const message = subsystemActionStatus[actionKey]?.message
+                                  const isLoading = status === 'loading'
+                                  const disabled = !deviceName || isLoading
+                                  return (
+                                    <div key={`${action.name}-${actionKey}`}>
+                                      <button
+                                        disabled={disabled}
+                                        onClick={() =>
+                                          handleSubsystemAction(
+                                            subsystem.name || subsystem.componentId || '',
+                                            action
+                                          )
+                                        }
+                                        style={{
+                                          width: '100%',
+                                          padding: '6px 8px',
+                                          borderRadius: 6,
+                                          border: '1px solid var(--gray6)',
+                                          background: disabled
+                                            ? 'var(--gray5)'
+                                            : 'var(--color8)',
+                                          color: disabled ? 'var(--gray10)' : 'var(--softContrast)',
+                                          cursor: disabled ? 'not-allowed' : 'pointer',
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {(action.label || action.name || 'Acción') +
+                                          (isLoading ? '...' : '')}
+                                      </button>
+                                      {action.description && (
+                                        <div style={{ fontSize: 11, marginTop: 2 }}>
+                                          {action.description}
+                                        </div>
+                                      )}
+                                      {message && (
+                                        <div
+                                          style={{
+                                            fontSize: 11,
+                                            marginTop: 2,
+                                            color:
+                                              status === 'error'
+                                                ? 'var(--red10)'
+                                                : 'var(--green10)',
+                                          }}
+                                        >
+                                          {message}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                              {!deviceName && (
+                                <div style={{ fontSize: 10, marginTop: 4, opacity: 0.7 }}>
+                                  Define `esphome.name` para habilitar las acciones.
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                          {subsystem.monitors?.length ? (
+                            <div style={{ fontSize: 11 }}>
+                              <span style={{ fontWeight: 600 }}>Monitores:</span>{' '}
+                              {subsystem.monitors
+                                .map(
+                                  (monitor: any) =>
+                                    monitor.label || monitor.name || `Monitor ${monitor?.id}`
+                                )
+                                .join(', ')}
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
               )}
             </>
           ) : (

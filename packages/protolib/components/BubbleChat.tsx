@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Sparkles, X, Maximize, Minimize, Bot, ChevronDown } from "@tamagui/lucide-icons";
 import { Tinted } from "./Tinted";
 import { Chat } from "./Chat";
 import { YStack, Button, XStack, Paragraph, Spinner, Accordion, SizableText, Square } from "@my/ui";
-import { API } from "protobase";
 import { getIcon } from "./InternalIcon";
 import { shouldShowInArea } from "protolib/helpers/Visibility";
+import { useAgents } from "@extensions/boards/hooks/useAgents";
 
 type Agent = {
   name: string;
@@ -21,46 +21,47 @@ export const BubbleChat = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isChatLoaded, setIsChatLoaded] = useState(false);
   const [selectedBot, setSelectedBot] = useState<Agent | null>(null);
-  const [bots, setBots] = useState<Agent[]>([]);
-  const [loadingBots, setLoadingBots] = useState(true);
+  const { agents, loading: loadingBots } = useAgents();
+
+  const bots = useMemo(() => {
+    const items = Array.isArray(agents) ? agents : [];
+
+    const parsed = items
+      .map((b: any) => {
+              // ✅ solo boards visibles en el área "chat"
+        if (!shouldShowInArea(b, "chat")) return null;
+
+        const name = b?.name ?? "";
+        const target = b?.inputs?.default ?? null;
+        const icon = b?.icon ?? null;
+        const tags = Array.isArray(b?.tags) ? b.tags.filter(Boolean) : [];
+
+        return name && target
+          ? ({ name, target, icon, tags } as Agent)
+          : null;
+      })
+      .filter(Boolean) as Agent[];
+
+    return parsed;
+  }, [agents]);
+
 
   useEffect(() => {
-    const fetchBots = async () => {
-      try {
-        const response = await API.get("/api/core/v1/boards/");
-        if (response.isLoaded) {
-          const items = Array.isArray(response.data?.items) ? response.data.items : [];
+    if (!bots.length) {
+      if (selectedBot) setSelectedBot(null);
+      return;
+    }
 
-          const parsed = items
-            .map((b: any) => {
-              // ✅ solo boards visibles en el área "chat"
-              if (!shouldShowInArea(b, "chat")) return null;
+    if (!selectedBot) {
+      setSelectedBot(bots[0]);
+      return;
+    }
 
-              const name = b?.name ?? "";
-              const target = b?.inputs?.default ?? null;
-              const icon = b?.icon ?? null;
-              const tags = Array.isArray(b?.tags) ? b.tags.filter(Boolean) : [];
-
-              return name && target
-                ? ({ name, target, icon, tags } as Agent)
-                : null;
-            })
-            .filter(Boolean) as Agent[];
-
-          setBots(parsed);
-          setSelectedBot(parsed[0] || null);
-        } else if (response.isError) {
-          throw new Error(response.error);
-        }
-      } catch (err) {
-        console.error("Error fetching bots:", err);
-      } finally {
-        setLoadingBots(false);
-      }
-    };
-
-    fetchBots();
-  }, []);
+    const exists = bots.find((b) => b.name === selectedBot.name);
+    if (!exists) {
+      setSelectedBot(bots[0] || null);
+    }
+  }, [bots, selectedBot]);
 
   const toggleChat = () => {
     if (isChatVisible) {

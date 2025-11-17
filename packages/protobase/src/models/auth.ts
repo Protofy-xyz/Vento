@@ -1,15 +1,15 @@
 import { z } from "../BaseSchema";
 
 export const LoginSchema = z.object({
-    username: z.string().email(),
-    password: z.string()
+    username: z.string().min(1),
+    password: z.string().min(1)
 });
 
 export type LoginRequest = z.infer<typeof LoginSchema>;
 
 const BaseRegisterSchema = z.object({
-    username: z.string().email(),
-    password: z.string().min(6),
+    username: z.string().min(1),
+    password: z.string().min(1),
     rePassword: z.any()
 })
 

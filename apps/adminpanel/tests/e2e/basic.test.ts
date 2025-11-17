@@ -40,7 +40,7 @@ describe("Basic tests", () => {
     it("should have a public sign in authentication interface", async () => {
         await protoBrowser.navigateToLogin()
         expect(await protoBrowser.getUrlPath()).toBe('/auth/login');
-        expect(await protoBrowser.waitForElement('#sign-in-email-input')).toBeTruthy();
+        expect(await protoBrowser.waitForElement('#sign-in-username-input')).toBeTruthy();
         expect(await protoBrowser.waitForElement('#sign-in-password-input')).toBeTruthy();
         expect(await protoBrowser.waitForElement('#sign-in-btn')).toBeTruthy();
     }, 120000)

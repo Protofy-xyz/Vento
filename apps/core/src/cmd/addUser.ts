@@ -6,7 +6,7 @@ import { CmdRegisterSchema, UserModel} from 'protobase';
 import moment from 'moment';
 
 if (process.argv.length < 5) {
-    console.error('Usage: yarn add-user email password type',process.argv.length)
+    console.error('Usage: yarn add-user username password type',process.argv.length)
     process.exit(1)
 }
 
@@ -34,7 +34,7 @@ const addUser = async () => {
     const db = getDB(dbPath)
 
     if(await db.exists(username)) {
-        console.error('Error creating user: A user with the same email already exists');
+        console.error('Error creating user: A user with the same name already exists');
     } else {
         const userData = {
             username: username, 

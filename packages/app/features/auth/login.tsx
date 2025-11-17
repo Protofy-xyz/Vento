@@ -196,10 +196,10 @@ function SignIn({ darkMode, isClient }: { darkMode: boolean, isClient: boolean }
         <form onSubmit={handleSignin}>
           <YStack space="$2" mt="$5">
             <Input
-              id="sign-in-email-input"
+              id="sign-in-username-input"
               ref={emailRef}
-              autoComplete="email"
-              placeholder="Email"
+              autoComplete="username"
+              placeholder="username"
               value={email}
               onChange={(e) => setEmail(e.nativeEvent.text)}
               required

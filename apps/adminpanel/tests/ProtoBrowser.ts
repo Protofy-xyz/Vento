@@ -134,8 +134,8 @@ export class ProtoBrowser {
 
     async signInSubmit(email: string, password: string) {
         // Fill sign-in form
-        await this.waitForElement('#sign-in-email-input');
-        await this.getPage().fill('#sign-in-email-input', email);
+        await this.waitForElement('#sign-in-username-input');
+        await this.getPage().fill('#sign-in-username-input', email);
         await this.waitForElement('#sign-in-password-input');
         await this.getPage().fill('#sign-in-password-input', password);
         await this.clickElement('#sign-in-btn');

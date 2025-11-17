@@ -1,4 +1,6 @@
 import { deepClone } from './utils'
+import type { ComponentTemplate, ComponentTemplateContext } from './templateTypes'
+import { normalizeGpioHandle, extractPinNumber } from './templateHelpers'
 
 export const buildUARTComponents = (uartConfig: any): any[] => {
   if (!uartConfig) return []
@@ -49,4 +51,105 @@ export const buildUARTComponents = (uartConfig: any): any[] => {
       },
     }
   })
+}
+
+export const buildUARTTemplate = (
+  context: ComponentTemplateContext
+): ComponentTemplate => {
+  const uartIndex = (context.componentCounts['uart'] || 0) + 1
+  return {
+    label: 'UART',
+    description: 'Configura un bus UART con TX/RX.',
+    fields: [
+      { name: 'id', label: 'ID interno', type: 'text', required: true },
+      { name: 'label', label: 'Nombre visible', type: 'text' },
+      {
+        name: 'tx_pin',
+        label: 'GPIO TX',
+        type: 'text',
+        required: true,
+        placeholder: 'GPIO1',
+        useConnectionDatalist: true,
+      },
+      {
+        name: 'rx_pin',
+        label: 'GPIO RX',
+        type: 'text',
+        required: true,
+        placeholder: 'GPIO3',
+        useConnectionDatalist: true,
+      },
+      {
+        name: 'baud_rate',
+        label: 'Baud rate',
+        type: 'number',
+        placeholder: '115200',
+      },
+    ],
+    defaults: {
+      id: context.ensureUniqueId(`UART${uartIndex}`),
+      label: `UART ${uartIndex}`,
+      tx_pin: '',
+      rx_pin: '',
+      baud_rate: 115200,
+    },
+    build: (values, helpers) => {
+      const id = helpers.ensureUniqueId(values.id || `UART${uartIndex}`)
+      const label = values.label || id
+      const txPin = normalizeGpioHandle(values.tx_pin)
+      const rxPin = normalizeGpioHandle(values.rx_pin)
+      const baudRate =
+        values.baud_rate === '' || values.baud_rate === undefined
+          ? 115200
+          : Number(values.baud_rate)
+      return {
+        id,
+        type: 'device',
+        label,
+        category: 'uart',
+        meta: {
+          kind: 'uart',
+          raw: {
+            id,
+            name: label,
+            baud_rate: baudRate,
+            tx_pin: extractPinNumber(txPin),
+            rx_pin: extractPinNumber(rxPin),
+          },
+        },
+        editableProps: {
+          baud: {
+            type: 'number',
+            label: 'Baud Rate',
+            description: 'Baud rate for UART communication',
+            default: baudRate,
+          },
+        },
+        pins: {
+          left: [
+            {
+              name: 'tx',
+              description: 'tx pin of UART bus',
+              connectedTo: txPin,
+              type: 'input',
+            },
+            {
+              name: 'rx',
+              description: 'rx pin of UART bus',
+              connectedTo: rxPin,
+              type: 'input',
+            },
+          ],
+          right: [
+            {
+              name: 'uart_bus',
+              description: 'UART bus',
+              connectedTo: null,
+              type: 'output',
+            },
+          ],
+        },
+      }
+    },
+  }
 }

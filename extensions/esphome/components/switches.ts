@@ -1,4 +1,6 @@
 import { deepClone } from './utils'
+import type { ComponentTemplate, ComponentTemplateContext } from './templateTypes'
+import { normalizeGpioHandle, extractPinNumber } from './templateHelpers'
 
 export const buildSwitchComponents = (switchConfig: any): any[] => {
   if (!switchConfig) return []
@@ -73,4 +75,79 @@ export const buildSwitchSubsystems = (switchConfig: any): any[] => {
         ],
       }
     })
+}
+
+export const buildSwitchTemplate = (
+  context: ComponentTemplateContext
+): ComponentTemplate => {
+  const relayIndex = (context.componentCounts['switch'] || 0) + 1
+  return {
+    label: 'Relé / Switch GPIO',
+    description: 'Crea un relé controlado por un pin digital.',
+    fields: [
+      { name: 'id', label: 'ID interno', type: 'text', required: true },
+      { name: 'label', label: 'Nombre visible', type: 'text' },
+      {
+        name: 'pin',
+        label: 'GPIO',
+        type: 'text',
+        required: true,
+        placeholder: 'GPIO25',
+        useConnectionDatalist: true,
+      },
+      {
+        name: 'alwaysOn',
+        label: 'Arranca encendido',
+        type: 'boolean',
+        description: 'Mantiene el relé activado tras reinicio.',
+      },
+    ],
+    defaults: {
+      id: context.ensureUniqueId(`Relay${relayIndex}`),
+      label: `Relay ${relayIndex}`,
+      pin: '',
+      alwaysOn: false,
+    },
+    build: (values, helpers) => {
+      const id = helpers.ensureUniqueId(values.id || `Relay${relayIndex}`)
+      const label = values.label || id
+      const pin = normalizeGpioHandle(values.pin)
+      const pinNumber = extractPinNumber(pin)
+      return {
+        id,
+        type: 'device',
+        label,
+        category: 'switch',
+        meta: {
+          kind: 'switch',
+          raw: {
+            id,
+            name: label,
+            platform: 'gpio',
+            pin: pinNumber,
+            restore_mode: values.alwaysOn ? 'ALWAYS_ON' : 'ALWAYS_OFF',
+          },
+        },
+        editableProps: {
+          alwaysOn: {
+            type: 'boolean',
+            label: 'Always On',
+            description: 'If enabled, the relay reset state will be always on.',
+            default: !!values.alwaysOn,
+          },
+        },
+        pins: {
+          left: [
+            {
+              name: 'control',
+              description: 'Control pin to activate the relay',
+              connectedTo: pin,
+              type: 'input',
+            },
+          ],
+          right: [],
+        },
+      }
+    },
+  }
 }

@@ -269,7 +269,13 @@ const dumpYaml = (schematic: any) => {
         delete baseConfig.ads1115;
     }
 
-    return yaml.dump(baseConfig);
+    let dumped = yaml.dump(baseConfig);
+    dumped = dumped.replace(/'@!lambda ''(.*?)''@'/g, (_match: string, code: string) => {
+        const restoredCode = code.replace(/''/g, "'");
+        return `!lambda ${restoredCode}`;
+    });
+    dumped = dumped.replace(/'@/g, "").replace(/@'/g, "");
+    return dumped;
 };
 // export functions as an object
 export {

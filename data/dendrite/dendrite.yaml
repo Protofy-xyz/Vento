@@ -27,8 +27,8 @@ global:
 
   # Disable presence (not useful locally, reduces noise)
   presence:
-    enable_inbound: false
-    enable_outbound: false
+    enable_inbound: true
+    enable_outbound: true
 
   # JetStream (local, persistent, no TLS)
   jetstream:
@@ -53,6 +53,8 @@ global:
 client_api:
   # Allow local user sign-ups
   registration_disabled: true
+  presence:
+    enabled: true
 
   # No tokens or shared secrets required
   registration_requires_token: false
@@ -103,6 +105,8 @@ room_server:
 sync_api:
   database:
     connection_string: file:../../data/dendrite/dendrite_sync.db
+  presence:
+    enabled: true
 
 # ======================
 # USER API

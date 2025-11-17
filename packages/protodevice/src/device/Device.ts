@@ -107,10 +107,13 @@ class Device {
         this.credentials = credentials
     }
 
-    dump(format="yaml"){
-        if(format=="yaml"){
-            return jsYaml.dump(this.componentsTree,{lineWidth: -1})
-        }else{
+    dump(format = "yaml") {
+        if (format == "yaml") {
+            let ret = jsYaml.dump(this.componentsTree, { lineWidth: -1 })
+            ret = ret.replace(/'@!lambda ''(.*?)''@'/g, "!lambda '$1'");
+            ret = ret.replace(/'@/g, "").replace(/@'/g, "")
+            return ret
+        } else {
             return undefined;
         }
     }

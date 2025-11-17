@@ -4,47 +4,96 @@ const yaml = require("js-yaml");
 
 const parseYaml = (yamlText: any) => {
     let config;
+
+    // --- parche !lambda ---
+    yamlText = yamlText.replace(/!lambda[ \t]+(.+)/g, (match, code) => {
+        const trimmed = code.trim();
+        const escaped = trimmed.replace(/'/g, "''");
+        return `'@!lambda ''${escaped}''@'`;
+    });
+
     try {
-     config = yaml.load(yamlText);
+        config = yaml.load(yamlText);
     } catch (e) {
         console.error("Error parsing YAML:", e);
         return null;
     }
+
     // -----------------------------
-    // ESP32 pinout definition
+    // ESP32/ESP32-S3 pinout definitions
     // -----------------------------
-    const esp32Pins = {
-        left: [
-            "3V3", "GND", "EN",
-            "GPIO36", "GPIO39", "GPIO34", "GPIO35",
-            "GPIO32", "GPIO33", "GPIO25", "GPIO26"
-        ],
-        right: [
-            "GPIO27", "GPIO14", "GPIO12", "GPIO13",
-            "GPIO23", "GPIO22", "GPIO1_TX", "GPIO3_RX",
-            "GPIO21_SDA", "GPIO22_SCL"
-        ]
+    const espBoards = {
+        wroom32: {
+            id: "ESP32",
+            label: "ESP32-WROOM-32",
+            pins: {
+                left: [
+                    "3V3", "GND", "EN",
+                    "GPIO36", "GPIO39", "GPIO34", "GPIO35",
+                    "GPIO32", "GPIO33", "GPIO25", "GPIO26"
+                ],
+                right: [
+                    "GPIO27", "GPIO14", "GPIO12", "GPIO13",
+                    "GPIO23", "GPIO22", "GPIO1_TX", "GPIO3_RX",
+                    "GPIO21_SDA", "GPIO22_SCL"
+                ]
+            }
+        },
+        esp32s3_devkitc_1: {
+            id: "ESP32S3",
+            label: "ESP32-S3-DevKitC-1",
+            pins: {
+                // Esto es un ejemplo simplificado para el editor,
+                // no el pinout completo oficial.
+                left: [
+                    "3V3", "GND", "EN",
+                    "GPIO1", "GPIO2", "GPIO3", "GPIO4",
+                    "GPIO5", "GPIO6", "GPIO7", "GPIO8",
+                    "GPIO9", "GPIO10", "GPIO11", "GPIO12",
+                    "GPIO13", "GPIO14", "GPIO15"
+                ],
+                right: [
+                    "GPIO16", "GPIO17", "GPIO18", "GPIO19",
+                    "GPIO20", "GPIO21",
+                    "GPIO38", "GPIO39", "GPIO40", "GPIO41"
+                ]
+            }
+        }
     };
 
-    const mapPins = arr => arr.map(name => ({
-        name,
-        type: name.startsWith("GPIO") ? "gpio" : "power"
-    }));
+    const mapPins = (arr: string[]) =>
+        arr.map(name => ({
+            name,
+            type: name.startsWith("GPIO") ? "gpio" : "power"
+        }));
+
+    // ----------------------------------
+    // Detectar la placa a partir del YAML
+    // ----------------------------------
+    const esp32Config = config.esp32 || {};
+    const boardName: string = esp32Config.board || "";
+    const variant: string = esp32Config.variant || "";
+
+    let boardDef = espBoards.wroom32; // default
+
+    if (variant === "esp32s3" || boardName.includes("esp32-s3-devkitc-1")) {
+        boardDef = espBoards.esp32s3_devkitc_1;
+    }
 
     // ----------------------------------
     // Start building schematic
     // ----------------------------------
-    let components = [];
+    let components: any[] = [];
 
-    // ESP32 Component
+    // ESP32 / ESP32-S3 Component
     components.push({
         type: "device",
-        id: "ESP32",
-        label: "ESP32-WROOM-32",
+        id: boardDef.id,
+        label: boardDef.label,
         center: true,
         pins: {
-            left: mapPins(esp32Pins.left),
-            right: mapPins(esp32Pins.right)
+            left: mapPins(boardDef.pins.left),
+            right: mapPins(boardDef.pins.right)
         }
     });
 
@@ -71,12 +120,14 @@ const parseYaml = (yamlText: any) => {
                         }
                     },
                     pins: {
-                        left: [{
-                            name: "control",
-                            description: "Control pin to activate the relay",
-                            connectedTo: `GPIO${sw.pin}`,
-                            type: "input"
-                        }],
+                        left: [
+                            {
+                                name: "control",
+                                description: "Control pin to activate the relay",
+                                connectedTo: `GPIO${sw.pin}`, // aquí ya usas 40,41 del S3
+                                type: "input"
+                            }
+                        ],
                         right: []
                     }
                 });
@@ -138,7 +189,7 @@ const parseYaml = (yamlText: any) => {
     // ----------------------------------
     // I2C support
     // ----------------------------------
-    let i2cBuses = [];
+    let i2cBuses: string[] = [];
 
     if (config.i2c) {
         const i2cConfigs = Array.isArray(config.i2c)
@@ -198,11 +249,13 @@ const parseYaml = (yamlText: any) => {
                 type: "device",
                 label: `Accelerometer ADXL${idx === 0 ? "" : idx + 1}`,
                 pins: {
-                    left: [{
-                        name: "i2c_bus",
-                        description: "I2C bus",
-                        connectedTo: busUsed
-                    }],
+                    left: [
+                        {
+                            name: "i2c_bus",
+                            description: "I2C bus",
+                            connectedTo: busUsed
+                        }
+                    ],
                     right: []
                 }
             });
@@ -223,31 +276,28 @@ const parseYaml = (yamlText: any) => {
                 type: "device",
                 label: `ADC ADS1115${idx === 0 ? "" : idx + 1}`,
                 pins: {
-                    left: [{
-                        name: "i2c_bus",
-                        description: "I2C bus",
-
-                        connectedTo: busUsed
-                    }],
+                    left: [
+                        {
+                            name: "i2c_bus",
+                            description: "I2C bus",
+                            connectedTo: busUsed
+                        }
+                    ],
                     right: []
                 }
             });
         });
     }
 
-    // generic crida la IA perque em faci el no ho intenti
-
     const schematic = { components };
-
-    // Output result
     console.log(JSON.stringify(schematic, null, 4));
-    return schematic
-}
+    return schematic;
+};
 
 const dumpYaml = (schematic: any) => {
 }
 // export functions as an object
-export  {
+export {
     parseYaml,
     dumpYaml
 };

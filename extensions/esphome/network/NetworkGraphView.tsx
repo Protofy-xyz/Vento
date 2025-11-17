@@ -201,4 +201,4 @@ console.log("DEV:::: 🚀 ~ file: ElectricalGraphView.tsx:28 ~ ElectricalGraphVi
     </Tinted>
   )
 }
-export default ElectricalGraphView
+export default NetworkGraphView

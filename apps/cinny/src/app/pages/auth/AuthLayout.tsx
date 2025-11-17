@@ -120,7 +120,7 @@ export function AuthLayout() {
   );
 
   useEffect(() => {
-    selectServer(document.location.protocol + '//' + document.location.hostname+":8008");
+    selectServer(document.location.protocol + '//' + document.location.hostname+(document.location.port ? ":"+document.location.port : ""));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [autoDiscoveryError, autoDiscoveryInfo] =
@@ -147,7 +147,7 @@ export function AuthLayout() {
                 Server
               </Text>
               <ServerPicker
-                server={document.location.protocol + '//' + document.location.hostname+":8008"}
+                server={document.location.protocol + '//' + document.location.hostname+(document.location.port ? ":"+document.location.port : "")}
                 serverList={clientConfig.homeserverList ?? []}
                 allowCustomServer={clientConfig.allowCustomHomeservers}
                 onServerChange={selectServer}

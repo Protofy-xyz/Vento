@@ -1,6 +1,24 @@
 const yaml = require("js-yaml");
 
+const deepClone = (value: any) => {
+    if (value === undefined || value === null) return value;
+    return JSON.parse(JSON.stringify(value));
+};
 
+const toNumberFromGpio = (handle?: string | number | null) => {
+    if (handle === null || handle === undefined) return undefined;
+    if (typeof handle === "number") return handle;
+    const text = String(handle);
+    const match = text.match(/GPIO\s*(\d+)/i);
+    if (match && match[1]) {
+        return Number(match[1]);
+    }
+    const genericDigits = text.match(/(\d+)/);
+    if (genericDigits && genericDigits[1]) {
+        return Number(genericDigits[1]);
+    }
+    return text;
+};
 
 const parseYaml = (yamlText: any) => {
     let config;
@@ -90,6 +108,14 @@ const parseYaml = (yamlText: any) => {
         type: "device",
         id: boardDef.id,
         label: boardDef.label,
+        category: "esp-board",
+        meta: {
+            kind: "esp-board",
+            raw: {
+                board: boardName,
+                variant
+            }
+        },
         center: true,
         pins: {
             left: mapPins(boardDef.pins.left),
@@ -111,6 +137,11 @@ const parseYaml = (yamlText: any) => {
                     id: `Relay${idx + 1}`,
                     type: "device",
                     label: `Relay ${idx + 1}`,
+                    category: "switch",
+                    meta: {
+                        kind: "switch",
+                        raw: deepClone(sw)
+                    },
                     editableProps: {
                         alwaysOn: {
                             type: "boolean",
@@ -150,6 +181,11 @@ const parseYaml = (yamlText: any) => {
                 id: uartId,
                 type: "device",
                 label: `UART ${idx}`,
+                category: "uart",
+                meta: {
+                    kind: "uart",
+                    raw: deepClone(uart)
+                },
                 editableProps: {
                     baud: {
                         type: "number",
@@ -205,6 +241,12 @@ const parseYaml = (yamlText: any) => {
                 id: `I2C-Bus${idx === 0 ? "" : idx + 1}`,
                 type: "device",
                 label: `I2C Bus${idx === 0 ? "" : " " + (idx + 1)}`,
+                category: "i2c-bus",
+                meta: {
+                    kind: "i2c-bus",
+                    raw: deepClone(bus),
+                    busId
+                },
                 pins: {
                     left: [
                         {
@@ -237,7 +279,7 @@ const parseYaml = (yamlText: any) => {
     // ADXL SUPPORT (i2c-based sensors)
     // ----------------------------------
     if (config.adxl345) {
-        const sensors = Array.isArray(config.adxl345)
+            const sensors = Array.isArray(config.adxl345)
             ? config.adxl345
             : [config.adxl345];
 
@@ -248,6 +290,11 @@ const parseYaml = (yamlText: any) => {
                 id: `ADXL${idx === 0 ? "" : idx + 1}`,
                 type: "device",
                 label: `Accelerometer ADXL${idx === 0 ? "" : idx + 1}`,
+                category: "adxl345",
+                meta: {
+                    kind: "adxl345",
+                    raw: deepClone(sensor)
+                },
                 pins: {
                     left: [
                         {
@@ -275,6 +322,11 @@ const parseYaml = (yamlText: any) => {
                 id: `ADS1115_${idx === 0 ? "" : idx + 1}`,
                 type: "device",
                 label: `ADC ADS1115${idx === 0 ? "" : idx + 1}`,
+                category: "ads1115",
+                meta: {
+                    kind: "ads1115",
+                    raw: deepClone(sensor)
+                },
                 pins: {
                     left: [
                         {
@@ -289,13 +341,145 @@ const parseYaml = (yamlText: any) => {
         });
     }
 
-    const schematic = { components };
+    const schematic = { components, config: deepClone(config) ?? {} };
     console.log(JSON.stringify(schematic, null, 4));
     return schematic;
 };
 
+const normalizeSection = (items: any[]) => {
+    if (items.length === 0) return undefined;
+    if (items.length === 1) return items[0];
+    return items;
+};
+
+const cloneOrEmpty = (obj: any) => {
+    const cloned = deepClone(obj);
+    if (cloned === undefined || cloned === null) return {};
+    return cloned;
+};
+
 const dumpYaml = (schematic: any) => {
-}
+    if (!schematic) return "";
+    const baseConfig = cloneOrEmpty(schematic.config);
+    const components = schematic.components || [];
+
+    const findPin = (component: any, pinName: string) => {
+        return (
+            component?.pins?.left?.find((p: any) => p.name === pinName) ||
+            component?.pins?.right?.find((p: any) => p.name === pinName)
+        );
+    };
+
+    const switches = components
+        .filter((c: any) => c.category === "switch")
+        .map((component: any) => {
+            const raw = cloneOrEmpty(component.meta?.raw);
+            raw.platform = raw.platform || "gpio";
+            raw.id = component.id;
+            raw.name = component.label || component.id;
+            const controlPin = findPin(component, "control");
+            if (controlPin) {
+                const parsedPin = toNumberFromGpio(controlPin.connectedTo);
+                if (parsedPin !== undefined) raw.pin = parsedPin;
+            }
+            const alwaysOn = component.editableProps?.alwaysOn?.default;
+            raw.restore_mode = alwaysOn ? "ALWAYS_ON" : "ALWAYS_OFF";
+            return raw;
+        });
+
+    if (switches.length) {
+        baseConfig.switch = normalizeSection(switches);
+    } else {
+        delete baseConfig.switch;
+    }
+
+    const uarts = components
+        .filter((c: any) => c.category === "uart")
+        .map((component: any) => {
+            const raw = cloneOrEmpty(component.meta?.raw);
+            raw.id = component.id;
+            raw.name = component.label || component.id;
+            const txPin = findPin(component, "tx");
+            const rxPin = findPin(component, "rx");
+            if (txPin) {
+                const parsed = toNumberFromGpio(txPin.connectedTo);
+                if (parsed !== undefined) raw.tx_pin = parsed;
+            }
+            if (rxPin) {
+                const parsed = toNumberFromGpio(rxPin.connectedTo);
+                if (parsed !== undefined) raw.rx_pin = parsed;
+            }
+            const baudValue = component.editableProps?.baud?.default;
+            if (baudValue !== undefined && baudValue !== null && baudValue !== "") {
+                raw.baud_rate = Number(baudValue);
+            }
+            return raw;
+        });
+
+    if (uarts.length) {
+        baseConfig.uart = normalizeSection(uarts);
+    } else {
+        delete baseConfig.uart;
+    }
+
+    const i2cBuses = components
+        .filter((c: any) => c.category === "i2c-bus")
+        .map((component: any, idx: number) => {
+            const raw = cloneOrEmpty(component.meta?.raw);
+            const sdaPin = findPin(component, "SDA");
+            const sclPin = findPin(component, "SCL");
+            raw.id =
+                component.meta?.busId ||
+                component.pins?.right?.[0]?.name ||
+                raw.id ||
+                `i2c_bus${idx}`;
+            if (sdaPin) {
+                const parsed = toNumberFromGpio(sdaPin.connectedTo);
+                if (parsed !== undefined) raw.sda = parsed;
+            }
+            if (sclPin) {
+                const parsed = toNumberFromGpio(sclPin.connectedTo);
+                if (parsed !== undefined) raw.scl = parsed;
+            }
+            return raw;
+        });
+
+    if (i2cBuses.length) {
+        baseConfig.i2c = normalizeSection(i2cBuses);
+    } else {
+        delete baseConfig.i2c;
+    }
+
+    const mapI2CDevice = (category: string, key: string) =>
+        components
+            .filter((c: any) => c.category === category)
+            .map((component: any, idx: number) => {
+                const raw = cloneOrEmpty(component.meta?.raw);
+                raw.id = raw.id || component.id || `${category}_${idx}`;
+                raw.name = component.label || raw.name || raw.id;
+                const busPin = findPin(component, "i2c_bus");
+                if (busPin && busPin.connectedTo) {
+                    raw.i2c_id = busPin.connectedTo;
+                }
+                return raw;
+            });
+
+    const adxlDevices = mapI2CDevice("adxl345", "adxl345");
+    if (adxlDevices.length) {
+        baseConfig.adxl345 = normalizeSection(adxlDevices);
+    } else {
+        delete baseConfig.adxl345;
+    }
+
+    const adsDevices = mapI2CDevice("ads1115", "ads1115");
+    if (adsDevices.length) {
+        baseConfig.ads1115 = normalizeSection(adsDevices);
+    } else {
+        delete baseConfig.ads1115;
+    }
+
+    return yaml.dump(baseConfig);
+};
 // export functions as an object
 export {
     parseYaml,

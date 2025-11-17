@@ -19,8 +19,6 @@ import { Page } from 'protolib/components/Page'
 import { LogoIcon } from 'protolib/components/LogoIcon'
 import { useIsLoggedIn } from 'protolib/lib/useIsLoggedIn'
 import { useSetAtom } from 'jotai'
-import { ParticlesView } from 'protolib/components/particles/ParticlesView'
-import { basicParticlesMask } from 'protolib/components/particles/particlesMasks/basicParticlesMask'
 import { initParticlesAtom } from 'protolib/components/particles/ParticlesEngineAtom'
 import { useThemeSetting } from '@tamagui/next-theme'
 
@@ -38,41 +36,23 @@ export function SignInPage() {
   return (
     <Page>
       <DefaultLayout
+        header={null}
         title="Protofy"
         description="Made with love from Barcelona"
         footer={null}
       >
         <YStack f={1} overflow="hidden">
           <Section containerProps={{ f: 1 }} sectionProps={{ index: 0, p: 0 }}>
-            <BackgroundGradient />
+            {/* <BackgroundGradient /> */}
             <SpotLight t="20vh" />
 
-            {/* Partículas solo en cliente y modo oscuro */}
-            {isClient && darkMode && (
-              <YStack
-                fullscreen
-                pointerEvents="none"
-                zIndex={0}
-                style={{ backgroundColor: 'transparent' }}
-              >
-                <ParticlesView
-                  options={basicParticlesMask({
-                    backgroundColor: 'transparent',
-                    particleColors: ['#ffffff'],
-                    linkColor: '#ffffff',
-                  })}
-                />
-              </YStack>
-            )}
 
             <Center>
-              <Stack mt="-10vh">
-                <ElevatedArea>
-                  <HorizontalBox>
-                    <SignIn darkMode={darkMode} isClient={isClient} />
-                  </HorizontalBox>
-                </ElevatedArea>
-              </Stack>
+              <ElevatedArea br="$8">
+                <HorizontalBox>
+                  <SignIn darkMode={darkMode} isClient={isClient} />
+                </HorizontalBox>
+              </ElevatedArea>
             </Center>
           </Section>
         </YStack>
@@ -137,17 +117,17 @@ function SignIn({ darkMode, isClient }: { darkMode: boolean, isClient: boolean }
     filter: !isClient
       ? 'none'
       : darkMode
-        ? 'drop-shadow(0 0 10px #000000) invert(1)'
-        : 'drop-shadow(0 0 10px var(--color5)) invert(0)',
-    animation: 'float 6s ease-in-out infinite',
-    marginBottom: '2.5rem',
+        ? 'invert(1)'
+        : 'invert(0)',
+    // animation: 'float 6s ease-in-out infinite',
+    // marginBottom: '2.5rem',
   }
 
   return (
     <YStack ai="center" jc="center" p="$2">
       <YStack miw={300} maw={320} jc="space-between" p="$2" gap="$4">
         <YStack mb="$4">
-          <LogoIcon o={0.9}>
+          <LogoIcon>
             <img src="/public/vento-logo.png" alt="Vento logo" style={logoStyle} />
           </LogoIcon>
         </YStack>
@@ -199,7 +179,7 @@ function SignIn({ darkMode, isClient }: { darkMode: boolean, isClient: boolean }
               id="sign-in-username-input"
               ref={emailRef}
               autoComplete="username"
-              placeholder="username"
+              placeholder="Username"
               value={email}
               onChange={(e) => setEmail(e.nativeEvent.text)}
               required

@@ -363,7 +363,7 @@ function Widget(card) {
             cards,
             rules: [],
             network: "core",
-            tags: ["system", "network"],
+            tags: ["network"],
             autopilot: false,
             icon: 'router',
             savedAt: Date.now()
@@ -508,7 +508,7 @@ const registerActions = async () => {
         // 🔴 delete existing actions & cards for this device before adding new ones
         await deleteDeviceActions(deviceInfo.data.name)
 
-        for (const subsystem of deviceInfo.data.subsystem) {
+        for (const subsystem of deviceInfo.data?.subsystem) {
             // console.log('subsystem: ', subsystem)
             if (subsystem.name == "mqtt") continue
             for (const monitor of subsystem.monitors ?? []) {

@@ -1,6 +1,9 @@
 import { FlowsViewer } from '@extensions/files/intents'
 import { loadEsphomeHelpers } from './utils'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml';
+import ESPHomeDiagram from './network/ESPHomeDiagram';
+
+const DIAGRAM_VISIBLE = false
 
 export default ({ ...props }: any) => {
 
@@ -31,7 +34,17 @@ export default ({ ...props }: any) => {
                         return rawContent;
                     }
                 }
-            }
+            },
+            ...DIAGRAM_VISIBLE ? {
+                extraPanels: [
+                    {
+                        id: "esphome",
+                        content: (data) => {
+                            return <ESPHomeDiagram yaml={data.code} setCode={data.setCode} />
+                        }, title: "Esphome Helpers", icon: () => <div>ESP Home</div>
+                    },
+                ]
+            } : {}
         }}
         monacoProps={{
             onLoad: loadEsphomeHelpers,

@@ -6,6 +6,115 @@ import {
 
 const yaml = require("js-yaml");
 
+const skipGenericSections = new Set(["esp32"]);
+
+const isPlainObject = (value: any) => {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+};
+
+const toTitleCase = (value: string) => {
+    return value
+        .split(/[_-]+/g)
+        .map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : "")
+        .filter(Boolean)
+        .join(" ");
+};
+
+const formatGenericValue = (value: any) => {
+    if (value === undefined || value === null) return "--";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    try {
+        return JSON.stringify(value);
+    } catch (_err) {
+        return String(value);
+    }
+};
+
+const normalizeGenericSectionData = (sectionData: any) => {
+    if (Array.isArray(sectionData)) {
+        return sectionData.reduce((acc: Record<string, any>, item: any, idx: number) => {
+            acc[`item_${idx + 1}`] = item;
+            return acc;
+        }, {});
+    }
+    if (isPlainObject(sectionData)) {
+        return sectionData;
+    }
+    if (sectionData === undefined || sectionData === null) {
+        return {};
+    }
+    return { value: sectionData };
+};
+
+const buildGenericEditableProps = (sectionData: Record<string, any>) => {
+    const entries = Object.entries(sectionData || {});
+    if (!entries.length) {
+        return {
+            estado: {
+                label: "Estado",
+                default: "Disponible"
+            }
+        };
+    }
+    return entries.reduce((acc: Record<string, { label: string; default: string }>, [propKey, propValue]) => {
+        acc[propKey] = {
+            label: propKey,
+            default: formatGenericValue(propValue)
+        };
+        return acc;
+    }, {});
+};
+
+const ensureUniqueComponentId = (usedIds: Set<string>, baseId: string) => {
+    let uniqueId = baseId;
+    let counter = 1;
+    while (usedIds.has(uniqueId)) {
+        uniqueId = `${baseId}-${counter}`;
+        counter += 1;
+    }
+    usedIds.add(uniqueId);
+    return uniqueId;
+};
+
+const buildGenericComponent = (sectionKey: string, sectionData: any, usedIds: Set<string>) => {
+    if (sectionData === undefined || sectionData === null) {
+        return null;
+    }
+    const normalizedData = normalizeGenericSectionData(sectionData);
+    const editableProps = buildGenericEditableProps(normalizedData);
+    const label = toTitleCase(sectionKey) || sectionKey;
+    const id = ensureUniqueComponentId(usedIds, `generic-${sectionKey}`);
+    return {
+        id,
+        type: "device",
+        label,
+        category: "generic-config",
+        pins: { left: [], right: [] },
+        editableProps,
+        meta: {
+            kind: "generic-config",
+            section: sectionKey,
+            raw: deepClone(sectionData)
+        }
+    };
+};
+
+const buildGenericComponents = (config: any, existingComponents: any[], knownBuilderKeys: Set<string>) => {
+    const generics: any[] = [];
+    const usedIds = new Set((existingComponents || []).map((component: any) => component.id));
+    Object.entries(config || {}).forEach(([sectionKey, sectionData]) => {
+        if (knownBuilderKeys.has(sectionKey) || skipGenericSections.has(sectionKey)) {
+            return;
+        }
+        const component = buildGenericComponent(sectionKey, sectionData, usedIds);
+        if (component) {
+            generics.push(component);
+        }
+    });
+    return generics;
+};
+
 const parseYaml = (yamlText: any) => {
     let config;
 
@@ -114,6 +223,7 @@ const parseYaml = (yamlText: any) => {
     // SWITCH → RELAY
     // ----------------------------------
     const builderContext: Record<string, any> = {}
+    const builderKeys = new Set(componentBuilders.map((builder: any) => builder.key))
     componentBuilders.forEach((builder) => {
         const configSection = config[builder.key]
         const {
@@ -131,6 +241,11 @@ const parseYaml = (yamlText: any) => {
             builderContext[builder.key] = data
         }
     })
+
+    const genericComponents = buildGenericComponents(config, components, builderKeys)
+    if (genericComponents.length) {
+        components.push(...genericComponents)
+    }
 
     const schematic = { components, subsystems, config: deepClone(config) ?? {} };
     console.log(JSON.stringify(schematic, null, 4));

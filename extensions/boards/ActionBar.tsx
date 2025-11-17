@@ -1,15 +1,12 @@
-import { X, Save, Plus, Pause, Play, Workflow, Settings, Presentation, LayoutDashboard, Book, Code, UserPen, Bot, Undo, Redo, FileClock, Layers, Activity, } from 'lucide-react';
+import { X, Save, Plus, Pause, Play, Workflow, Settings, Presentation, LayoutDashboard, Book, Code, UserPen, Bot, Undo, Redo, FileClock, Layers, Activity, Diamond, } from 'lucide-react';
 import { useBoardControls } from './BoardControlsContext';
-import { ActionBarButton } from 'protolib/components/ActionBarWidget';
+import { ActionBarButton, ActionBarSelector } from 'protolib/components/ActionBarWidget';
 import { Separator } from '@my/ui';
 import { useSubscription } from 'protolib/lib/mqtt';
 import { useEffect, useRef, useState } from 'react';
 import { useBoardVersions } from './utils/versions';
 import { useSearchParams } from 'next/navigation';
 import { useBoardLayer, useBoardVersion, useLayers } from './store/boardStore';
-
-
-const toggleInstantUndoRedo = true; // disables reload when undo/redo, still buggy
 
 const AutopilotButton = ({ generateEvent, autopilot }) => <ActionBarButton
   tooltipText={autopilot ? "Pause Autopilot" : "Play Autopilot"}
@@ -27,132 +24,38 @@ const ModeMenu = ({ viewMode, setViewMode }: {
   viewMode: 'board' | 'ui' | 'json' | 'graph';
   setViewMode: (m: 'board' | 'ui' | 'json' | 'graph') => void;
 }) => {
-  const [open, setOpen] = useState(false);
 
-  // keep internal keys, only present them with labels/icons
   const modes = [
-    { key: 'graph' as const, label: 'Graph', Icon: Workflow },
-    { key: 'board' as const, label: 'Dashboard', Icon: LayoutDashboard },
-    { key: 'ui' as const, label: 'Presentation', Icon: Presentation },
+    { key: 'graph', label: 'Graph', icon: Workflow },
+    { key: 'board', label: 'Dashboard', icon: LayoutDashboard },
+    { key: 'ui', label: 'Presentation', icon: Presentation },
   ];
 
-  // choose icon for current mode
   const CurrentIcon =
     viewMode === 'ui' ? Presentation : viewMode === 'graph' ? Workflow : LayoutDashboard;
 
-  return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      <ActionBarButton
-        tooltipText="View mode"
-        Icon={CurrentIcon}
-        selected={open}
-        onPress={() => setOpen(v => !v)}
-      />
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '100%',
-            right: 0,
-            background: 'var(--bgPanel)',
-            border: '1px solid var(--gray7)',
-            borderRadius: 6,
-            padding: 6,
-            minWidth: 160,
-            zIndex: 1000,
-            boxShadow: '0 -2px 6px rgba(0,0,0,0.15)',
-            marginBottom: 6,
-          }}
-        >
-          {modes.map(({ key, label, Icon }) => {
-            const active = viewMode === key;
-            return (
-              <div
-                key={key}
-                onClick={() => {
-                  setViewMode(key); // set exactly the internal key: 'graph' | 'ui' | 'board'
-                  setOpen(false);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 10px',
-                  cursor: 'pointer',
-                  borderRadius: 4,
-                  background: active ? 'var(--color8)' : 'transparent',
-                  color: active ? 'var(--bgPanel)' : 'var(--color)',
-                }}
-              >
-                <Icon size={16} />
-                <span>{label}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+  return <ActionBarSelector
+    options={modes}
+    onValueChange={(mode) => {
+      setViewMode(mode);
+    }}
+    value={viewMode}
+    tooltipText="View mode"
+    Icon={CurrentIcon}
+  />
 };
 
 const LayersButton = ({ layers, activeLayer, setActiveLayer }) => {
-  const [open, setOpen] = useState(false);
 
-  if (!layers || layers.length <= 1) return null; // 👈 solo si hay más de una layer
+  if (!layers || layers.length <= 1) return null;
 
-  return (
-    <div style={{ position: "relative", display: "inline-block" }}>
-      <ActionBarButton
-        tooltipText="Layers"
-        Icon={Layers}
-        selected={open}
-        onPress={() => setOpen((v) => !v)}
-      />
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "100%",     // 👈 antes era top: "100%"
-            right: 0,
-            background: "var(--bgPanel)",
-            border: "1px solid var(--gray7)",
-            borderRadius: 6,
-            padding: 6,
-            minWidth: 120,
-            zIndex: 1000,
-            boxShadow: "0 -2px 6px rgba(0,0,0,0.15)", // 👈 sombra invertida
-            marginBottom: 6,    // 👈 pequeño margen visual
-          }}
-        >
-          {layers.map((layer) => (
-            <div
-              key={layer}
-              onClick={() => {
-                setActiveLayer(layer);
-                setOpen(false);
-              }}
-              style={{
-                padding: "6px 10px",
-                cursor: "pointer",
-                borderRadius: 4,
-                background:
-                  layer === activeLayer
-                    ? "var(--color8)"
-                    : "transparent",
-                color:
-                  layer === activeLayer
-                    ? "var(--bgPanel)"
-                    : "var(--color)",
-              }}
-            >
-              {layer}
-            </div>
-          ))}
-        </div>
-      )}
-
-    </div>
-  );
+  return <ActionBarSelector
+    options={layers.map((layer) => ({ key: layer, icon: Diamond }))}
+    onValueChange={(layer) => setActiveLayer(layer)}
+    value={activeLayer}
+    tooltipText="Layers"
+    Icon={Layers}
+  />
 };
 
 const LogsButton = ({ selected, onPress, showDot }: { selected: boolean; onPress: () => void; showDot: boolean }) => (

@@ -1,12 +1,45 @@
-import { TooltipSimple, XStack, YStack } from "@my/ui"
+import { Button, TooltipSimple, XStack, YStack } from "@my/ui"
 import { processActionBar } from "app/bundles/actionBar"
 import { useRouter } from 'next/router'
-import { useState } from "react"
+import { forwardRef, useState } from "react"
 import { ChevronDown, ChevronUp } from "@tamagui/lucide-icons"
+import { Popover } from "protolib/components/Popover"
 
-export const ActionBarButton = ({ Icon, selected = false, disabled = false, ...props }) => {
+export const ActionBarSelector = ({ Icon, selected = false, disabled = false, options = [], value = null, onValueChange = (key) => { }, ...props }) => {
+  const CapitalizeFirstLetter = (string) => {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  }
+  return <Popover
+    color="var(--bgPanel)"
+    isOpen={options.length > 0 ? undefined : false}
+    menuPlacement="top"
+    trigger={
+      <ActionBarButton Icon={Icon} selected={selected} disabled={disabled} {...props} />
+    }
+  >
+    <YStack gap="$1" p="$2" minWidth={90} >
+      {
+        options && options.map((option, index) => {
+  console.log("dev:::",{value, optionKeyEqualsValue: option.key === value });
+
+          return <Button
+            key={option.key}
+            jc="flex-start"
+            icon={option.icon}
+            width="100%"
+            size="$3"
+            hoverStyle={{ backgroundColor: "$bgContent" }}
+            backgroundColor={option.key === value ? '$bgContent' : 'transparent'}
+            onPress={() => onValueChange(option.key)}
+          >{option.label ?? CapitalizeFirstLetter(option.key)}</Button>
+        })
+      }
+    </YStack>
+  </Popover>
+}
+
+export const ActionBarButton = forwardRef(({ Icon, selected = false, disabled = false, ...props }: any, ref) => {
   const size = 34;
-
   const handlePress = (e) => {
     if (disabled) {
       e?.preventDefault?.();
@@ -25,11 +58,11 @@ export const ActionBarButton = ({ Icon, selected = false, disabled = false, ...p
       label={props.tooltipText}
     >
       <YStack
+        ref={ref}
         jc="center"
         ai="center"
         br="$4"
         cursor={disabled ? 'default' : 'pointer'}
-        scaleIcon={1.8}
         w={size}
         h={size}
         hoverStyle={disabled ? undefined : { bg: '$gray2', scale: 1.05 }}
@@ -48,7 +81,7 @@ export const ActionBarButton = ({ Icon, selected = false, disabled = false, ...p
       </YStack>
     </TooltipSimple>
   );
-};
+})
 
 export const useActionBar = (actionBar?, onActionBarEvent?) => {
   const router = useRouter()

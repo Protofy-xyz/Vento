@@ -1,35 +1,15 @@
 import { XStack } from '@my/ui'
-import { SelectList } from './SelectList';
-import { useWorkspaces, useUserSettings } from '../lib/useSession';
 import { PanelMenu } from './PanelMenu';
 import { MainPanel } from './MainPanel';
-import { InteractiveIcon } from './InteractiveIcon'
-import { Activity, Cog, Globe, Store } from '@tamagui/lucide-icons'
 import { atom, useAtom } from 'jotai';
 import { useContext, useEffect, useState } from 'react'
 import { atomWithStorage } from 'jotai/utils'
-import { LogPanel } from './LogPanel'
 import { API } from 'protobase'
 import useSubscription from '../lib/mqtt/useSubscription'
 import { AppConfContext, SiteConfigType } from "../providers/AppConf"
 import { useWorkspace } from '../lib/useWorkspace';
-import { isElectron } from '../lib/isElectron'
+import { useAgents } from '@extensions/boards/hooks/useAgents'
 
-const WorkspaceSelector = () => {
-  const workspaces = useWorkspaces()
-  const [settings, setSettings] = useUserSettings()
-
-  return settings.workspace ? <SelectList
-    triggerProps={{ o: 0.8, bc: "transparent", bw: 0 }}
-    valueProps={{ o: 0.8 }}
-    //@ts-ignore
-    f={1}
-    title={"workspaces"}
-    value={settings.workspace}
-    elements={workspaces}
-    setValue={(v) => { setSettings({ ...settings, workspace: v }) }}
-  /> : null
-}
 
 const initialLevels = ['info', 'warn', 'error', 'fatal']
 
@@ -40,10 +20,7 @@ export const AppState = atomWithStorage("adminPanelAppState", {
 
 export const RightPanelAtom = atom(20)
 
-
-
 export const AdminPanel = ({ children }) => {
-  const userSpaces = useWorkspaces()
   const [appState, setAppState] = useAtom(AppState)
   const SiteConfig = useContext<SiteConfigType>(AppConfContext);
   const { PanelLayout } = SiteConfig.layout
@@ -52,8 +29,9 @@ export const AdminPanel = ({ children }) => {
 
   const { message } = useSubscription('notifications/object/#')
 
-  const [boards, setBoards] = useState()
   const [objects, setObjects] = useState()
+
+  const { agents: boards, loading: boardsLoading, error: boardsError } = useAgents()
 
   const getObjects = async () => {
     const objects = await API.get('/api/core/v1/objects')
@@ -62,15 +40,7 @@ export const AdminPanel = ({ children }) => {
     }
   }
 
-  const getBoards = async () => {
-    const boards = await API.get('/api/core/v1/boards')
-    if (boards.isLoaded) {
-      setBoards(boards.data.items)
-    }
-  }
-
   useEffect(() => {
-    getBoards()
     getObjects()
   }, [message])
 
@@ -89,18 +59,18 @@ export const AdminPanel = ({ children }) => {
   const workspaceData = useWorkspace({ boards: boards, objects: objects })
   // console.log('userSpaces: ', userSpaces, 'current Workspace: ', currentWorkspace)
   return rightPanelSize && <MainPanel
-    borderLess={true}
-    rightPanelSize={rightPanelSize}
-    setRightPanelSize={setRightPanelSize}
-    rightPanelStyle={{ marginRight: '20px', height: '100vh', padding: '20px', backgroundColor: 'var(--bgPanel)' }}
-    rightPanelVisible={appState.logsPanelOpened}
-    rightPanelResizable={true}
+      borderLess={true}
+      rightPanelSize={rightPanelSize}
+      setRightPanelSize={setRightPanelSize}
+      rightPanelStyle={{ marginRight: '20px', height: '100vh', padding: '20px', backgroundColor: 'var(--bgPanel)' }}
+      rightPanelVisible={appState.logsPanelOpened}
+      rightPanelResizable={true}
     centerPanelContent={workspaceData && <PanelLayout
-      menuContent={<PanelMenu workspace={workspaceData} boards={boards} />}
-    >
-      <XStack f={1} px={"$0"} flexWrap='wrap'>
-        {children}
-      </XStack>
-    </PanelLayout>
+          menuContent={<PanelMenu workspace={workspaceData} boards={boards} />}
+        >
+          <XStack f={1} px={"$0"} flexWrap='wrap'>
+            {children}
+          </XStack>
+        </PanelLayout>
     } rightPanelContent={<></>}/>
 }

@@ -1,4 +1,4 @@
-import { buildSwitchComponents } from './switches'
+import { buildSwitchComponents, buildSwitchSubsystems } from './switches'
 import { buildUARTComponents } from './uart'
 import { buildI2CBusComponents } from './i2c'
 import { buildADXLComponents } from './adxl'
@@ -8,6 +8,7 @@ import { deepClone, toNumberFromGpio } from './utils'
 export type ComponentBuilderResult = {
   components: any[]
   data?: Record<string, any>
+  subsystems?: any[]
 }
 
 export type ComponentBuilder = {
@@ -20,6 +21,7 @@ const builders: ComponentBuilder[] = [
     key: 'switch',
     build: (config) => ({
       components: buildSwitchComponents(config),
+      subsystems: buildSwitchSubsystems(config),
     }),
   },
   {

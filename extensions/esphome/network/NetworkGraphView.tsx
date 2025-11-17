@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tinted } from 'protolib/components/Tinted'
+import { API } from 'protobase'
 import {
   ReactFlow,
   Background,
@@ -82,6 +83,15 @@ export const NetworkGraphView = ({
   const [newComponentType, setNewComponentType] = useState('')
   const [newComponentValues, setNewComponentValues] = useState<Record<string, any>>({})
   const lastTemplateTypeRef = useRef<string | null>(null)
+  const [subsystemActionStatus, setSubsystemActionStatus] = useState<
+    Record<
+      string,
+      {
+        state: 'idle' | 'loading' | 'success' | 'error'
+        message?: string
+      }
+    >
+  >({})
 
   useEffect(() => {
     setComponents(schematic?.components || [])
@@ -295,6 +305,77 @@ export const NetworkGraphView = ({
   const selectedComponent = useMemo(
     () => components.find((c) => c.id === selectedNodeId),
     [components, selectedNodeId]
+  )
+
+  const componentSubsystems = useMemo(() => {
+    if (!selectedComponent) return []
+    const candidateIds = new Set<string>()
+    const possibleIds = [
+      selectedComponent.id,
+      selectedComponent.meta?.raw?.id,
+      selectedComponent.meta?.raw?.name,
+    ].filter((value): value is string => typeof value === 'string' && value.length > 0)
+    possibleIds.forEach((value) => candidateIds.add(value))
+    if (!candidateIds.size) return []
+    return (schematic?.subsystems || []).filter((subsystem: any) => {
+      const targetId =
+        (typeof subsystem?.componentId === 'string' && subsystem.componentId) ||
+        (typeof subsystem?.name === 'string' && subsystem.name) ||
+        (typeof subsystem?.id === 'string' && subsystem.id)
+      return !!targetId && candidateIds.has(targetId)
+    })
+  }, [schematic?.subsystems, selectedComponent])
+
+  const deviceName = schematic?.config?.esphome?.name
+
+  const handleSubsystemAction = useCallback(
+    async (subsystemName: string, action: any) => {
+      const key = `${subsystemName}:${action?.name}`
+      if (!subsystemName || !action?.name) return
+      if (!deviceName) {
+        setSubsystemActionStatus((prev) => ({
+          ...prev,
+          [key]: { state: 'error', message: 'Configura esphome.name para ejecutar acciones.' },
+        }))
+        return
+      }
+      setSubsystemActionStatus((prev) => ({
+        ...prev,
+        [key]: { state: 'loading' },
+      }))
+      try {
+        let url = `/api/core/v1/devices/${encodeURIComponent(
+          deviceName
+        )}/subsystems/${encodeURIComponent(subsystemName)}/actions/${encodeURIComponent(action.name)}`
+        const valueParam =
+          action.value ??
+          action.defaultValue ??
+          action.payload?.value ??
+          action.params?.value ??
+          null
+        if (valueParam !== null && valueParam !== undefined && valueParam !== '') {
+          url += `/${encodeURIComponent(String(valueParam))}`
+        }
+        const result: any = await API.get(url)
+        if (result?.isError) {
+          throw result.error || new Error('Error ejecutando la acción')
+        }
+        setSubsystemActionStatus((prev) => ({
+          ...prev,
+          [key]: { state: 'success', message: 'Acción ejecutada' },
+        }))
+      } catch (error: any) {
+        setSubsystemActionStatus((prev) => ({
+          ...prev,
+          [key]: {
+            state: 'error',
+            message: error?.message || 'No se pudo ejecutar la acción',
+          },
+        }))
+        console.error('Error executing subsystem action', error)
+      }
+    },
+    [deviceName]
   )
 
   const connectionOptions = useMemo(() => {
@@ -1008,6 +1089,127 @@ export const NetworkGraphView = ({
                       ))
                   )}
                 </>
+              )}
+              {componentSubsystems.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <label style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                    Subsistemas asociados
+                  </label>
+                  <div
+                    style={{
+                      border: '1px solid var(--gray6)',
+                      borderRadius: 8,
+                      padding: 8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      background: 'var(--bg)',
+                    }}
+                  >
+                    {componentSubsystems.map((subsystem: any, idx: number) => {
+                      const subsystemName =
+                        subsystem.name || subsystem.componentId || `Subsystem ${idx + 1}`
+                      return (
+                        <div
+                          key={`${subsystem.name || subsystem.componentId || idx}`}
+                          style={{
+                            borderBottom:
+                              idx < componentSubsystems.length - 1
+                                ? '1px solid var(--gray6)'
+                                : 'none',
+                            paddingBottom: idx < componentSubsystems.length - 1 ? 8 : 0,
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            {subsystemName}
+                            {subsystem.type && (
+                              <span style={{ fontSize: 11, opacity: 0.7 }}> - {subsystem.type}</span>
+                            )}
+                          </div>
+                          {subsystem.actions?.length ? (
+                            <div style={{ marginBottom: 6 }}>
+                              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+                                Acciones
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {subsystem.actions.map((action: any) => {
+                                  const actionKey = `${subsystemName}:${action.name}`
+                                  const status = subsystemActionStatus[actionKey]?.state || 'idle'
+                                  const message = subsystemActionStatus[actionKey]?.message
+                                  const isLoading = status === 'loading'
+                                  const disabled = !deviceName || isLoading
+                                  return (
+                                    <div key={`${action.name}-${actionKey}`}>
+                                      <button
+                                        disabled={disabled}
+                                        onClick={() =>
+                                          handleSubsystemAction(
+                                            subsystem.name || subsystem.componentId || '',
+                                            action
+                                          )
+                                        }
+                                        style={{
+                                          width: '100%',
+                                          padding: '6px 8px',
+                                          borderRadius: 6,
+                                          border: '1px solid var(--gray6)',
+                                          background: disabled
+                                            ? 'var(--gray5)'
+                                            : 'var(--color8)',
+                                          color: disabled ? 'var(--gray10)' : 'var(--softContrast)',
+                                          cursor: disabled ? 'not-allowed' : 'pointer',
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {(action.label || action.name || 'Acción') +
+                                          (isLoading ? '...' : '')}
+                                      </button>
+                                      {action.description && (
+                                        <div style={{ fontSize: 11, marginTop: 2 }}>
+                                          {action.description}
+                                        </div>
+                                      )}
+                                      {message && (
+                                        <div
+                                          style={{
+                                            fontSize: 11,
+                                            marginTop: 2,
+                                            color:
+                                              status === 'error'
+                                                ? 'var(--red10)'
+                                                : 'var(--green10)',
+                                          }}
+                                        >
+                                          {message}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                              {!deviceName && (
+                                <div style={{ fontSize: 10, marginTop: 4, opacity: 0.7 }}>
+                                  Define `esphome.name` para habilitar las acciones.
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                          {subsystem.monitors?.length ? (
+                            <div style={{ fontSize: 11 }}>
+                              <span style={{ fontWeight: 600 }}>Monitores:</span>{' '}
+                              {subsystem.monitors
+                                .map(
+                                  (monitor: any) =>
+                                    monitor.label || monitor.name || `Monitor ${monitor?.id}`
+                                )
+                                .join(', ')}
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
               )}
             </>
           ) : (

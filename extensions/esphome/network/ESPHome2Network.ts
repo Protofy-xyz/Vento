@@ -88,6 +88,7 @@ const parseYaml = (yamlText: any) => {
     // Start building schematic
     // ----------------------------------
     let components: any[] = [];
+    let subsystems: any[] = [];
 
     // ESP32 / ESP32-S3 Component
     components.push({
@@ -115,16 +116,23 @@ const parseYaml = (yamlText: any) => {
     const builderContext: Record<string, any> = {}
     componentBuilders.forEach((builder) => {
         const configSection = config[builder.key]
-        const { components: builtComponents, data } = builder.build(configSection, builderContext)
+        const {
+            components: builtComponents,
+            data,
+            subsystems: builderSubsystems
+        } = builder.build(configSection, builderContext)
         if (builtComponents?.length) {
             components.push(...builtComponents)
+        }
+        if (builderSubsystems?.length) {
+            subsystems.push(...builderSubsystems)
         }
         if (data) {
             builderContext[builder.key] = data
         }
     })
 
-    const schematic = { components, config: deepClone(config) ?? {} };
+    const schematic = { components, subsystems, config: deepClone(config) ?? {} };
     console.log(JSON.stringify(schematic, null, 4));
     return schematic;
 };

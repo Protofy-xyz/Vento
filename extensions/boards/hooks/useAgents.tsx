@@ -50,8 +50,8 @@ export const useAgents = (): UseAgentsResult => {
     }, [])
 
     useEffect(() => { fetchAgents() }, [fetchAgents])
-    useEventEffect(() => { fetchAgents() }, { path: 'boards/create' })
-    useEventEffect(() => { fetchAgents() }, { path: 'boards/delete' })
+    useEventEffect(() => { fetchAgents() }, { path: 'boards/create/#' })
+    useEventEffect(() => { fetchAgents() }, { path: 'boards/delete/#' })
 
 
     return { agents, loading, error, reload: fetchAgents }

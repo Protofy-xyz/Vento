@@ -59,6 +59,8 @@ import { useSpaceOptionally } from '../../hooks/useSpace';
 import { ContainerColor } from '../../styles/ContainerColor.css';
 import { useFlattenPowerTagMembers, useGetMemberPowerTag } from '../../hooks/useMemberPowerTag';
 import { useRoomCreators } from '../../hooks/useRoomCreators';
+import { useUserPresence } from '../../hooks/useUserPresence';
+import { AvatarPresence, PresenceBadge } from '../../components/presence';
 
 type MemberDrawerHeaderProps = {
   room: Room;
@@ -121,28 +123,48 @@ function MemberItem({
 }: MemberItemProps) {
   const name =
     getMemberDisplayName(room, member.userId) ?? getMxIdLocalPart(member.userId) ?? member.userId;
+
   const avatarMxcUrl = member.getMxcAvatarUrl();
   const avatarUrl = avatarMxcUrl
     ? mx.mxcUrlToHttp(avatarMxcUrl, 100, 100, 'crop', undefined, false, useAuthentication)
     : undefined;
 
+  // Presence
+  const presence = useUserPresence(member.userId);
+  const isOffline = presence?.presence === 'offline';
+
   return (
     <MenuItem
-      style={{ padding: `0 ${config.space.S200}` }}
+      style={{
+        padding: `0 ${config.space.S200}`,
+        opacity: isOffline ? 0.4 : 1,
+      }}
       aria-pressed={pressed}
       data-user-id={member.userId}
       variant="Background"
       radii="400"
       onClick={onClick}
       before={
-        <Avatar size="200">
-          <UserAvatar
-            userId={member.userId}
-            src={avatarUrl ?? undefined}
-            alt={name}
-            renderFallback={() => <Icon size="50" src={Icons.User} filled />}
-          />
-        </Avatar>
+        <AvatarPresence
+          badge={
+            presence && (
+              <PresenceBadge
+                presence={presence.presence}
+                status={presence.status}
+                size="200"
+              />
+            )
+          }
+        >
+          <Avatar size="200">
+            <UserAvatar
+              userId={member.userId}
+              src={avatarUrl ?? undefined}
+              alt={name}
+              renderFallback={() => <Icon size="50" src={Icons.User} filled />}
+            />
+          </Avatar>
+        </AvatarPresence>
       }
       after={
         typing && (
@@ -176,6 +198,16 @@ type MembersDrawerProps = {
   room: Room;
   members: RoomMember[];
 };
+
+// ⭐ Orden de presencia real: online → unavailable → offline
+function presenceWeight(mx: MatrixClient, userId: string): number {
+  const user = mx.getUser(userId);
+  const p = user?.presence ?? 'offline';
+  if (p === 'online') return 0;
+  if (p === 'unavailable') return 1;
+  return 2; // offline
+}
+
 export function MembersDrawer({ room, members }: MembersDrawerProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
@@ -203,10 +235,25 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
 
   const typingMembers = useRoomTypingMember(room.roomId);
 
-  const filteredMembers = useMemo(
-    () => members.filter(membershipFilter.filterFn).sort(memberSort.sortFn).sort(memberPowerSort),
-    [members, membershipFilter, memberSort, memberPowerSort]
-  );
+  // ⭐ Orden correcto por presencia
+  const filteredMembers = useMemo(() => {
+    return members
+      .filter(membershipFilter.filterFn)
+      .map((m) => ({
+        member: m,
+        presenceW: presenceWeight(mx, m.userId),
+      }))
+      .sort((a, b) => a.presenceW - b.presenceW)
+      .map((x) => x.member)
+      .sort(memberSort.sortFn)
+      .sort(memberPowerSort);
+  }, [
+    members,
+    membershipFilter,
+    memberSort,
+    memberPowerSort,
+    mx,
+  ]);
 
   const [result, search, resetSearch] = useAsyncSearch(
     filteredMembers,
@@ -217,7 +264,9 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
 
   const processMembers = result ? result.items : filteredMembers;
 
-  const PLTagOrRoomMember = useFlattenPowerTagMembers(processMembers, getPowerTag);
+  const PLTagOrRoomMember = processMembers.sort(
+    (a, b) => presenceWeight(mx, a.userId) - presenceWeight(mx, b.userId)
+  );
 
   const virtualizer = useVirtualizer({
     count: PLTagOrRoomMember.length,
@@ -272,12 +321,10 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
                       }
                     >
                       <Chip
-                        onClick={
-                          ((evt) =>
-                            setAnchor(
-                              evt.currentTarget.getBoundingClientRect()
-                            )) as MouseEventHandler<HTMLButtonElement>
-                        }
+                        onClick={((evt) =>
+                          setAnchor(
+                            evt.currentTarget.getBoundingClientRect()
+                          )) as MouseEventHandler<HTMLButtonElement>}
                         variant="Background"
                         size="400"
                         radii="300"
@@ -304,12 +351,10 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
                       }
                     >
                       <Chip
-                        onClick={
-                          ((evt) =>
-                            setAnchor(
-                              evt.currentTarget.getBoundingClientRect()
-                            )) as MouseEventHandler<HTMLButtonElement>
-                        }
+                        onClick={((evt) =>
+                          setAnchor(
+                            evt.currentTarget.getBoundingClientRect()
+                          )) as MouseEventHandler<HTMLButtonElement>}
                         variant="Background"
                         size="400"
                         radii="300"
@@ -347,9 +392,10 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
                         }}
                         after={<Icon size="50" src={Icons.Cross} />}
                       >
-                        <Text size="B300">{`${result.items.length || 'No'} ${
-                          result.items.length === 1 ? 'Result' : 'Results'
-                        }`}</Text>
+                        <Text size="B300">
+                          {`${result.items.length || 'No'} ${result.items.length === 1 ? 'Result' : 'Results'
+                            }`}
+                        </Text>
                       </Chip>
                     )
                   }

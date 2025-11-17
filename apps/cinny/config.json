@@ -4,16 +4,11 @@
     "http://localhost:8008"
   ],
   "allowCustomHomeservers": true,
-
   "featuredCommunities": {
     "openAsDefault": false,
-    "spaces": [
-
-    ],
-    "rooms": [
-
-    ],
-    "servers": ["http://localhost:8008"]
+    "spaces": [],
+    "rooms": [],
+    "servers": []
   },
 
   "hashRouter": {

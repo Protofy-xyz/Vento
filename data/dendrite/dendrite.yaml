@@ -42,9 +42,9 @@ global:
   metrics:
     enabled: false
 
-logging:
-  - type: std
-    level: info
+# logging:
+#   - type: std
+#     level: info
 
 # ==========================================================
 # CLIENT API  (Required for user registration in Vento.local)

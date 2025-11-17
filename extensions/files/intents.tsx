@@ -361,6 +361,9 @@ export const CodeView = ({
   const getBody = () => {
     const extraPanel = extraPanels.find(v => v.id == mode);
     if (extraPanel) {
+      if (typeof extraPanel.content === 'function') {
+        return extraPanel.content({code: sourceCode.current, setCode: (code) => { sourceCode.current = code } });
+      }
       return extraPanel.content;
     }
     if (mode == 'rules') {

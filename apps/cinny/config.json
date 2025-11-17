@@ -1,7 +1,7 @@
 {
   "defaultHomeserver": 0,
   "homeserverList": [
-    "http://localhost:8008"
+    "http://localhost:8000"
   ],
   "allowCustomHomeservers": true,
   "featuredCommunities": {

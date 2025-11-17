@@ -56,9 +56,6 @@ export function Login() {
 
   return (
     <Box direction="Column" gap="500">
-      <Text size="H2" priority="400">
-        Login
-      </Text>
       {parsedFlows.token && loginSearchParams.loginToken && (
         <TokenLogin token={loginSearchParams.loginToken} />
       )}

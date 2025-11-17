@@ -119,6 +119,10 @@ export function AuthLayout() {
     [navigate, location, discoveryState, server, discoverServer]
   );
 
+  useEffect(() => {
+    selectServer(document.location.protocol + '//' + document.location.hostname+":8008");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [autoDiscoveryError, autoDiscoveryInfo] =
     discoveryState.status === AsyncStatus.Success ? discoveryState.data.response : [];
 
@@ -134,17 +138,16 @@ export function AuthLayout() {
         <Box direction="Column" className={css.AuthCard}>
           <Header className={css.AuthHeader} size="600" variant="Surface">
             <Box grow="Yes" direction="Row" gap="300" alignItems="Center">
-              <img className={css.AuthLogo} src={CinnySVG} alt="Cinny Logo" />
-              <Text size="H3">Cinny</Text>
+              <Text size="H3">Vento Chat</Text>
             </Box>
           </Header>
           <Box className={css.AuthCardContent} direction="Column">
-            <Box direction="Column" gap="100">
+            <Box direction="Column" gap="100" style={{display: 'none'}}>
               <Text as="label" size="L400" priority="300">
-                Homeserver
+                Server
               </Text>
               <ServerPicker
-                server={server}
+                server={document.location.protocol + '//' + document.location.hostname+":8008"}
                 serverList={clientConfig.homeserverList ?? []}
                 allowCustomServer={clientConfig.allowCustomHomeservers}
                 onServerChange={selectServer}

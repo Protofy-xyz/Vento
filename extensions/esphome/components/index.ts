@@ -2,7 +2,7 @@ import { buildSwitchComponents, buildSwitchSubsystems } from './switches'
 import { buildUARTComponents } from './uart'
 import { buildI2CBusComponents } from './i2c'
 import { buildADXLComponents } from './adxl'
-import { buildADS1115Components } from './ads1115'
+import { buildADS1115Components, buildADS1115Subsystems } from './ads1115'
 import { deepClone, toNumberFromGpio } from './utils'
 
 export type ComponentBuilderResult = {
@@ -47,6 +47,7 @@ const builders: ComponentBuilder[] = [
     key: 'ads1115',
     build: (config, context) => ({
       components: buildADS1115Components(config, context.i2c?.busIds || []),
+      subsystems: buildADS1115Subsystems(config),
     }),
   },
 ]
@@ -58,6 +59,7 @@ export {
   buildI2CBusComponents,
   buildADXLComponents,
   buildADS1115Components,
+  buildADS1115Subsystems,
   deepClone,
   toNumberFromGpio,
 }

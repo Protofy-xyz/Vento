@@ -6,7 +6,7 @@ const os = require('os');
 const { execSync } = require('child_process');
 
 module.exports = async function downloadDendrite(AdmZip, tar) {
-    const version = process.env.DENDRITE_VERSION || 'v0.1.3';
+    const version = process.env.DENDRITE_VERSION || 'v0.1.4';
     const baseUrl = `https://github.com/Protofy-xyz/dendrite/releases/download/${version}`;
 
     const dendriteDir = path.join(__dirname, '..', 'apps', 'dendrite');

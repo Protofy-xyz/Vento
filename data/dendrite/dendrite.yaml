@@ -52,7 +52,7 @@ logging:
 
 client_api:
   # Allow local user sign-ups
-  registration_disabled: false
+  registration_disabled: true
 
   # No tokens or shared secrets required
   registration_requires_token: false
@@ -65,10 +65,6 @@ client_api:
   # Disable rate limiting for local use
   rate_limiting:
     enabled: false
-
-  allowed_registration_origins:
-    - "127.0.0.1"
-    - "::1"
 
 # ======================
 # KEY SERVER

@@ -1,6 +1,10 @@
+import {
+    componentBuilders,
+    deepClone,
+    toNumberFromGpio
+} from '@extensions/esphome/components'
+
 const yaml = require("js-yaml");
-
-
 
 const parseYaml = (yamlText: any) => {
     let config;
@@ -90,6 +94,14 @@ const parseYaml = (yamlText: any) => {
         type: "device",
         id: boardDef.id,
         label: boardDef.label,
+        category: "esp-board",
+        meta: {
+            kind: "esp-board",
+            raw: {
+                board: boardName,
+                variant
+            }
+        },
         center: true,
         pins: {
             left: mapPins(boardDef.pins.left),
@@ -100,202 +112,157 @@ const parseYaml = (yamlText: any) => {
     // ----------------------------------
     // SWITCH → RELAY
     // ----------------------------------
-    if (config.switch) {
-        const switches = Array.isArray(config.switch)
-            ? config.switch
-            : [config.switch];
+    const builderContext: Record<string, any> = {}
+    componentBuilders.forEach((builder) => {
+        const configSection = config[builder.key]
+        const { components: builtComponents, data } = builder.build(configSection, builderContext)
+        if (builtComponents?.length) {
+            components.push(...builtComponents)
+        }
+        if (data) {
+            builderContext[builder.key] = data
+        }
+    })
 
-        switches.forEach((sw, idx) => {
-            if (sw.platform === "gpio") {
-                components.push({
-                    id: `Relay${idx + 1}`,
-                    type: "device",
-                    label: `Relay ${idx + 1}`,
-                    editableProps: {
-                        alwaysOn: {
-                            type: "boolean",
-                            label: "Always On",
-                            description: "If enabled, the relay reset state will be always on.",
-                            default: sw.restore_mode === "ALWAYS_ON"
-                        }
-                    },
-                    pins: {
-                        left: [
-                            {
-                                name: "control",
-                                description: "Control pin to activate the relay",
-                                connectedTo: `GPIO${sw.pin}`, // aquí ya usas 40,41 del S3
-                                type: "input"
-                            }
-                        ],
-                        right: []
-                    }
-                });
-            }
-        });
-    }
-
-    // ----------------------------------
-    // UART support
-    // ----------------------------------
-    if (config.uart) {
-        const uartConfigs = Array.isArray(config.uart)
-            ? config.uart
-            : [config.uart];
-
-        uartConfigs.forEach((uart, idx) => {
-            const uartId = uart.id || `UART${idx}`;
-
-            components.push({
-                id: uartId,
-                type: "device",
-                label: `UART ${idx}`,
-                editableProps: {
-                    baud: {
-                        type: "number",
-                        label: "Baud Rate",
-                        description: "Baud rate for UART communication",
-                        default: uart.baud_rate || 115200
-                    }
-                },
-                pins: {
-                    left: [
-                        {
-                            name: "tx",
-                            description: "tx pin of UART bus",
-                            connectedTo: `GPIO${uart.tx_pin}`,
-                            type: "input"
-                        },
-                        {
-                            name: "rx",
-                            description: "rx pin of UART bus",
-                            connectedTo: `GPIO${uart.rx_pin}`,
-                            type: "input"
-                        }
-                    ],
-                    right: [
-                        {
-                            name: "uart_bus",
-                            description: "UART bus",
-                            connectedTo: null,
-                            type: "output"
-                        }
-                    ]
-                }
-            });
-        });
-    }
-
-    // ----------------------------------
-    // I2C support
-    // ----------------------------------
-    let i2cBuses: string[] = [];
-
-    if (config.i2c) {
-        const i2cConfigs = Array.isArray(config.i2c)
-            ? config.i2c
-            : [config.i2c];
-
-        i2cConfigs.forEach((bus, idx) => {
-            const busId = bus.id || `i2c_bus${idx === 0 ? "" : idx + 1}`;
-
-            i2cBuses.push(busId);
-
-            components.push({
-                id: `I2C-Bus${idx === 0 ? "" : idx + 1}`,
-                type: "device",
-                label: `I2C Bus${idx === 0 ? "" : " " + (idx + 1)}`,
-                pins: {
-                    left: [
-                        {
-                            name: "SDA",
-                            description: "SDA pin of I2C bus",
-                            connectedTo: `GPIO${bus.sda}`,
-                            type: "input"
-                        },
-                        {
-                            name: "SCL",
-                            description: "SCL pin of I2C bus",
-                            connectedTo: `GPIO${bus.scl}`,
-                            type: "input"
-                        }
-                    ],
-                    right: [
-                        {
-                            name: busId,
-                            description: "I2C bus",
-                            connectedTo: null,
-                            type: "output"
-                        }
-                    ]
-                }
-            });
-        });
-    }
-
-    // ----------------------------------
-    // ADXL SUPPORT (i2c-based sensors)
-    // ----------------------------------
-    if (config.adxl345) {
-        const sensors = Array.isArray(config.adxl345)
-            ? config.adxl345
-            : [config.adxl345];
-
-        sensors.forEach((sensor, idx) => {
-            const busUsed = sensor.i2c_id || i2cBuses[0] || "i2c_bus";
-
-            components.push({
-                id: `ADXL${idx === 0 ? "" : idx + 1}`,
-                type: "device",
-                label: `Accelerometer ADXL${idx === 0 ? "" : idx + 1}`,
-                pins: {
-                    left: [
-                        {
-                            name: "i2c_bus",
-                            description: "I2C bus",
-                            connectedTo: busUsed
-                        }
-                    ],
-                    right: []
-                }
-            });
-        });
-    }
-
-    // ----------------------------------
-    // ADS1115 SUPPORT (i2c-based sensors)
-    // ----------------------------------
-    if (config.ads1115) {
-        const sensors = Array.isArray(config.ads1115)
-            ? config.ads1115
-            : [config.ads1115];
-        sensors.forEach((sensor, idx) => {
-            const busUsed = sensor.i2c_id || i2cBuses[0] || "i2c_bus";
-            components.push({
-                id: `ADS1115_${idx === 0 ? "" : idx + 1}`,
-                type: "device",
-                label: `ADC ADS1115${idx === 0 ? "" : idx + 1}`,
-                pins: {
-                    left: [
-                        {
-                            name: "i2c_bus",
-                            description: "I2C bus",
-                            connectedTo: busUsed
-                        }
-                    ],
-                    right: []
-                }
-            });
-        });
-    }
-
-    const schematic = { components };
+    const schematic = { components, config: deepClone(config) ?? {} };
     console.log(JSON.stringify(schematic, null, 4));
     return schematic;
 };
 
+const normalizeSection = (items: any[]) => {
+    if (items.length === 0) return undefined;
+    if (items.length === 1) return items[0];
+    return items;
+};
+
+const cloneOrEmpty = (obj: any) => {
+    const cloned = deepClone(obj);
+    if (cloned === undefined || cloned === null) return {};
+    return cloned;
+};
+
 const dumpYaml = (schematic: any) => {
-}
+    if (!schematic) return "";
+    const baseConfig = cloneOrEmpty(schematic.config);
+    const components = schematic.components || [];
+
+    const findPin = (component: any, pinName: string) => {
+        return (
+            component?.pins?.left?.find((p: any) => p.name === pinName) ||
+            component?.pins?.right?.find((p: any) => p.name === pinName)
+        );
+    };
+
+    const switches = components
+        .filter((c: any) => c.category === "switch")
+        .map((component: any) => {
+            const raw = cloneOrEmpty(component.meta?.raw);
+            raw.platform = raw.platform || "gpio";
+            raw.id = component.id;
+            raw.name = component.label || component.id;
+            const controlPin = findPin(component, "control");
+            if (controlPin) {
+                const parsedPin = toNumberFromGpio(controlPin.connectedTo);
+                if (parsedPin !== undefined) raw.pin = parsedPin;
+            }
+            const alwaysOn = component.editableProps?.alwaysOn?.default;
+            raw.restore_mode = alwaysOn ? "ALWAYS_ON" : "ALWAYS_OFF";
+            return raw;
+        });
+
+    if (switches.length) {
+        baseConfig.switch = normalizeSection(switches);
+    } else {
+        delete baseConfig.switch;
+    }
+
+    const uarts = components
+        .filter((c: any) => c.category === "uart")
+        .map((component: any) => {
+            const raw = cloneOrEmpty(component.meta?.raw);
+            raw.id = component.id;
+            raw.name = component.label || component.id;
+            const txPin = findPin(component, "tx");
+            const rxPin = findPin(component, "rx");
+            if (txPin) {
+                const parsed = toNumberFromGpio(txPin.connectedTo);
+                if (parsed !== undefined) raw.tx_pin = parsed;
+            }
+            if (rxPin) {
+                const parsed = toNumberFromGpio(rxPin.connectedTo);
+                if (parsed !== undefined) raw.rx_pin = parsed;
+            }
+            const baudValue = component.editableProps?.baud?.default;
+            if (baudValue !== undefined && baudValue !== null && baudValue !== "") {
+                raw.baud_rate = Number(baudValue);
+            }
+            return raw;
+        });
+
+    if (uarts.length) {
+        baseConfig.uart = normalizeSection(uarts);
+    } else {
+        delete baseConfig.uart;
+    }
+
+    const i2cBuses = components
+        .filter((c: any) => c.category === "i2c-bus")
+        .map((component: any, idx: number) => {
+            const raw = cloneOrEmpty(component.meta?.raw);
+            const sdaPin = findPin(component, "SDA");
+            const sclPin = findPin(component, "SCL");
+            raw.id =
+                component.meta?.busId ||
+                component.pins?.right?.[0]?.name ||
+                raw.id ||
+                `i2c_bus${idx}`;
+            if (sdaPin) {
+                const parsed = toNumberFromGpio(sdaPin.connectedTo);
+                if (parsed !== undefined) raw.sda = parsed;
+            }
+            if (sclPin) {
+                const parsed = toNumberFromGpio(sclPin.connectedTo);
+                if (parsed !== undefined) raw.scl = parsed;
+            }
+            return raw;
+        });
+
+    if (i2cBuses.length) {
+        baseConfig.i2c = normalizeSection(i2cBuses);
+    } else {
+        delete baseConfig.i2c;
+    }
+
+    const mapI2CDevice = (category: string, key: string) =>
+        components
+            .filter((c: any) => c.category === category)
+            .map((component: any, idx: number) => {
+                const raw = cloneOrEmpty(component.meta?.raw);
+                raw.id = raw.id || component.id || `${category}_${idx}`;
+                raw.name = component.label || raw.name || raw.id;
+                const busPin = findPin(component, "i2c_bus");
+                if (busPin && busPin.connectedTo) {
+                    raw.i2c_id = busPin.connectedTo;
+                }
+                return raw;
+            });
+
+    const adxlDevices = mapI2CDevice("adxl345", "adxl345");
+    if (adxlDevices.length) {
+        baseConfig.adxl345 = normalizeSection(adxlDevices);
+    } else {
+        delete baseConfig.adxl345;
+    }
+
+    const adsDevices = mapI2CDevice("ads1115", "ads1115");
+    if (adsDevices.length) {
+        baseConfig.ads1115 = normalizeSection(adsDevices);
+    } else {
+        delete baseConfig.ads1115;
+    }
+
+    return yaml.dump(baseConfig);
+};
 // export functions as an object
 export {
     parseYaml,

@@ -4,6 +4,7 @@
     "http://localhost:8000"
   ],
   "allowCustomHomeservers": true,
+
   "featuredCommunities": {
     "openAsDefault": false,
     "spaces": [],
@@ -14,5 +15,9 @@
   "hashRouter": {
     "enabled": false,
     "basename": "/"
+  },
+
+  "features": {
+    "presence": true
   }
 }

@@ -1,24 +1,10 @@
+import {
+    componentBuilders,
+    deepClone,
+    toNumberFromGpio
+} from '@extensions/esphome/components'
+
 const yaml = require("js-yaml");
-
-const deepClone = (value: any) => {
-    if (value === undefined || value === null) return value;
-    return JSON.parse(JSON.stringify(value));
-};
-
-const toNumberFromGpio = (handle?: string | number | null) => {
-    if (handle === null || handle === undefined) return undefined;
-    if (typeof handle === "number") return handle;
-    const text = String(handle);
-    const match = text.match(/GPIO\s*(\d+)/i);
-    if (match && match[1]) {
-        return Number(match[1]);
-    }
-    const genericDigits = text.match(/(\d+)/);
-    if (genericDigits && genericDigits[1]) {
-        return Number(genericDigits[1]);
-    }
-    return text;
-};
 
 const parseYaml = (yamlText: any) => {
     let config;
@@ -126,220 +112,17 @@ const parseYaml = (yamlText: any) => {
     // ----------------------------------
     // SWITCH → RELAY
     // ----------------------------------
-    if (config.switch) {
-        const switches = Array.isArray(config.switch)
-            ? config.switch
-            : [config.switch];
-
-        switches.forEach((sw, idx) => {
-            if (sw.platform === "gpio") {
-                components.push({
-                    id: `Relay${idx + 1}`,
-                    type: "device",
-                    label: `Relay ${idx + 1}`,
-                    category: "switch",
-                    meta: {
-                        kind: "switch",
-                        raw: deepClone(sw)
-                    },
-                    editableProps: {
-                        alwaysOn: {
-                            type: "boolean",
-                            label: "Always On",
-                            description: "If enabled, the relay reset state will be always on.",
-                            default: sw.restore_mode === "ALWAYS_ON"
-                        }
-                    },
-                    pins: {
-                        left: [
-                            {
-                                name: "control",
-                                description: "Control pin to activate the relay",
-                                connectedTo: `GPIO${sw.pin}`, // aquí ya usas 40,41 del S3
-                                type: "input"
-                            }
-                        ],
-                        right: []
-                    }
-                });
-            }
-        });
-    }
-
-    // ----------------------------------
-    // UART support
-    // ----------------------------------
-    if (config.uart) {
-        const uartConfigs = Array.isArray(config.uart)
-            ? config.uart
-            : [config.uart];
-
-        uartConfigs.forEach((uart, idx) => {
-            const uartId = uart.id || `UART${idx}`;
-
-            components.push({
-                id: uartId,
-                type: "device",
-                label: `UART ${idx}`,
-                category: "uart",
-                meta: {
-                    kind: "uart",
-                    raw: deepClone(uart)
-                },
-                editableProps: {
-                    baud: {
-                        type: "number",
-                        label: "Baud Rate",
-                        description: "Baud rate for UART communication",
-                        default: uart.baud_rate || 115200
-                    }
-                },
-                pins: {
-                    left: [
-                        {
-                            name: "tx",
-                            description: "tx pin of UART bus",
-                            connectedTo: `GPIO${uart.tx_pin}`,
-                            type: "input"
-                        },
-                        {
-                            name: "rx",
-                            description: "rx pin of UART bus",
-                            connectedTo: `GPIO${uart.rx_pin}`,
-                            type: "input"
-                        }
-                    ],
-                    right: [
-                        {
-                            name: "uart_bus",
-                            description: "UART bus",
-                            connectedTo: null,
-                            type: "output"
-                        }
-                    ]
-                }
-            });
-        });
-    }
-
-    // ----------------------------------
-    // I2C support
-    // ----------------------------------
-    let i2cBuses: string[] = [];
-
-    if (config.i2c) {
-        const i2cConfigs = Array.isArray(config.i2c)
-            ? config.i2c
-            : [config.i2c];
-
-        i2cConfigs.forEach((bus, idx) => {
-            const busId = bus.id || `i2c_bus${idx === 0 ? "" : idx + 1}`;
-
-            i2cBuses.push(busId);
-
-            components.push({
-                id: `I2C-Bus${idx === 0 ? "" : idx + 1}`,
-                type: "device",
-                label: `I2C Bus${idx === 0 ? "" : " " + (idx + 1)}`,
-                category: "i2c-bus",
-                meta: {
-                    kind: "i2c-bus",
-                    raw: deepClone(bus),
-                    busId
-                },
-                pins: {
-                    left: [
-                        {
-                            name: "SDA",
-                            description: "SDA pin of I2C bus",
-                            connectedTo: `GPIO${bus.sda}`,
-                            type: "input"
-                        },
-                        {
-                            name: "SCL",
-                            description: "SCL pin of I2C bus",
-                            connectedTo: `GPIO${bus.scl}`,
-                            type: "input"
-                        }
-                    ],
-                    right: [
-                        {
-                            name: busId,
-                            description: "I2C bus",
-                            connectedTo: null,
-                            type: "output"
-                        }
-                    ]
-                }
-            });
-        });
-    }
-
-    // ----------------------------------
-    // ADXL SUPPORT (i2c-based sensors)
-    // ----------------------------------
-    if (config.adxl345) {
-            const sensors = Array.isArray(config.adxl345)
-            ? config.adxl345
-            : [config.adxl345];
-
-        sensors.forEach((sensor, idx) => {
-            const busUsed = sensor.i2c_id || i2cBuses[0] || "i2c_bus";
-
-            components.push({
-                id: `ADXL${idx === 0 ? "" : idx + 1}`,
-                type: "device",
-                label: `Accelerometer ADXL${idx === 0 ? "" : idx + 1}`,
-                category: "adxl345",
-                meta: {
-                    kind: "adxl345",
-                    raw: deepClone(sensor)
-                },
-                pins: {
-                    left: [
-                        {
-                            name: "i2c_bus",
-                            description: "I2C bus",
-                            connectedTo: busUsed
-                        }
-                    ],
-                    right: []
-                }
-            });
-        });
-    }
-
-    // ----------------------------------
-    // ADS1115 SUPPORT (i2c-based sensors)
-    // ----------------------------------
-    if (config.ads1115) {
-        const sensors = Array.isArray(config.ads1115)
-            ? config.ads1115
-            : [config.ads1115];
-        sensors.forEach((sensor, idx) => {
-            const busUsed = sensor.i2c_id || i2cBuses[0] || "i2c_bus";
-            components.push({
-                id: `ADS1115_${idx === 0 ? "" : idx + 1}`,
-                type: "device",
-                label: `ADC ADS1115${idx === 0 ? "" : idx + 1}`,
-                category: "ads1115",
-                meta: {
-                    kind: "ads1115",
-                    raw: deepClone(sensor)
-                },
-                pins: {
-                    left: [
-                        {
-                            name: "i2c_bus",
-                            description: "I2C bus",
-                            connectedTo: busUsed
-                        }
-                    ],
-                    right: []
-                }
-            });
-        });
-    }
+    const builderContext: Record<string, any> = {}
+    componentBuilders.forEach((builder) => {
+        const configSection = config[builder.key]
+        const { components: builtComponents, data } = builder.build(configSection, builderContext)
+        if (builtComponents?.length) {
+            components.push(...builtComponents)
+        }
+        if (data) {
+            builderContext[builder.key] = data
+        }
+    })
 
     const schematic = { components, config: deepClone(config) ?? {} };
     console.log(JSON.stringify(schematic, null, 4));

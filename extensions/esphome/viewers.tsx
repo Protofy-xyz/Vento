@@ -28,7 +28,8 @@ export default ({ ...props }: any) => {
                 onBeforeSave: (rawContent, mode) => {
                     try {
                         const obj = JSON.parse(rawContent);
-                        return yamlStringify(obj);
+                        // Disable folding to avoid multi-line block scalars such as ">-"
+                        return yamlStringify(obj, { lineWidth: 0 });
                     } catch (e) {
                         console.error('Error converting JSON to YAML, keeping JSON:', e);
                         return rawContent;

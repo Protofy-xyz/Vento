@@ -49,7 +49,7 @@ const MessageList = React.memo(({ data, topic }: any) => {
     const [highlightedCardState, setHighlightedCard] = useHighlightedCard()
 
     return <XStack
-        p="$3"
+        pb="$2"
         ml={"$0"}
         ai="center"
         jc="center"
@@ -64,7 +64,7 @@ const MessageList = React.memo(({ data, topic }: any) => {
         }}
     >
         <YStack f={1}>
-            <XStack f={1} left={-12} hoverStyle={{ bc: "$color6" }} cursor="pointer" ai="center" mb="$2" py={3} px="$2" ml={"$1"}>
+            <XStack f={1} hoverStyle={{ bc: "$bgContent" }} cursor="pointer" ai="center" mb="$2" py={3} px="$3">
                 <XStack ai="center" hoverStyle={{ o: 1 }} o={0.9} f={1}>
                     <Tinted><XStack mr={"$2"}><Icon size={20} strokeWidth={2} color={types[type]?.color} /></XStack></Tinted>
                     {/* <Chip text={types[type]?.name+"("+topic+")"} color={types[type]?.color} h={25} /> */}
@@ -77,9 +77,11 @@ const MessageList = React.memo(({ data, topic }: any) => {
                     </XStack>
                 </XStack>
             </XStack>
-            <Tinted><JSONView
-                src={cleanData}
-            /></Tinted>
+            <YStack pl="$3">
+                <Tinted><JSONView
+                    src={cleanData}
+                /></Tinted>
+            </YStack>
         </YStack>
     </XStack>
 })
@@ -121,11 +123,11 @@ export const LogPanel = ({ AppState, logs, setLogs }) => {
             levels: levels.includes(level) ? levels.filter(l => l !== level) : [...levels, level],
         });
     };
-    const hoverStyle = React.useMemo(() => ({ bc: "$" + tint + "4" }), [tint]);
+    const color = React.useMemo(() => ("$" + tint + "8"), [tint]);
 
     return <Theme>
         <YStack f={1}>
-            <XStack ai="center" backgroundColor={'$backgroundTransparent'} borderBottomWidth={1} borderColor={"$borderColor"}>
+            <XStack px="$2" ai="center" backgroundColor={'$backgroundTransparent'} borderBottomWidth={1} borderColor={"$borderColor"}>
                 <Popover placement="bottom-start">
                     <Popover.Trigger m="$0" p="$0">
                         <InteractiveIcon size={20} Icon={Ban} onPress={() => setLogs([])} />
@@ -179,9 +181,9 @@ export const LogPanel = ({ AppState, logs, setLogs }) => {
                 />
             </XStack>
 
-            <ScrollView bc="transparent" f={1} height={"calc( 100vh - 90px )"}>
+            <ScrollView bc="transparent" f={1} height={"calc( 100vh - 90px )"} p="2px" py="$1">
                 {filteredMessages.map((m, i) => {
-                    return <XStack bc="transparent" hoverStyle={hoverStyle} key={i} btw={0} bbw={1} boc={"$color4"}>
+                    return <XStack bc="transparent" hoverStyle={{ bc: "$bgPanel", outlineWidth: 2, outlineColor: color, outlineStyle: "solid" }} key={i} btw={0} bbw={1} boc={"$color4"} p="$1">
                         <MessageList data={m.message} topic={m.topic} />
                     </XStack>
                 })}

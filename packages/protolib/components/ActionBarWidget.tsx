@@ -20,7 +20,6 @@ export const ActionBarSelector = ({ Icon, selected = false, disabled = false, op
     <YStack gap="$1" p="$2" minWidth={90} >
       {
         options && options.map((option, index) => {
-  console.log("dev:::",{value, optionKeyEqualsValue: option.key === value });
 
           return <Button
             key={option.key}

@@ -35,46 +35,51 @@ export default function TextMessage({ index, chat }: Props) {
     prompt
   });
 
-  // Check approval status from backend (so refresh reflects state)
-  useEffect(() => {
-    if (result && result.startsWith("approval_request")) {
-      try {
-        const approvalData = result.replace("approval_request", "");
-        const parsed = JSON.parse(approvalData);
-        const { boardId, action, id } = parsed || {};
-        if (!boardId || !action || !id) return;
-        (async () => {
-          try {
-            const resp: any = await API.get(`/api/core/v1/boards/${encodeURIComponent(boardId)}/actions/${encodeURIComponent(action)}/approvals/${encodeURIComponent(id)}/status`);
-            const status = resp?.data?.status;
-            if (status && status !== 'offered') {
-              setApplied(true);
-              setRejected(status === 'rejected');
-            }
-          } catch (e) {
-            console.error('Approval status fetch error', e);
-          }
-        })();
-      } catch {}
-    }
-  }, [result]);
+  const raw = (result ?? "").trim() || (chat.content ?? "");
 
-  // IMPORTANTE: mueve esta condición justo después del hook useBot
-  if (isStreamCompleted && !result.trim()) {
+  let displayText = raw;
+  let jsonApproval: {
+    boardId?: string;
+    action?: string;
+    approvalId?: string;
+    id?: string;
+    message?: string;
+    urls?: { accept?: string; reject?: string; status?: string };
+  } | null = null;
+
+  if (raw) {
+    try {
+      const parsed: any = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.response === "string") {
+          displayText = parsed.response;
+        }
+        if (Array.isArray(parsed.approvals) && parsed.approvals.length > 0) {
+          jsonApproval = parsed.approvals[0];
+        }
+      }
+    } catch {
+      // not JSON, ignore
+    }
+  }
+
+  if (isStreamCompleted && !raw.trim()) {
     return null;
   }
 
-  if (result && result.startsWith("approval_request")) {
-    const approvalData = result.replace("approval_request", "");
-    let parsedData = JSON.parse(approvalData);
+  if (jsonApproval) {
+    const boardId = jsonApproval.boardId;
+    const action = jsonApproval.action;
+    const approvalId = jsonApproval.approvalId || jsonApproval.id;
+    const message = jsonApproval.message || (action ? `The action "${action}" requests approval.` : "This action requests approval.");
 
-    const onAccept = async (e) => {
+    const onAccept = async () => {
       try {
         if (busy || applied) return;
         setBusy(true);
-        const { boardId, action, id } = parsedData
-        if (!boardId || !action || !id) return;
-        await API.post(`/api/core/v1/boards/${encodeURIComponent(boardId)}/actions/${encodeURIComponent(action)}/approvals/${encodeURIComponent(id)}/accept`, {});
+        if (!boardId || !action || !approvalId) return;
+        const acceptUrl = jsonApproval.urls?.accept || `/api/core/v1/boards/${encodeURIComponent(boardId)}/actions/${encodeURIComponent(action)}/approvals/${encodeURIComponent(approvalId)}/accept`;
+        await API.post(acceptUrl, {});
         setApplied(true);
         setRejected(false);
       } catch (err) {
@@ -88,9 +93,9 @@ export default function TextMessage({ index, chat }: Props) {
       try {
         if (busy || applied) return;
         setBusy(true);
-        const { boardId, action, id } = parsedData
-        if (!boardId || !action || !id) return;
-        await API.post(`/api/core/v1/boards/${encodeURIComponent(boardId)}/actions/${encodeURIComponent(action)}/approvals/${encodeURIComponent(id)}/reject`, {});
+        if (!boardId || !action || !approvalId) return;
+        const rejectUrl = jsonApproval.urls?.reject || `/api/core/v1/boards/${encodeURIComponent(boardId)}/actions/${encodeURIComponent(action)}/approvals/${encodeURIComponent(approvalId)}/reject`;
+        await API.post(rejectUrl, {});
         setApplied(true);
         setRejected(true);
       } catch (err) {
@@ -101,7 +106,9 @@ export default function TextMessage({ index, chat }: Props) {
     };
 
     return <YStack gap="$3" py="$3">
-      <Text o={0.6} fow={"600"}>{applied ? (rejected ? '✗ Request rejected' : '✓ Request applied') : parsedData.message}</Text>
+      <Text o={0.6} fow={"600"}>
+        {applied ? rejected ? "Request rejected" : "Request applied" : message}
+      </Text>
       {!applied && (
         <XStack gap={"$2"}>
           <Button themeInverse bc="$bgPanel" size="$3" onPress={onAccept} disabled={busy}>Accept</Button>
@@ -112,14 +119,14 @@ export default function TextMessage({ index, chat }: Props) {
   } else {
     return (
       <YStack jc="flex-start" >
-        {!isStreamCompleted && !result && !error ? (
+        {!isStreamCompleted && !raw && !error ? (
           <YStack py="$3" px="$4" jc="center" >
             <SyncLoader color="gray" size={8} speedMultiplier={0.5} />
           </YStack>
         ) : (
           <YStack>
             <Markdown
-              children={result}
+              children={displayText || raw}
               components={{
                 code(props) {
                   const { children, className, node, ...rest } = props;
@@ -147,12 +154,12 @@ export default function TextMessage({ index, chat }: Props) {
               {!copied ? (
                 <InteractiveIcon
                   Icon={Clipboard}
-                  onPress={() => copy(result)}
+                  onPress={() => copy(displayText || raw)}
                 />
               ) : (
                 <InteractiveIcon
                   Icon={Check}
-                  onPress={() => copy(result)}
+                  onPress={() => copy(displayText || raw)}
                 />
               )}
             </XStack>

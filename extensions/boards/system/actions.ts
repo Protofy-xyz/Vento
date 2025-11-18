@@ -227,7 +227,13 @@ export const handleBoardAction = async (context, Manager, req, boardId, action_o
             // update action state and respond
             // await setActionValue(Manager, context, boardId, action, { approvalId, message: 'Notified user' });
             await updateActionStatus(context, boardId, action.name, 'offered');
-            res.status(202).send({ offered: true, approvalId });
+            res.status(202).send({
+                offered: true,
+                approvalId,
+                boardId,
+                action: action.name,
+                message: action.approvalMessage || undefined,
+            });
             return;
         }
     } catch (e) {

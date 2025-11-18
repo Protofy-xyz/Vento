@@ -21,27 +21,6 @@ export default function Chats() {
     }
   }, { path: "chat/notifications/#" });
 
-  // Subscribe to approval offers and show in chat with Accept link
-  useEventEffect((payload, msg) => {
-    try {
-      const parsed = JSON.parse(msg.message);
-      const payload = parsed?.payload || {};
-      if (payload?.status !== 'offered' || !payload?.boardId || !payload?.action || !payload?.approvalId) return;
-      const boardId = payload.boardId;
-      const action = payload.action;
-      const id = payload.approvalId;
-      const newMessage = {
-        message: payload.message ?? `The action "${action}" requests approval.`,
-        boardId,
-        action,
-        id
-      }
-      addChat(createMessage("assistant", "approval_request" + JSON.stringify(newMessage), "text"));
-    } catch (e) {
-      console.error(e);
-    }
-  }, { path: 'actions/approval/#' });
-
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });

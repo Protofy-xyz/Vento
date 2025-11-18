@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import type {
   ComponentTemplate,
   TemplateField,
 } from '@extensions/esphome/components/templates'
+import { Button, Input, Text, YStack } from '@my/ui'
+import { SelectList } from "protolib/components/SelectList";
 
 type AddComponentFormProps = {
   componentTemplates: Record<string, ComponentTemplate>
@@ -13,6 +15,7 @@ type AddComponentFormProps = {
   onFieldChange: (field: TemplateField, rawValue: any) => void
   onAddComponent: () => void
   canAddComponent: boolean
+  connectionOptions?: string[]
 }
 
 const AddComponentForm = ({
@@ -24,41 +27,51 @@ const AddComponentForm = ({
   onFieldChange,
   onAddComponent,
   canAddComponent,
+  connectionOptions = [],
 }: AddComponentFormProps) => {
+  const sanitizedConnectionOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (connectionOptions || []).filter(
+            (option): option is string =>
+              typeof option === 'string' && option.trim().length > 0
+          )
+        )
+      ),
+    [connectionOptions]
+  )
+
+  const buildConnectionSelectElements = (connectedTo?: string | null) => {
+    const elements = sanitizedConnectionOptions.map((option) => ({
+      value: option,
+      caption: option,
+    }))
+
+    const hasConnectedValue =
+      !!connectedTo && sanitizedConnectionOptions.includes(connectedTo)
+
+    if (connectedTo && !hasConnectedValue) {
+      elements.push({ value: connectedTo, caption: connectedTo })
+    }
+
+    return [{ value: '', caption: 'Sin conexión' }, ...elements]
+  }
+
   return (
-    <div
-      style={{
-        marginTop: 20,
-        paddingTop: 12,
-        borderTop: '1px solid var(--gray6)',
-      }}
-    >
-      <h4 style={{ margin: '0 0 8px 0' }}>Añadir componente</h4>
-      <label style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Tipo</label>
-      <select
+    <YStack gap="$2">
+      <Text marginBottom="$3">Add Component</Text>
+      <SelectList
+        title="Component Type"
+        triggerProps={{ backgroundColor: "transparent", borderColor: "var(--gray6)" }}
+        elements={Object.entries(componentTemplates).map(([key, template]) => ({ caption: template.label, value: key }))}
         value={newComponentType}
-        onChange={(event) => onComponentTypeChange(event.target.value)}
-        style={{
-          width: '100%',
-          padding: '6px 8px',
-          borderRadius: 6,
-          border: '1px solid var(--gray6)',
-          background: 'var(--bg)',
-          color: 'var(--color)',
-          marginBottom: 10,
-        }}
-      >
-        <option value="">Selecciona un tipo</option>
-        {Object.entries(componentTemplates).map(([key, template]) => (
-          <option value={key} key={key}>
-            {template.label}
-          </option>
-        ))}
-      </select>
+        setValue={onComponentTypeChange}
+      />
       {newComponentType && selectedTemplate && (
-        <div style={{ fontSize: 12 }}>
+        <YStack gap="$4">
           {selectedTemplate.description && (
-            <p style={{ marginTop: 0, marginBottom: 8 }}>{selectedTemplate.description}</p>
+            <Text fontSize="$3" color="$gray9">{selectedTemplate.description}</Text>
           )}
           {selectedTemplate.fields.map((field) => {
             const value = mergedNewComponentValues[field.name] ?? ''
@@ -83,38 +96,49 @@ const AddComponentForm = ({
               )
             }
 
-            const datalistId = field.suggestions
-              ? `suggestions-${newComponentType}-${field.name}`
-              : undefined
-            const inputProps: Record<string, string> = {}
-            if (field.useConnectionDatalist) {
-              inputProps.list = 'network-graph-connection-options'
-            } else if (datalistId) {
-              inputProps.list = datalistId
-            }
+            const datalistId =
+              !field.useConnectionDatalist && field.suggestions
+                ? `suggestions-${newComponentType}-${field.name}`
+                : undefined
 
             return (
-              <div key={field.name} style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>
+              <YStack key={field.name} gap="$2">
+                <Text fontSize="$2" fontWeight="500" paddingLeft="$2">
                   {field.label}
                   {field.required && <span style={{ color: 'var(--color8)' }}> *</span>}
-                </label>
-                <input
-                  type={field.type === 'number' ? 'number' : 'text'}
-                  value={value}
-                  placeholder={field.placeholder}
-                  onChange={(event) => onFieldChange(field, event.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    borderRadius: 6,
-                    border: '1px solid var(--gray6)',
-                    background: 'var(--bg)',
-                    color: 'var(--color)',
-                  }}
-                  {...inputProps}
-                />
-                {field.description && <small style={{ opacity: 0.7 }}>{field.description}</small>}
+                </Text>
+                {field.useConnectionDatalist ? (
+                  <SelectList
+                    title={`Conexiones para ${field.label}`}
+                    elements={buildConnectionSelectElements(value)}
+                    value={value}
+                    setValue={(selected) => onFieldChange(field, selected)}
+                    placeholder={field.placeholder || 'Selecciona un pin o bus'}
+                    triggerProps={{
+                      backgroundColor: 'transparent',
+                      borderColor: 'var(--gray6)',
+                      width: '100%',
+                    }}
+                    selectorStyle={{ normal: { width: '100%' } }}
+                  />
+                ) : (
+                  <Input
+                    value={value}
+                    placeholder={field.placeholder}
+                    placeholderTextColor="$gray9"
+                    onChangeText={(text) => onFieldChange(field, text)}
+                    backgroundColor="tranparent"
+                    borderColor="$gray6"
+                    width="100%"
+                    {...(datalistId ? { list: datalistId } : {})}
+                  />
+                )}
+                {(field.description ||
+                  (field.useConnectionDatalist && 'Selecciona el destino de este pin.')) && (
+                    <small style={{ opacity: 0.7 }}>
+                      {field.description || 'Selecciona el destino de este pin.'}
+                    </small>
+                  )}
                 {field.suggestions && datalistId && (
                   <datalist id={datalistId}>
                     {field.suggestions.map((suggestion) => (
@@ -122,29 +146,20 @@ const AddComponentForm = ({
                     ))}
                   </datalist>
                 )}
-              </div>
+              </YStack>
             )
           })}
-          <button
-            onClick={onAddComponent}
+          <Button
+            onPress={onAddComponent}
             disabled={!canAddComponent}
-            style={{
-              width: '100%',
-              marginTop: 4,
-              padding: '8px 10px',
-              borderRadius: 8,
-              border: 'none',
-              cursor: canAddComponent ? 'pointer' : 'not-allowed',
-              background: canAddComponent ? 'var(--color8)' : 'var(--gray6)',
-              color: 'var(--softContrast)',
-              fontWeight: 600,
-            }}
+            width="100%"
+            backgroundColor={canAddComponent ? "$color7" : "$gray5"}
           >
-            Añadir
-          </button>
-        </div>
+            Add Component
+          </Button>
+        </YStack>
       )}
-    </div>
+    </YStack>
   )
 }
 

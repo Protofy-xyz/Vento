@@ -1,8 +1,8 @@
 import { Text, TooltipSimple, YStack } from '@my/ui'
 import React, { memo } from 'react'
-import { Handle, Position } from 'reactflow'
+import { Handle, Position, type NodeProps } from 'reactflow'
 
-export const DeviceNode = memo(({ data }: { data: any }) => {
+export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
   const { id, label, pins = {}, editableProps = {}, side } = data
   const leftPins = pins.left || []
   const rightPins = pins.right || []
@@ -22,22 +22,25 @@ export const DeviceNode = memo(({ data }: { data: any }) => {
   const isLeftSide = side === 'left'
   const isRightSide = side === 'right'
 
+  const borderColor = selected ? 'var(--color7)' : 'var(--gray6)'
+
   return (
-    <div
+    <YStack
+      hoverStyle={{
+        scale: 1.02,
+      }}
+      animation="bouncy"
+      scale={selected ? 1.02 : 1}
+      borderRadius="$6"
       style={{
         width: isCenter ? 320 : 200,
         height: isCenter ? 480 : 'auto',
-        border: '2px solid var(--gray6)',
-        borderRadius: 12,
-        background: 'var(--bgPanel)',
+        border: `2px solid ${borderColor}`,
+        backgroundColor: 'var(--bgPanel)',
         position: 'relative',
-        color: 'var(--color)',
-        fontSize: 11,
-        fontWeight: 600,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        textAlign: 'center',
         padding: isCenter ? 0 : 8,
       }}
     >
@@ -279,7 +282,7 @@ export const DeviceNode = memo(({ data }: { data: any }) => {
         </>
       )}
 
-    </div>
+    </YStack>
   )
 })
 

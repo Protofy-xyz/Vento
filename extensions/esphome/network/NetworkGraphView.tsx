@@ -42,7 +42,7 @@ type NetworkGraphViewProps = {
 
 export const NetworkGraphView = ({
   schematic,
-  onSchematicChange = () => {},
+  onSchematicChange = () => { },
 }: NetworkGraphViewProps) => {
   const [components, setComponents] = useState<any[]>(schematic?.components || [])
   const [nodeSizes, setNodeSizes] = useState<NodeSizeMap>({})
@@ -411,34 +411,38 @@ export const NetworkGraphView = ({
             width: 300,
             borderRadius: 12,
             padding: 16,
-            background: 'var(--bgPanel)',
+            backdropFilter: 'blur(16px)',
+            background: 'var(--bgPanel) + 80',
             border: '1px solid var(--gray6)',
             boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
             maxHeight: '90%',
             overflowY: 'auto',
           }}
         >
-          <h3 style={{ marginTop: 0, marginBottom: 12 }}>Editor de nodo</h3>
-          <DeviceEditorPanel
-            selectedComponent={selectedComponent}
-            onLabelChange={handleLabelChange}
-            onEditablePropChange={handleEditablePropChange}
-            onPinFieldChange={handlePinFieldChange}
-            componentSubsystems={componentSubsystems}
-            subsystemActionStatus={subsystemActionStatus}
-            onSubsystemAction={handleSubsystemAction}
-            deviceName={deviceName}
-          />
-          <AddComponentForm
-            componentTemplates={componentTemplates}
-            newComponentType={newComponentType}
-            onComponentTypeChange={(value) => setNewComponentType(value)}
-            selectedTemplate={selectedTemplate}
-            mergedNewComponentValues={mergedNewComponentValues}
-            onFieldChange={handleNewComponentValueChange}
-            onAddComponent={handleAddComponent}
-            canAddComponent={canAddComponent}
-          />
+          {/* <h3 style={{ marginTop: 0, marginBottom: 12 }}>Editor de nodo</h3> */}
+          {selectedComponent
+            ? <DeviceEditorPanel
+              selectedComponent={selectedComponent}
+              onLabelChange={handleLabelChange}
+              onEditablePropChange={handleEditablePropChange}
+              onPinFieldChange={handlePinFieldChange}
+              componentSubsystems={componentSubsystems}
+              subsystemActionStatus={subsystemActionStatus}
+              onSubsystemAction={handleSubsystemAction}
+              deviceName={deviceName}
+              connectionOptions={connectionOptions}
+            />
+            : <AddComponentForm
+              componentTemplates={componentTemplates}
+              newComponentType={newComponentType}
+              onComponentTypeChange={(value) => setNewComponentType(value)}
+              selectedTemplate={selectedTemplate}
+              mergedNewComponentValues={mergedNewComponentValues}
+              onFieldChange={handleNewComponentValueChange}
+              onAddComponent={handleAddComponent}
+              canAddComponent={canAddComponent}
+              connectionOptions={connectionOptions}
+            />}
         </div>
       </div>
     </Tinted>

@@ -21,7 +21,7 @@ export const buildSwitchComponents = (switchConfig: any): any[] => {
         editableProps: {
           alwaysOn: {
             type: 'boolean',
-            label: 'Always On',
+            label: 'Restore mode',
             description: 'If enabled, the relay reset state will be always on.',
             default: sw.restore_mode === 'ALWAYS_ON',
           },
@@ -97,7 +97,7 @@ export const buildSwitchTemplate = (
       },
       {
         name: 'alwaysOn',
-        label: 'Arranca encendido',
+        label: 'Restore mode',
         type: 'boolean',
         description: 'Mantiene el relé activado tras reinicio.',
       },
@@ -131,7 +131,7 @@ export const buildSwitchTemplate = (
         editableProps: {
           alwaysOn: {
             type: 'boolean',
-            label: 'Always On',
+            label: 'Restore mode',
             description: 'If enabled, the relay reset state will be always on.',
             default: !!values.alwaysOn,
           },

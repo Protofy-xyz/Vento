@@ -1,6 +1,6 @@
-import { Button, Input, Text, TooltipSimple, XStack, YStack } from '@my/ui'
-import React, { useMemo } from 'react'
-import { SelectList } from 'protolib/components/SelectList'
+import { Button, Input, Switch, Text, TooltipSimple, XStack, YStack } from '@my/ui'
+import React from 'react'
+import ConnectionSelect from './ConnectionSelect'
 
 type DeviceEditorPanelProps = {
   selectedComponent?: any
@@ -47,34 +47,6 @@ const DeviceEditorPanel = ({
   deviceName,
   connectionOptions = [],
 }: DeviceEditorPanelProps) => {
-  const sanitizedConnectionOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (connectionOptions || []).filter(
-            (option): option is string =>
-              typeof option === 'string' && option.trim().length > 0
-          )
-        )
-      ),
-    [connectionOptions]
-  )
-
-  const buildPinSelectElements = (connectedTo?: string | null) => {
-    const elements = sanitizedConnectionOptions.map((option) => ({
-      value: option,
-      caption: option,
-    }))
-    const hasConnectedValue =
-      !!connectedTo && sanitizedConnectionOptions.includes(connectedTo)
-
-    if (connectedTo && !hasConnectedValue) {
-      elements.push({ value: connectedTo, caption: connectedTo })
-    }
-
-    return [{ value: '', caption: 'Sin conexión' }, ...elements]
-  }
-
   if (!selectedComponent) {
     return (
       <p style={{ fontSize: 12, opacity: 0.7 }}>
@@ -84,7 +56,7 @@ const DeviceEditorPanel = ({
   }
 
   return (
-    <>
+    <YStack enterStyle={{ opacity: 0.5, right: -10 }} right={0} animation={"bouncy"} exitStyle={{ opacity: 0.5 }} >
       <CustomInput
         padding="$0"
         paddingLeft="$2"
@@ -111,23 +83,15 @@ const DeviceEditorPanel = ({
                 {prop.label || propKey}
               </label>
               {type === 'boolean' ? (
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontSize: 12,
-                  }}
+                // <XStack justifyContent='space-between' key={field.label} width='100%'>
+                <Switch
+                  key={propKey}
+                  size="$3"
+                  checked={!!value}
+                  onCheckedChange={(v) => onEditablePropChange(selectedComponent.id, propKey, v)}
                 >
-                  <input
-                    type="checkbox"
-                    checked={!!value}
-                    onChange={(event) =>
-                      onEditablePropChange(selectedComponent.id, propKey, event.target.checked)
-                    }
-                  />
-                  <span>{prop.description}</span>
-                </label>
+                  <Switch.Thumb />
+                </Switch>
               ) : (
                 <input
                   type={type === 'number' ? 'number' : 'text'}
@@ -165,20 +129,14 @@ const DeviceEditorPanel = ({
             (pins || []).map((pin: any) => (
               <div key={`${side}-${pin.name}`} style={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 11, marginBottom: 2 }}>{pin.name}</div>
-                <SelectList
+                <ConnectionSelect
                   title={`Conexiones para ${pin.name}`}
-                  elements={buildPinSelectElements(pin.connectedTo)}
                   value={pin.connectedTo || ''}
-                  setValue={(value) =>
+                  onValueChange={(value) =>
                     onPinFieldChange(selectedComponent.id, side, pin.name, value)
                   }
                   placeholder="Selecciona un pin o bus"
-                  triggerProps={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'var(--gray6)',
-                    width: '100%',
-                  }}
-                  selectorStyle={{ normal: { width: '100%' } }}
+                  connectionOptions={connectionOptions}
                 />
                 <Text fontSize="$1" color="$gray9" paddingLeft="$2">
                   {pin.description || 'Selecciona el destino de este pin.'}
@@ -274,7 +232,7 @@ const DeviceEditorPanel = ({
           </div>
         </div>
       ) : null}
-    </>
+    </YStack>
   )
 }
 

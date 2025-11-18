@@ -83,7 +83,7 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
                     marginRight: 6,
                   }}
                 />
-                <span style={{ fontSize: 9, whiteSpace: 'nowrap' }}>{p.name}</span>
+                <Text fontSize="$2">{p.name}</Text>
               </div>
             )
           })}
@@ -107,7 +107,7 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
                   transform: 'translateY(-50%)',
                 }}
               >
-                <span style={{ fontSize: 9, whiteSpace: 'nowrap', marginRight: 6 }}>{p.name}</span>
+                <Text fontSize="$2">{p.name}</Text>
                 <Handle
                   id={p.name}
                   type="source"
@@ -226,6 +226,7 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
                           background: color,
                           width: 8,
                           height: 8,
+                          marginRight: -8,
                         }}
                       />
                     </>

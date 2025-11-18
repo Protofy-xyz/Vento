@@ -1008,15 +1008,36 @@ export default (app, context) => {
         }
     }
     const compileBrokerUrl = 'mqtt://bo-compile.protofy.xyz:8883';
+    const COMPILE_DEFAULT_RECONNECT_PERIOD_MS = 5000;
+    const COMPILE_BACKOFF_RECONNECT_PERIOD_MS = 5 * 60 * 1000;
+    const MAX_COMPILE_RECONNECT_ATTEMPTS = 12;
+    let compileReconnectAttempts = 0;
+    let compileBackoffTimer: ReturnType<typeof setTimeout> | null = null;
+
     const compileClientOpts: IClientOptions = {
         clean: true,
-        reconnectPeriod: 5000
+        reconnectPeriod: COMPILE_DEFAULT_RECONNECT_PERIOD_MS
+    };
+
+    const scheduleCompileBackoffReconnect = () => {
+        if (compileBackoffTimer) return;
+        compileBackoffTimer = setTimeout(() => {
+            compileBackoffTimer = null;
+            compileReconnectAttempts = 0;
+            logger.info(`Retrying compile MQTT connection after ${COMPILE_BACKOFF_RECONNECT_PERIOD_MS / 60000} minutes`);
+            compileClient.reconnect();
+        }, COMPILE_BACKOFF_RECONNECT_PERIOD_MS);
     };
 
     const compileClient = mqttConnect(compileBrokerUrl, compileClientOpts);
     const subscribeTopic = compileMessagesTopic('#');
 
     compileClient.on('connect', () => {
+        compileReconnectAttempts = 0;
+        if (compileBackoffTimer) {
+            clearTimeout(compileBackoffTimer);
+            compileBackoffTimer = null;
+        }
         logger.info({ broker: compileBrokerUrl }, 'Connected to compile MQTT broker');
         compileClient.subscribe(subscribeTopic, { qos: 1 }, (err) => {
             if (err) {
@@ -1039,7 +1060,14 @@ export default (app, context) => {
     compileClient.on('error', (err) => {
         logger.error({ err }, 'compile MQTT client error');
     });
-    compileClient.on('reconnect', () => logger.info('Reconnecting to compile MQTT broker'));
+    compileClient.on('reconnect', () => {
+        compileReconnectAttempts += 1;
+        logger.info(`Reconnecting to compile MQTT broker (attempt ${compileReconnectAttempts})`);
+        if (compileReconnectAttempts >= MAX_COMPILE_RECONNECT_ATTEMPTS && !compileBackoffTimer) {
+            logger.warn(`Reached ${MAX_COMPILE_RECONNECT_ATTEMPTS} compile MQTT reconnect attempts. Will retry every ${COMPILE_BACKOFF_RECONNECT_PERIOD_MS / 60000} minutes`);
+            compileClient.end(true, () => scheduleCompileBackoffReconnect());
+        }
+    });
     compileClient.on('close', () => logger.warn('compile MQTT connection closed'));
 
     process.on('SIGINT', () => {

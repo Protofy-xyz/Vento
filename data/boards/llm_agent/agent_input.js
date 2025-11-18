@@ -1,6 +1,13 @@
+const callCore = () => {
+  setTimeout(() => executeAction({name: "current_request", params: {}}), 1)
+}
+
 if (params.action == "reset") {
   return { items: [], current: undefined };
 } else if (params.action == "skip") {
+  if(board[name]?.items?.length) {
+    callCore();
+  }
   return {
     items: (Array.isArray(board[name]?.items) ? board[name].items : []).slice(
       1
@@ -27,6 +34,9 @@ if (params.action == "reset") {
     throw "Unable to send reply: Empty res object in current job.";
   }
   res.send(params.response);
+  if(board[name]?.items?.length) {
+    callCore();
+  }
   return {
     items: (Array.isArray(board[name]?.items) ? board[name].items : []).slice(
       1
@@ -49,7 +59,7 @@ if (params.action == "reset") {
     id: uid,
     time: new Date().toISOString(),
     ua: req.get("User-Agent"),
-    params: {...params, ...req.query },
+    params: {...params, ...req.query},
     path: params.path,
   };
 
@@ -62,6 +72,7 @@ if (params.action == "reset") {
       current: board[name]?.current,
     };
   }
+  callCore();
   return {
     items: Array.isArray(board[name]?.items) ? board[name].items : [],
     current: item,

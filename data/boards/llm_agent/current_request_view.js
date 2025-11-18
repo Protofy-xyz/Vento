@@ -3,7 +3,7 @@
 function Widget(card) {
   const value = card.value;
 
-  const content = <YStack f={1}  mt={"20px"} ai="center" jc="center" width="100%">
+  const content = <YStack f={1} ai="center" jc="center" width="100%">
       {card.icon && card.displayIcon !== false && (
           <Icon name={card.icon} size={48} color={card.color}/>
       )}

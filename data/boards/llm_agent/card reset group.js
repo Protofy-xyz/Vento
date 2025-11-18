@@ -1,1 +1,0 @@
-return await execute_action("/api/core/v1/board/cardresetgroup", userParams)

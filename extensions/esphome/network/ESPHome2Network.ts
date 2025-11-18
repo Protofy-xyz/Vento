@@ -384,7 +384,7 @@ const dumpYaml = (schematic: any) => {
         delete baseConfig.ads1115;
     }
 
-    let dumped = yaml.dump(baseConfig);
+    let dumped = yaml.dump(baseConfig, { lineWidth: -1 }); // no folding so tokens like passwords stay single line
     dumped = dumped.replace(/'@!lambda ''(.*?)''@'/g, (_match: string, code: string) => {
         const restoredCode = code.replace(/''/g, "'");
         return `!lambda ${restoredCode}`;

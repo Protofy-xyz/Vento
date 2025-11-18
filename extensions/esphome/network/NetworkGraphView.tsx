@@ -9,13 +9,14 @@ import {
   getBezierPath,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import DeviceNode from '@extensions/esphome/network/DeviceNode'
-import { buildComponentTemplates } from '@extensions/esphome/components/templates'
-import type {
-  ComponentTemplate,
-  TemplateField,
-  TemplateHelpers,
-} from '@extensions/esphome/components/templates'
+import DeviceNode from '../network/DeviceNode'
+import type { TemplateField, TemplateHelpers } from '../components/templates'
+import DeviceEditorPanel from './components/DeviceEditorPanel'
+import AddComponentForm from './components/AddComponentForm'
+import ConnectionOptionsDatalist from './components/ConnectionOptionsDatalist'
+import { useGraphNodes, type NodeSizeMap } from './hooks/useGraphNodes'
+import { useGraphEdges } from './hooks/useGraphEdges'
+import { useComponentTemplates } from './hooks/useComponentTemplates'
 
 const CurvyEdge = (props: any) => {
   const [edgePath] = getBezierPath({ ...props, curvature: 0.3 })
@@ -44,6 +45,7 @@ export const NetworkGraphView = ({
   onSchematicChange = () => {},
 }: NetworkGraphViewProps) => {
   const [components, setComponents] = useState<any[]>(schematic?.components || [])
+  const [nodeSizes, setNodeSizes] = useState<NodeSizeMap>({})
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [newComponentType, setNewComponentType] = useState('')
   const [newComponentValues, setNewComponentValues] = useState<Record<string, any>>({})
@@ -75,140 +77,10 @@ export const NetworkGraphView = ({
   )
 
   // === Calcular layout ===
-  const nodes = useMemo(() => {
-    const list: any[] = []
-    const esp = components.find((c: any) => c.center)
-    if (!esp) return []
-
-    // === ESP32 central ===
-    list.push({
-      id: esp.id,
-      type: 'device',
-      position: { x: 0, y: 0 },
-      data: { ...esp },
-      draggable: false,
-      selectable: false,
-    })
-
-    // === Calcular posiciones de cada pin ===
-    const pinYPositions: Record<string, number> = {}
-    const allPins = [
-      ...(esp.pins.left?.map((p: any, i: number) => ({
-        name: p.name,
-        y: -((i - esp.pins.left.length / 2) * 40),
-      })) || []),
-      ...(esp.pins.right?.map((p: any, i: number) => ({
-        name: p.name,
-        y: -((i - esp.pins.right.length / 2) * 40),
-      })) || []),
-    ]
-    allPins.forEach((p) => (pinYPositions[p.name] = p.y))
-
-    const placedY: Record<string, number> = {}
-
-    components.forEach((c) => {
-      if (c.center) return // skip ESP32
-
-      // Detectar el primer pin conectado
-      const firstInput =
-        c.pins?.left?.find((p: any) => p.connectedTo)?.connectedTo ||
-        c.pins?.right?.find((p: any) => p.connectedTo)?.connectedTo ||
-        ''
-
-      const leftPins = esp.pins.left.map((p: any) => p.name)
-      const rightPins = esp.pins.right.map((p: any) => p.name)
-
-      let x = 0
-      let y = 0
-      let side: 'left' | 'right' = 'right'
-
-      // Conectado al lado izquierdo del ESP32
-      if (leftPins.includes(firstInput)) {
-        x = -400
-        y = pinYPositions[firstInput] || 0
-        side = 'left'
-      }
-      // Conectado al lado derecho del ESP32
-      else if (rightPins.includes(firstInput)) {
-        x = 400
-        y = pinYPositions[firstInput] || 0
-        side = 'right'
-      }
-      // Conectado a otro componente (por ejemplo, bus)
-      else {
-        const sourceComponent = components.find((cmp: any) =>
-          cmp.pins?.right?.some((out: any) => out.name === firstInput)
-        )
-        if (sourceComponent) {
-          const parentY = placedY[sourceComponent.id] ?? 0
-          const sourceSide = sourceComponent.side || sourceComponent.data?.side
-          x = sourceSide === 'left' ? -800 : 800
-          y = parentY + 100
-          side = 'right'
-        } else {
-          x = 800
-          y = 0
-        }
-      }
-
-      placedY[c.id] = y
-      list.push({
-        id: c.id,
-        type: 'device',
-        position: { x, y },
-        data: { ...c, side },
-        selected: c.id === selectedNodeId,
-      })
-    })
-
-    return list
-  }, [components, selectedNodeId])
+  const nodes = useGraphNodes(components, nodeSizes, selectedNodeId)
 
   // === Crear edges ===
-  const edges = useMemo(() => {
-    const list: any[] = []
-    const esp = components.find((c: any) => c.center)
-    if (!esp) return []
-
-    components.forEach((c) => {
-      if (c.center || !c.pins) return
-
-      // Combinar todos los pines del nodo
-      const allPins = [...(c.pins.left || []), ...(c.pins.right || [])]
-
-      allPins.forEach((p: any) => {
-        if (!p.connectedTo) return
-
-        let source = esp.id
-        let sourceHandle = p.connectedTo
-        let color = 'var(--color8)'
-
-        // Buscar si el connectedTo pertenece a otro componente (ej. I2C bus)
-        const sourceComponent = components.find((cmp: any) =>
-          cmp.pins?.right?.some((out: any) => out.name === p.connectedTo)
-        )
-
-        if (sourceComponent) {
-          source = sourceComponent.id
-          sourceHandle = p.connectedTo
-          color = '#00c896' // Verde para buses
-        }
-
-        list.push({
-          id: `${sourceHandle}->${c.id}-${p.name}`,
-          source,
-          sourceHandle,
-          target: c.id,
-          targetHandle: p.name,
-          type: 'curvy',
-          animated: true,
-          style: { stroke: color, strokeWidth: 2 },
-        })
-      })
-    })
-
-    return list
-  }, [components])
+  const edges = useGraphEdges(components)
 
   const [nodesState, setNodesState, onNodesChange] = useNodesState(nodes)
   const [edgesState, setEdgesState, internalOnEdgesChange] = useEdgesState(edges)
@@ -216,6 +88,22 @@ export const NetworkGraphView = ({
   useEffect(() => {
     setNodesState(nodes)
   }, [nodes, setNodesState])
+
+  useEffect(() => {
+    setNodeSizes((prev) => {
+      let changed = false
+      const next = { ...prev }
+      nodesState.forEach((node: any) => {
+        if (!node.width || !node.height) return
+        const stored = prev[node.id]
+        if (!stored || stored.width !== node.width || stored.height !== node.height) {
+          next[node.id] = { width: node.width, height: node.height }
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [nodesState])
 
   useEffect(() => {
     setEdgesState(edges)
@@ -352,49 +240,8 @@ export const NetworkGraphView = ({
     return Array.from(handles)
   }, [components])
 
-  const availableI2CBuses = useMemo(() => {
-    return components
-      .filter((component) => component.category === 'i2c-bus')
-      .map(
-        (component) =>
-          component.meta?.busId ||
-          component.pins?.right?.[0]?.name ||
-          component.id
-      )
-      .filter(Boolean)
-  }, [components])
-
-  const componentCounts = useMemo(() => {
-    return components.reduce<Record<string, number>>((acc, component) => {
-      acc[component.category] = (acc[component.category] || 0) + 1
-      return acc
-    }, {})
-  }, [components])
-
-  const ensureUniqueId = useCallback(
-    (baseId: string) => {
-      let candidate = baseId && baseId.trim() ? baseId.trim() : `Device${components.length + 1}`
-      if (!components.some((component) => component.id === candidate)) {
-        return candidate
-      }
-      let index = 2
-      while (components.some((component) => component.id === `${candidate}${index}`)) {
-        index += 1
-      }
-      return `${candidate}${index}`
-    },
-    [components]
-  )
-
-  const componentTemplates = useMemo<Record<string, ComponentTemplate>>(
-    () =>
-      buildComponentTemplates({
-        componentCounts,
-        ensureUniqueId,
-        availableI2CBuses,
-      }),
-    [availableI2CBuses, componentCounts, ensureUniqueId]
-  )
+  const { ensureUniqueId, availableI2CBuses, componentTemplates } =
+    useComponentTemplates(components)
 
   useEffect(() => {
     if (!newComponentType) {
@@ -460,6 +307,17 @@ export const NetworkGraphView = ({
     [handleComponentsChange]
   )
 
+  const handleLabelChange = useCallback(
+    (componentId: string, nextLabel: string) => {
+      handleComponentsChange((prev: any[]) =>
+        prev.map((component) =>
+          component.id === componentId ? { ...component, label: nextLabel } : component
+        )
+      )
+    },
+    [handleComponentsChange]
+  )
+
   const handleNewComponentValueChange = useCallback(
     (field: TemplateField, rawValue: any) => {
       setNewComponentValues((prev) => {
@@ -513,12 +371,14 @@ export const NetworkGraphView = ({
 
   return (
     <Tinted>
+      <ConnectionOptionsDatalist options={connectionOptions} />
       <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
         <ReactFlow
           nodes={nodesState}
           edges={edgesState}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          nodesDraggable={false}
           onNodesChange={onNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={handleConnect}
@@ -559,395 +419,26 @@ export const NetworkGraphView = ({
           }}
         >
           <h3 style={{ marginTop: 0, marginBottom: 12 }}>Editor de nodo</h3>
-          {selectedComponent ? (
-            <>
-              <label style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                Nombre visible
-              </label>
-              <input
-                type="text"
-                value={selectedComponent.label || ''}
-                onChange={(e) =>
-                  handleComponentsChange((prev: any[]) =>
-                    prev.map((component) =>
-                      component.id === selectedComponent.id
-                        ? { ...component, label: e.target.value }
-                        : component
-                    )
-                  )
-                }
-                style={{
-                  width: '100%',
-                  marginBottom: 12,
-                  padding: '6px 8px',
-                  borderRadius: 6,
-                  border: '1px solid var(--gray6)',
-                  background: 'var(--bg)',
-                  color: 'var(--color)',
-                }}
-              />
-              {selectedComponent.editableProps &&
-                Object.entries(selectedComponent.editableProps).map(
-                  ([propKey, prop]: any) => {
-                    const type = prop.type || 'text'
-                    const value = prop.default ?? ''
-                    return (
-                      <div key={propKey} style={{ marginBottom: 12 }}>
-                        <label style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                          {prop.label || propKey}
-                        </label>
-                        {type === 'boolean' ? (
-                          <label
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              fontSize: 12,
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={!!value}
-                              onChange={(e) =>
-                                handleEditablePropChange(
-                                  selectedComponent.id,
-                                  propKey,
-                                  e.target.checked
-                                )
-                              }
-                            />
-                            <span>{prop.description}</span>
-                          </label>
-                        ) : (
-                          <input
-                            type={type === 'number' ? 'number' : 'text'}
-                            value={value}
-                            onChange={(e) => {
-                              const rawValue = e.target.value
-                              const nextValue =
-                                type === 'number'
-                                  ? rawValue === ''
-                                    ? ''
-                                    : Number(rawValue)
-                                  : rawValue
-                              handleEditablePropChange(
-                                selectedComponent.id,
-                                propKey,
-                                nextValue
-                              )
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '6px 8px',
-                              borderRadius: 6,
-                              border: '1px solid var(--gray6)',
-                              background: 'var(--bg)',
-                              color: 'var(--color)',
-                            }}
-                          />
-                        )}
-                      </div>
-                    )
-                  }
-                )}
-              {(selectedComponent.pins?.left?.length ||
-                selectedComponent.pins?.right?.length) && (
-                <>
-                  <label style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-                    Conexiones
-                  </label>
-                  <datalist id="network-graph-connection-options">
-                    {connectionOptions.map((option) => (
-                      <option key={option} value={option} />
-                    ))}
-                  </datalist>
-                  {[
-                    ['left', selectedComponent.pins?.left],
-                    ['right', selectedComponent.pins?.right],
-                  ].map(
-                    ([side, pins]: any) =>
-                      (pins || []).map((pin: any) => (
-                        <div key={`${side}-${pin.name}`} style={{ marginBottom: 8 }}>
-                          <div style={{ fontSize: 11, marginBottom: 2 }}>{pin.name}</div>
-                          <input
-                            list="network-graph-connection-options"
-                            value={pin.connectedTo || ''}
-                            onChange={(e) =>
-                              handlePinFieldChange(
-                                selectedComponent.id,
-                                side,
-                                pin.name,
-                                e.target.value
-                              )
-                            }
-                            style={{
-                              width: '100%',
-                              padding: '6px 8px',
-                              borderRadius: 6,
-                              border: '1px solid var(--gray6)',
-                              background: 'var(--bg)',
-                              color: 'var(--color)',
-                            }}
-                          />
-                        </div>
-                      ))
-                  )}
-                </>
-              )}
-              {componentSubsystems.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <label style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-                    Subsistemas asociados
-                  </label>
-                  <div
-                    style={{
-                      border: '1px solid var(--gray6)',
-                      borderRadius: 8,
-                      padding: 8,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                      background: 'var(--bg)',
-                    }}
-                  >
-                    {componentSubsystems.map((subsystem: any, idx: number) => {
-                      const subsystemName =
-                        subsystem.name || subsystem.componentId || `Subsystem ${idx + 1}`
-                      return (
-                        <div
-                          key={`${subsystem.name || subsystem.componentId || idx}`}
-                          style={{
-                            borderBottom:
-                              idx < componentSubsystems.length - 1
-                                ? '1px solid var(--gray6)'
-                                : 'none',
-                            paddingBottom: idx < componentSubsystems.length - 1 ? 8 : 0,
-                          }}
-                        >
-                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                            {subsystemName}
-                            {subsystem.type && (
-                              <span style={{ fontSize: 11, opacity: 0.7 }}> - {subsystem.type}</span>
-                            )}
-                          </div>
-                          {subsystem.actions?.length ? (
-                            <div style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
-                                Acciones
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {subsystem.actions.map((action: any) => {
-                                  const actionKey = `${subsystemName}:${action.name}`
-                                  const status = subsystemActionStatus[actionKey]?.state || 'idle'
-                                  const message = subsystemActionStatus[actionKey]?.message
-                                  const isLoading = status === 'loading'
-                                  const disabled = !deviceName || isLoading
-                                  return (
-                                    <div key={`${action.name}-${actionKey}`}>
-                                      <button
-                                        disabled={disabled}
-                                        onClick={() =>
-                                          handleSubsystemAction(
-                                            subsystem.name || subsystem.componentId || '',
-                                            action
-                                          )
-                                        }
-                                        style={{
-                                          width: '100%',
-                                          padding: '6px 8px',
-                                          borderRadius: 6,
-                                          border: '1px solid var(--gray6)',
-                                          background: disabled
-                                            ? 'var(--gray5)'
-                                            : 'var(--color8)',
-                                          color: disabled ? 'var(--gray10)' : 'var(--softContrast)',
-                                          cursor: disabled ? 'not-allowed' : 'pointer',
-                                          fontWeight: 600,
-                                        }}
-                                      >
-                                        {(action.label || action.name || 'Acción') +
-                                          (isLoading ? '...' : '')}
-                                      </button>
-                                      {action.description && (
-                                        <div style={{ fontSize: 11, marginTop: 2 }}>
-                                          {action.description}
-                                        </div>
-                                      )}
-                                      {message && (
-                                        <div
-                                          style={{
-                                            fontSize: 11,
-                                            marginTop: 2,
-                                            color:
-                                              status === 'error'
-                                                ? 'var(--red10)'
-                                                : 'var(--green10)',
-                                          }}
-                                        >
-                                          {message}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                              {!deviceName && (
-                                <div style={{ fontSize: 10, marginTop: 4, opacity: 0.7 }}>
-                                  Define `esphome.name` para habilitar las acciones.
-                                </div>
-                              )}
-                            </div>
-                          ) : null}
-                          {subsystem.monitors?.length ? (
-                            <div style={{ fontSize: 11 }}>
-                              <span style={{ fontWeight: 600 }}>Monitores:</span>{' '}
-                              {subsystem.monitors
-                                .map(
-                                  (monitor: any) =>
-                                    monitor.label || monitor.name || `Monitor ${monitor?.id}`
-                                )
-                                .join(', ')}
-                            </div>
-                          ) : null}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <p style={{ fontSize: 12, opacity: 0.7 }}>
-              Selecciona un nodo para ver sus propiedades y realizar cambios.
-            </p>
-          )}
-          <div
-            style={{
-              marginTop: 20,
-              paddingTop: 12,
-              borderTop: '1px solid var(--gray6)',
-            }}
-          >
-            <h4 style={{ margin: '0 0 8px 0' }}>Añadir componente</h4>
-            <label style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-              Tipo
-            </label>
-            <select
-              value={newComponentType}
-              onChange={(e) => setNewComponentType(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '6px 8px',
-                borderRadius: 6,
-                border: '1px solid var(--gray6)',
-                background: 'var(--bg)',
-                color: 'var(--color)',
-                marginBottom: 10,
-              }}
-            >
-              <option value="">Selecciona un tipo</option>
-              {Object.entries(componentTemplates).map(([key, template]) => (
-                <option value={key} key={key}>
-                  {template.label}
-                </option>
-              ))}
-            </select>
-            {newComponentType && selectedTemplate && (
-              <div style={{ fontSize: 12 }}>
-                {selectedTemplate.description && (
-                  <p style={{ marginTop: 0, marginBottom: 8 }}>
-                    {selectedTemplate.description}
-                  </p>
-                )}
-                {selectedTemplate.fields.map((field) => {
-                  const value = mergedNewComponentValues[field.name] ?? ''
-                  if (field.type === 'boolean') {
-                    return (
-                      <label
-                        key={field.name}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!!value}
-                          onChange={(e) =>
-                            handleNewComponentValueChange(field, e.target.checked)
-                          }
-                        />
-                        <span>{field.label}</span>
-                      </label>
-                    )
-                  }
-                  const datalistId = field.suggestions
-                    ? `suggestions-${newComponentType}-${field.name}`
-                    : undefined
-                  const inputProps: any = {}
-                  if (field.useConnectionDatalist) {
-                    inputProps.list = 'network-graph-connection-options'
-                  } else if (datalistId) {
-                    inputProps.list = datalistId
-                  }
-                  return (
-                    <div key={field.name} style={{ marginBottom: 10 }}>
-                      <label style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>
-                        {field.label}
-                        {field.required && <span style={{ color: 'var(--color8)' }}> *</span>}
-                      </label>
-                      <input
-                        type={field.type === 'number' ? 'number' : 'text'}
-                        value={value}
-                        placeholder={field.placeholder}
-                        onChange={(e) =>
-                          handleNewComponentValueChange(field, e.target.value)
-                        }
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          borderRadius: 6,
-                          border: '1px solid var(--gray6)',
-                          background: 'var(--bg)',
-                          color: 'var(--color)',
-                        }}
-                        {...inputProps}
-                      />
-                      {field.description && (
-                        <small style={{ opacity: 0.7 }}>{field.description}</small>
-                      )}
-                      {field.suggestions && datalistId && (
-                        <datalist id={datalistId}>
-                          {field.suggestions.map((suggestion) => (
-                            <option key={suggestion} value={suggestion} />
-                          ))}
-                        </datalist>
-                      )}
-                    </div>
-                  )
-                })}
-                <button
-                  onClick={handleAddComponent}
-                  disabled={!canAddComponent}
-                  style={{
-                    width: '100%',
-                    marginTop: 4,
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    border: 'none',
-                    cursor: canAddComponent ? 'pointer' : 'not-allowed',
-                    background: canAddComponent ? 'var(--color8)' : 'var(--gray6)',
-                    color: 'var(--softContrast)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Añadir
-                </button>
-              </div>
-            )}
-          </div>
+          <DeviceEditorPanel
+            selectedComponent={selectedComponent}
+            onLabelChange={handleLabelChange}
+            onEditablePropChange={handleEditablePropChange}
+            onPinFieldChange={handlePinFieldChange}
+            componentSubsystems={componentSubsystems}
+            subsystemActionStatus={subsystemActionStatus}
+            onSubsystemAction={handleSubsystemAction}
+            deviceName={deviceName}
+          />
+          <AddComponentForm
+            componentTemplates={componentTemplates}
+            newComponentType={newComponentType}
+            onComponentTypeChange={(value) => setNewComponentType(value)}
+            selectedTemplate={selectedTemplate}
+            mergedNewComponentValues={mergedNewComponentValues}
+            onFieldChange={handleNewComponentValueChange}
+            onAddComponent={handleAddComponent}
+            canAddComponent={canAddComponent}
+          />
         </div>
       </div>
     </Tinted>

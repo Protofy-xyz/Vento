@@ -30,6 +30,31 @@ export default (app, context) => {
         res.send({yaml})
     }))
 
+    app.post('/api/v1/esphome/:device/yamls', handler(async (req, res, session) => {
+        if(!session || !session.user.admin) {
+            res.status(401).send({error: "Unauthorized"})
+            return
+        }
+
+        const devicesPathData = await API.get('/api/core/v1/devices/path?token='+getServiceToken())
+        if(devicesPathData.isError) {
+            console.error("Error getting devices path: ", devicesPathData.error, " - this is necesary for the esphome extension to work")
+            res.status(500).send({error: "Devices path not found, this is necesary for the esphome extension to work"})
+            return
+        }
+        // console.log("Devices path: ", devicePathData.data.path)
+        const devicesPath = devicesPathData.data.path
+
+        const {yaml} = req.body
+
+        if(!fs.existsSync(devicesPath)) fs.mkdirSync(devicesPath)
+        const devicePath = path.join(devicesPath, req.params.device)
+        if(!fs.existsSync(devicePath)) fs.mkdirSync(devicePath)
+        fs.writeFileSync(path.join(devicePath,"config.yaml"),yaml)
+
+        res.send({value: yaml})
+    }))
+
     app.get('/api/v1/esphome/:device/:compileSessionId/manifest', handler(async (req, res, session) => {
         if(!req.params.device){
             res.status(400).send({error: "Device not specified"})
@@ -65,29 +90,5 @@ export default (app, context) => {
         res.send(JSON.stringify(manifest))
     }))
 
-     app.post('/api/v1/esphome/:device/yamls', handler(async (req, res, session) => {
-        if(!session || !session.user.admin) {
-            res.status(401).send({error: "Unauthorized"})
-            return
-        }
-
-        const devicesPathData = await API.get('/api/core/v1/devices/path?token='+getServiceToken())
-        if(devicesPathData.isError) {
-            console.error("Error getting devices path: ", devicesPathData.error, " - this is necesary for the esphome extension to work")
-            res.status(500).send({error: "Devices path not found, this is necesary for the esphome extension to work"})
-            return
-        }
-        // console.log("Devices path: ", devicePathData.data.path)
-        const devicesPath = devicesPathData.data.path
-
-        const {yaml} = req.body
-
-        if(!fs.existsSync(devicesPath)) fs.mkdirSync(devicesPath)
-        const devicePath = path.join(devicesPath, req.params.device)
-        if(!fs.existsSync(devicePath)) fs.mkdirSync(devicePath)
-        fs.writeFileSync(path.join(devicePath,"config.yaml"),yaml)
-
-        res.send({value: yaml})
-    }))
 
 }

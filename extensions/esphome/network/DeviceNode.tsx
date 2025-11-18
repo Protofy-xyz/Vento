@@ -6,6 +6,10 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
   const { id, label, pins = {}, editableProps = {}, side } = data
   const leftPins = pins.left || []
   const rightPins = pins.right || []
+  const editableEntries = Object.entries(editableProps)
+  const hasEditableProps = editableEntries.length > 0
+  const handleRows = Math.max(leftPins.length, rightPins.length, 1)
+  const handlesAreaHeight = handleRows * 28
 
   // colores según tipo
   const getPinColor = (pin: any) => {
@@ -39,8 +43,8 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
         backgroundColor: 'var(--bgPanel)',
         position: 'relative',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        alignItems: isCenter ? 'center' : 'flex-start',
+        // justifyContent: 'center',
         padding: isCenter ? 0 : 8,
       }}
     >
@@ -124,161 +128,170 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
       {!isCenter && (
         <>
           {/* Editable props */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 8,
-              left: 0,
-              right: 0,
-              textAlign: 'center',
-              fontSize: 11,
-              fontWeight: 600,
-            }}
-          >
-            {label || id}
-          </div>
+          <YStack width="100%" gap="$3">
+            <Text
+              style={{
+                textAlign: 'center',
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              {label || id}
+            </Text>
 
-          <YStack maxWidth="100%" flex={1} gap="$2" marginTop={"$4"}>
-            {Object.entries(editableProps).map(([key, prop]: any) => (
-              <YStack key={key} flex={1}>
-                <Text fontSize="$2" color="$color" textAlign={leftPins.length > 0 ? "center" : "left"}>
-                  {prop.label || key}
-                </Text>
-                <TooltipSimple label={String(prop.default)} restMs={0} delay={{ open: 500, close: 0 }}>
-                  <Text
-                    fontSize="$2"
-                    fontWeight="300"
-                    color="$color"
-                    textAlign={leftPins.length > 0 ? "center" : "left"}
-                    style={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: "100%"
-                    }}
-                  >
-                    {String(prop.default)}
-                  </Text>
-                </TooltipSimple>
+            {hasEditableProps && (
+              <YStack maxWidth="100%" flex={1} gap="$2">
+                {editableEntries.map(([key, prop]: any) => (
+                  <YStack key={key} flex={1}>
+                    <Text fontSize="$2" color="$color" textAlign={leftPins.length > 0 ? 'center' : 'left'}>
+                      {prop.label || key}
+                    </Text>
+                    <TooltipSimple label={String(prop.default)} restMs={0} delay={{ open: 500, close: 0 }}>
+                      <Text
+                        fontSize="$2"
+                        fontWeight="300"
+                        color="$color"
+                        textAlign={leftPins.length > 0 ? 'center' : 'left'}
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: '100%',
+                        }}
+                      >
+                        {String(prop.default)}
+                      </Text>
+                    </TooltipSimple>
+                  </YStack>
+                ))}
               </YStack>
-            ))}
+            )}
           </YStack>
 
-          {/* === INPUTS === */}
-          {leftPins.map((pin: any, i: number) => {
-            const top = ((i + 1) * 100) / (leftPins.length + 1)
-            const color = getPinColor(pin)
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              minHeight: handlesAreaHeight,
+              marginTop: hasEditableProps ? 12 : 8,
+            }}
+          >
+            {/* === INPUTS === */}
+            {leftPins.map((pin: any, i: number) => {
+              const top = ((i + 1) * 100) / (leftPins.length + 1)
+              const color = getPinColor(pin)
 
-            const isRight = isRightSide
-            const handlePos = isRight ? Position.Left : Position.Right
-            const handleType = 'target'
-            const justify = isRight ? 'flex-start' : 'flex-end'
+              const isRight = isRightSide
+              const handlePos = isRight ? Position.Left : Position.Right
+              const handleType = 'target'
+              const justify = isRight ? 'flex-start' : 'flex-end'
 
-            return (
-              <div
-                key={`IN-${pin.name}`}
-                style={{
-                  position: 'absolute',
-                  top: `${top}%`,
-                  left: isRight ? 0 : 'auto',
-                  right: isRight ? 'auto' : 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: justify,
-                  transform: 'translateY(-50%)',
-                }}
-              >
-                {isRight ? (
-                  <>
-                    <Handle
-                      id={pin.name}
-                      type={handleType}
-                      position={handlePos}
-                      style={{
-                        background: color,
-                        width: 8,
-                        height: 8,
-                        marginRight: 6,
-                      }}
-                    />
-                    <span style={{ fontSize: 9 }}>{pin.name}</span>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ fontSize: 9, marginRight: 6 }}>{pin.name}</span>
-                    <Handle
-                      id={pin.name}
-                      type={handleType}
-                      position={handlePos}
-                      style={{
-                        background: color,
-                        width: 8,
-                        height: 8,
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-            )
-          })}
+              return (
+                <div
+                  key={`IN-${pin.name}`}
+                  style={{
+                    position: 'absolute',
+                    top: `${top}%`,
+                    left: isRight ? 0 : 'auto',
+                    right: isRight ? 'auto' : 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: justify,
+                    transform: 'translateY(-50%)',
+                  }}
+                >
+                  {isRight ? (
+                    <>
+                      <Handle
+                        id={pin.name}
+                        type={handleType}
+                        position={handlePos}
+                        style={{
+                          background: color,
+                          width: 8,
+                          height: 8,
+                          marginLeft: -8,
+                        }}
+                      />
+                      <Text fontSize="$2">{pin.name}</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text fontSize="$2">{pin.name}</Text>
+                      <Handle
+                        id={pin.name}
+                        type={handleType}
+                        position={handlePos}
+                        style={{
+                          background: color,
+                          width: 8,
+                          height: 8,
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
+              )
+            })}
 
-          {/* === OUTPUTS === */}
-          {rightPins.map((pin: any, i: number) => {
-            const top = ((i + 1) * 100) / (rightPins.length + 1)
-            const color = getPinColor(pin)
+            {/* === OUTPUTS === */}
+            {rightPins.map((pin: any, i: number) => {
+              const top = ((i + 1) * 100) / (rightPins.length + 1)
+              const color = getPinColor(pin)
 
-            const isRight = isRightSide
-            const handlePos = isRight ? Position.Right : Position.Left
-            const handleType = 'source'
-            const justify = isRight ? 'flex-end' : 'flex-start'
+              const isRight = isRightSide
+              const handlePos = isRight ? Position.Right : Position.Left
+              const handleType = 'source'
+              const justify = isRight ? 'flex-end' : 'flex-start'
 
-            return (
-              <div
-                key={`OUT-${pin.name}`}
-                style={{
-                  position: 'absolute',
-                  top: `${top}%`,
-                  right: isRight ? 0 : 'auto',
-                  left: isRight ? 'auto' : 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: justify,
-                  transform: 'translateY(-50%)',
-                }}
-              >
-                {isRight ? (
-                  <>
-                    <span style={{ fontSize: 9, marginRight: 6 }}>{pin.name}</span>
-                    <Handle
-                      id={pin.name}
-                      type={handleType}
-                      position={handlePos}
-                      style={{
-                        background: color,
-                        width: 8,
-                        height: 8,
-                      }}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Handle
-                      id={pin.name}
-                      type={handleType}
-                      position={handlePos}
-                      style={{
-                        background: color,
-                        width: 8,
-                        height: 8,
-                        marginRight: 6,
-                      }}
-                    />
-                    <span style={{ fontSize: 9 }}>{pin.name}</span>
-                  </>
-                )}
-              </div>
-            )
-          })}
+              return (
+                <div
+                  key={`OUT-${pin.name}`}
+                  style={{
+                    position: 'absolute',
+                    top: `${top}%`,
+                    right: isRight ? 0 : 'auto',
+                    left: isRight ? 'auto' : 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: justify,
+                    transform: 'translateY(-50%)',
+                  }}
+                >
+                  {isRight ? (
+                    <>
+                      <Text fontSize="$2">{pin.name}</Text>
+                      <Handle
+                        id={pin.name}
+                        type={handleType}
+                        position={handlePos}
+                        style={{
+                          background: color,
+                          width: 8,
+                          height: 8,
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Handle
+                        id={pin.name}
+                        type={handleType}
+                        position={handlePos}
+                        style={{
+                          background: color,
+                          width: 8,
+                          height: 8,
+                          marginRight: 6,
+                        }}
+                      />
+                      <Text fontSize="$2">{pin.name}</Text>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </>
       )}
 

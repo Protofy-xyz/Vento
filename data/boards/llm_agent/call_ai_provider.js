@@ -2,8 +2,8 @@ await executeAction({ name: "agent_input.skip"})
 
 
 const prompt = params.prompt
-const provider = params.provider
-const model = params.model
+const provider = board?.["current_request"]?.["params"]?.["provider"] ?? params.provider
+const model = board?.["current_request"]?.["params"]?.["model"] ?? params.model
 
 if (provider === 'chatgpt') {
   reply = await context.chatgpt.chatGPTPrompt({
@@ -44,5 +44,4 @@ await executeAction({
     response: reply, // the response to send
   }
 })
-
-return reply
+return {reply, provider, model}

@@ -1,17 +1,21 @@
 {
     "name": "llm_agent",
+    "tags": [
+        "vento"
+    ],
+    "visibility": [],
     "cards": [
         {
             "key": "action_1762627183357",
             "width": 3,
             "height": 18,
             "icon": "globe",
+            "method": "post",
             "name": "agent_input",
             "graphOrder": 1000,
             "description": "A job queue with a list of pending jobs and a current job",
             "type": "action",
             "editorOptions": {},
-            "method": "post",
             "displayResponse": true,
             "params": {
                 "item": "",
@@ -146,7 +150,7 @@
             "links": [],
             "color": "var(--color7)",
             "theme": "dark",
-            "domId": "896a44ec-880e-4a7f-9340-1a4766953c0e",
+            "domId": "2a8bbc00-c102-4290-8b54-1233eb799eb3",
             "cardState": {}
         },
         {
@@ -401,7 +405,7 @@
         "default": "/api/agents/v1/[object Object]/agent_input"
     },
     "version": 1,
-    "savedAt": 1763474768857,
+    "savedAt": 1763476243392,
     "rules": [
         "do a consolo.log that says goodbye"
     ]

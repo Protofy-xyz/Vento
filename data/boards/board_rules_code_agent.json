@@ -1,6 +1,6 @@
 {
     "name": "board_rules_code_agent",
-    "visibility": ["chat"],
+    "visibility": [],
     "tags": [ "vento" ],
     "cards": [
         {

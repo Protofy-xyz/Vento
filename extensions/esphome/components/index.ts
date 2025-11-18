@@ -1,3 +1,4 @@
+import { buildESPBoardComponents } from './boards'
 import {
   buildSwitchComponents,
   buildSwitchSubsystems,
@@ -31,6 +32,12 @@ export type ComponentBuilder = {
 }
 
 const builders: ComponentBuilder[] = [
+  {
+    key: 'esp32',
+    build: (config) => ({
+      components: buildESPBoardComponents(config),
+    }),
+  },
   {
     key: 'switch',
     build: (config, _context, templateContext) => ({
@@ -87,6 +94,7 @@ export {
   buildADXLTemplate,
   buildADS1115Template,
   buildADS1115Subsystems,
+  buildESPBoardComponents,
   deepClone,
   toNumberFromGpio,
 }

@@ -3,7 +3,14 @@ import React, { memo } from 'react'
 import { Handle, Position, type NodeProps } from 'reactflow'
 
 export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
-  const { id, label, pins = {}, editableProps = {}, side } = data
+  const {
+    id,
+    label,
+    pins = {},
+    editableProps = {},
+    side
+  } = data
+  const componentImage = data?.meta?.image?.src ?? null
   const leftPins = pins.left || []
   const rightPins = pins.right || []
   const editableEntries = Object.entries(editableProps)
@@ -36,22 +43,60 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
       animation="bouncy"
       scale={selected ? 1.02 : 1}
       borderRadius="$6"
+      padding={isCenter ? '$0' : '$2'}
       style={{
         width: isCenter ? 320 : 200,
         height: isCenter ? 480 : 'auto',
-        border: `2px solid ${borderColor}`,
+        border: `1px solid ${borderColor}`,
         backgroundColor: 'var(--bgPanel)',
         position: 'relative',
         display: 'flex',
         alignItems: isCenter ? 'center' : 'flex-start',
-        // justifyContent: 'center',
-        padding: isCenter ? 0 : 8,
       }}
     >
 
       {/* === ESP32 (sin cambios visuales) === */}
       {isCenter && (
-        <> {label || id}
+        <>
+          {componentImage && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 24,
+                zIndex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+              }}
+            >
+              <img
+                src={componentImage}
+                alt={label || id}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  ...(data?.meta?.image?.style ? data.meta.image.style : {})
+                }}
+              />
+            </div>
+          )}
+
+          <Text
+            fontSize="$5"
+            fontWeight="700"
+            style={{
+              position: 'relative',
+              zIndex: 2,
+              textAlign: 'center',
+              width: '100%',
+              marginTop: 12,
+              color: 'var(--color)',
+            }}
+          >
+            {label || id}
+          </Text>
 
           {/* LEFT PINS */}
           {leftPins.map((p: any, i: number) => {
@@ -142,16 +187,16 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
             {hasEditableProps && (
               <YStack maxWidth="100%" flex={1} gap="$2">
                 {editableEntries.map(([key, prop]: any) => (
-                  <YStack key={key} flex={1}>
-                    <Text fontSize="$2" color="$color" textAlign={leftPins.length > 0 ? 'center' : 'left'}>
-                      {prop.label || key}
-                    </Text>
-                    <TooltipSimple label={String(prop.default)} restMs={0} delay={{ open: 500, close: 0 }}>
+                  <TooltipSimple label={String(prop.default)} restMs={0} delay={{ open: 500, close: 0 }}>
+                    <YStack key={key} flex={1} backgroundColor="$bgContent" borderRadius="$5" padding="$2" gap="$1">
+                      <Text fontSize="$1" color="$gray9" textAlign={'left'}>
+                        {prop.label || key}
+                      </Text>
                       <Text
                         fontSize="$2"
                         fontWeight="300"
                         color="$color"
-                        textAlign={leftPins.length > 0 ? 'center' : 'left'}
+                        textAlign={'left'}
                         style={{
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -161,8 +206,8 @@ export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
                       >
                         {String(prop.default)}
                       </Text>
-                    </TooltipSimple>
-                  </YStack>
+                    </YStack>
+                  </TooltipSimple>
                 ))}
               </YStack>
             )}

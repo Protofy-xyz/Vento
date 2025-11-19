@@ -183,7 +183,7 @@ const Tabs = ({ tabs, boards, collapsed }: any) => {
     const shortedMatch = getShortestMatch(hrefList, pathname, searchParams);
 
     return (tabs ?
-        <YStack f={1}>
+        <YStack f={1} enterStyle={{ opacity: 0, top: -3 }} top={0} animation={"bouncy" as any}>
             {Object.keys(tabs).map((tab, index) => {
                 if (tabs[tab].length === undefined) {
                     const single = tabs[tab];

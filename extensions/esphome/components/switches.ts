@@ -82,11 +82,11 @@ export const buildSwitchTemplate = (
 ): ComponentTemplate => {
   const relayIndex = (context.componentCounts['switch'] || 0) + 1
   return {
-    label: 'Relé / Switch GPIO',
-    description: 'Crea un relé controlado por un pin digital.',
+    label: 'Relay / GPIO Switch',
+    description: 'Creates a relay controlled by a digital pin.',
     fields: [
-      { name: 'id', label: 'ID interno', type: 'text', required: true },
-      { name: 'label', label: 'Nombre visible', type: 'text' },
+      { name: 'id', label: 'Internal ID', type: 'text', required: true },
+      { name: 'label', label: 'Display name', type: 'text' },
       {
         name: 'pin',
         label: 'GPIO',
@@ -99,7 +99,7 @@ export const buildSwitchTemplate = (
         name: 'alwaysOn',
         label: 'Restore mode',
         type: 'boolean',
-        description: 'Mantiene el relé activado tras reinicio.',
+        description: 'Keeps the relay turned on after restart.',
       },
     ],
     defaults: {

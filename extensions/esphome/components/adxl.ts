@@ -37,13 +37,13 @@ export const buildADXLTemplate = (
   const firstBus = context.availableI2CBuses[0] || 'i2c_bus'
   return {
     label: 'Sensor ADXL345',
-    description: 'Sensor acelerómetro basado en bus I2C.',
+    description: 'I2C-based accelerometer sensor.',
     fields: [
-      { name: 'id', label: 'ID interno', type: 'text', required: true },
-      { name: 'label', label: 'Nombre visible', type: 'text' },
+      { name: 'id', label: 'Internal ID', type: 'text', required: true },
+      { name: 'label', label: 'Display name', type: 'text' },
       {
         name: 'i2c_id',
-        label: 'Bus I2C',
+        label: 'I2C bus',
         type: 'text',
         suggestions: context.availableI2CBuses,
         placeholder: firstBus,

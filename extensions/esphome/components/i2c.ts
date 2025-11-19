@@ -63,26 +63,26 @@ export const buildI2CTemplate = (
 ): ComponentTemplate => {
   const i2cBusIndex = (context.componentCounts['i2c-bus'] || 0) + 1
   return {
-    label: 'Bus I2C',
-    description: 'Crea un bus I2C con SDA/SCL y salida compartida.',
+    label: 'I2C Bus',
+    description: 'Creates an I2C bus with SDA/SCL and a shared output.',
     fields: [
-      { name: 'id', label: 'ID interno', type: 'text', required: true },
+      { name: 'id', label: 'Internal ID', type: 'text', required: true },
       {
         name: 'label',
-        label: 'Nombre visible',
+        label: 'Display name',
         type: 'text',
         placeholder: `I2C Bus ${i2cBusIndex}`,
       },
       {
         name: 'busId',
-        label: 'Nombre del bus (i2c_id)',
+        label: 'Bus name (i2c_id)',
         type: 'text',
         required: true,
         placeholder: `i2c_bus${i2cBusIndex}`,
       },
       {
         name: 'sda',
-        label: 'GPIO SDA',
+        label: 'SDA GPIO',
         type: 'text',
         required: true,
         placeholder: 'GPIO21',
@@ -90,7 +90,7 @@ export const buildI2CTemplate = (
       },
       {
         name: 'scl',
-        label: 'GPIO SCL',
+        label: 'SCL GPIO',
         type: 'text',
         required: true,
         placeholder: 'GPIO22',

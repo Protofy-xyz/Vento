@@ -59,13 +59,13 @@ export const buildUARTTemplate = (
   const uartIndex = (context.componentCounts['uart'] || 0) + 1
   return {
     label: 'UART',
-    description: 'Configura un bus UART con TX/RX.',
+    description: 'Configures a UART bus with TX/RX.',
     fields: [
-      { name: 'id', label: 'ID interno', type: 'text', required: true },
-      { name: 'label', label: 'Nombre visible', type: 'text' },
+      { name: 'id', label: 'Internal ID', type: 'text', required: true },
+      { name: 'label', label: 'Display name', type: 'text' },
       {
         name: 'tx_pin',
-        label: 'GPIO TX',
+        label: 'TX GPIO',
         type: 'text',
         required: true,
         placeholder: 'GPIO1',
@@ -73,7 +73,7 @@ export const buildUARTTemplate = (
       },
       {
         name: 'rx_pin',
-        label: 'GPIO RX',
+        label: 'RX GPIO',
         type: 'text',
         required: true,
         placeholder: 'GPIO3',

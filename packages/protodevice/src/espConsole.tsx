@@ -5,40 +5,45 @@ import { RefreshCcw, Download, Check } from '@tamagui/lucide-icons';
 import { resetDevice, downloadLogs } from "@extensions/esphome/utils";
 
 
-const ANSI_REGEX = /((?:\x1b|\u001b)\[[0-9;]*m)/g;
+const ANSI_REGEX = /((?:\x1b|\u001b)\[[0-9;]*)([a-zA-Z])/g;
+type Token = { style: string; text: string };
 
-function parseAnsiText(text) {
-    let tokens = [];
-    let currentStyle = 'ansiNormal';
+function parseAnsiText(text, initialStyle = 'ansiNormal') {
+    let tokens: Token[] = [];
+    let currentStyle = initialStyle;
     let lastIndex = 0;
-    let match;
+    let match: RegExpExecArray | null;
 
     while ((match = ANSI_REGEX.exec(text)) !== null) {
-        if (match.index > lastIndex) {
+        const [full, sequence, terminator] = match;
+        const matchIndex = match.index;
+
+        if (matchIndex > lastIndex) {
             tokens.push({
                 style: currentStyle,
-                text: text.substring(lastIndex, match.index),
+                text: text.substring(lastIndex, matchIndex),
             });
         }
-        const ansiCode = match[0];
 
-        if (/\x1b\[[0-9;]*0m/.test(ansiCode)) {
-            currentStyle = 'ansiNormal';
-        }
-        else if (/\x1b\[[0-9;]*31m/.test(ansiCode)) {
-            currentStyle = 'ansiRed';
-        } else if (/\x1b\[[0-9;]*32m/.test(ansiCode)) {
-            currentStyle = 'ansiGreen';
-        } else if (/\x1b\[[0-9;]*33m/.test(ansiCode)) {
-            currentStyle = 'ansiYellow';
-        } else if (/\x1b\[[0-9;]*34m/.test(ansiCode)) {
-            currentStyle = 'ansiBlue';
-        } else if (/\x1b\[[0-9;]*35m/.test(ansiCode)) {
-            currentStyle = 'ansiMagenta';
-        } else if (/\x1b\[[0-9;]*36m/.test(ansiCode)) {
-            currentStyle = 'ansiCyan';
-        } else if (/\x1b\[[0-9;]*37m/.test(ansiCode)) {
-            currentStyle = 'ansiWhite';
+        // Update style only if this is a color mode.
+        if (terminator === 'm') {
+            if (/0m$/.test(full)) {
+                currentStyle = 'ansiNormal';
+            } else if (/31m$/.test(full)) {
+                currentStyle = 'ansiRed';
+            } else if (/32m$/.test(full)) {
+                currentStyle = 'ansiGreen';
+            } else if (/33m$/.test(full)) {
+                currentStyle = 'ansiYellow';
+            } else if (/34m$/.test(full)) {
+                currentStyle = 'ansiBlue';
+            } else if (/35m$/.test(full)) {
+                currentStyle = 'ansiMagenta';
+            } else if (/36m$/.test(full)) {
+                currentStyle = 'ansiCyan';
+            } else if (/37m$/.test(full)) {
+                currentStyle = 'ansiWhite';
+            }
         }
 
         lastIndex = ANSI_REGEX.lastIndex;
@@ -50,7 +55,8 @@ function parseAnsiText(text) {
             text: text.substring(lastIndex),
         });
     }
-    return tokens;
+
+    return { tokens, endStyle: currentStyle };
 }
 
 const styleMap = {
@@ -86,28 +92,101 @@ function breakTokensIntoLines(tokens) {
 }
 
 export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset = true }) => {
-    const processedOutput = consoleOutput.replace(/\\x1b/g, "\x1b");
-    let tokens = parseAnsiText(processedOutput);
-
-    tokens = tokens.map(token => {
-        const trimmed = token.text.trim();
-        if (trimmed && /^[▂▄▆█\s]+$/.test(trimmed)) {
-            return { ...token, text: token.text.replace(/\n/g, '') };
-        }
-        return token;
-    });
-
     const scrollContainerRef = useRef(null);
     const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+    const [lineElements, setLineElements] = useState<React.ReactNode[]>([]);
+    const processedLengthRef = useRef(0);
+    const ansiCarryRef = useRef('');
+    const ansiStyleRef = useRef('ansiNormal');
+    const pendingLineRef = useRef<Token[]>([]);
+    const lineIdRef = useRef(0);
+
+    useEffect(() => {
+        if (consoleOutput !== '') return;
+        setLineElements([]);
+        processedLengthRef.current = 0;
+        ansiCarryRef.current = '';
+        ansiStyleRef.current = 'ansiNormal';
+        pendingLineRef.current = [];
+        lineIdRef.current = 0;
+    }, [consoleOutput]);
+
+    useEffect(() => {
+        if (consoleOutput.length <= processedLengthRef.current) return;
+
+        const chunk = consoleOutput.slice(processedLengthRef.current);
+        processedLengthRef.current = consoleOutput.length;
+
+        // Restore ANSI carry from previous chunk if needed
+        let parseTarget = ansiCarryRef.current + chunk;
+        ansiCarryRef.current = '';
+
+        if (!parseTarget) return;
+
+        // If chunk ends with an incomplete ANSI sequence, carry it over
+        const incompleteMatch = parseTarget.match(/(\x1b\[[0-9;]*)$/);
+        if (incompleteMatch && !/\x1b\[[0-9;]*m$/.test(parseTarget)) {
+            ansiCarryRef.current = incompleteMatch[1];
+            parseTarget = parseTarget.slice(0, -ansiCarryRef.current.length);
+        }
+
+        if (!parseTarget) return;
+
+        let normalizedTarget = parseTarget.replace(/\r\n?/g, '\n');
+        if (normalizedTarget.includes('\\x1b')) {
+            normalizedTarget = normalizedTarget.replace(/\\x1b/g, '\x1b');
+        }
+        const parsedResult = parseAnsiText(normalizedTarget, ansiStyleRef.current);
+        ansiStyleRef.current = parsedResult.endStyle;
+        let lines = breakTokensIntoLines(parsedResult.tokens);
+        if (pendingLineRef.current.length) {
+            if (lines.length) {
+                lines[0] = [...pendingLineRef.current, ...lines[0]];
+            } else {
+                lines = [[...pendingLineRef.current]];
+            }
+            pendingLineRef.current = [];
+        }
+
+        if (!lines.length) return;
+
+        const endsWithNewline = normalizedTarget.endsWith('\n') || normalizedTarget.endsWith('\r');
+        if (!endsWithNewline) {
+            const last = lines.pop();
+            pendingLineRef.current = last ? last : [];
+        }
+
+        const newElements = lines.map(lineTokens => {
+            const timestamp = new Date().toLocaleTimeString();
+            const key = lineIdRef.current++;
+            return (
+                <Paragraph
+                    key={key}
+                    fontFamily="Menlo, Courier, monospace"
+                    whiteSpace="pre-wrap"
+                    marginBottom={4}
+                >
+                    <Text style={{ color: '#F6F6F6' }} mr={"$2"}>
+                        [{timestamp}]
+                    </Text>
+                    {lineTokens.map((token, tokenIndex) => (
+                        <Text key={`${key}-${tokenIndex}`} style={styleMap[token.style]}>
+                            {token.text}
+                        </Text>
+                    ))}
+                </Paragraph>
+            );
+        });
+
+        setLineElements(prev => [...prev, ...newElements]);
+    }, [consoleOutput]);
 
     useEffect(() => {
         if (!autoScrollEnabled) return;
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
         }
-    }, [tokens, autoScrollEnabled]);
-
-    const lines = breakTokensIntoLines(tokens);
+    }, [lineElements, autoScrollEnabled]);
 
     return <YStack gap={"$2"} justifyContent="space-between" flex={1} >
         <XStack jc="flex-end">
@@ -134,26 +213,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
             flex={1}
             overflow="scroll"
         >
-            {lines.map((lineTokens, lineIndex) => {
-                const timestamp = new Date().toLocaleTimeString();
-                return (
-                    <Paragraph
-                        key={lineIndex}
-                        fontFamily="Menlo, Courier, monospace"
-                        whiteSpace="pre-wrap"
-                        marginBottom={4}
-                    >
-                        <Text style={{ color: '#F6F6F6' }} mr={"$2"}>
-                            [{timestamp}]
-                        </Text>
-                        {lineTokens.map((token, tokenIndex) => (
-                            <Text key={tokenIndex} style={styleMap[token.style]}>
-                                {token.text}
-                            </Text>
-                        ))}
-                    </Paragraph>
-                );
-            })}
+            {lineElements}
         </YStack>
         <XStack justifyContent="center" gap={"$4"} mt={"$6"}>
             <Button onPress={() => onCancel()}>Cancel</Button>

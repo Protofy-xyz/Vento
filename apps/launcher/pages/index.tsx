@@ -235,14 +235,6 @@ const MainView = () => {
     return "" + item.tag_name.replace('v', '')
   }) : []
 
-  const logoStyle = {
-    width: '200px',
-    paddingLeft: '6px',
-    filter: darkMode
-      ? 'invert(1)'
-      : 'invert(0)',
-    animation: 'float 6s ease-in-out infinite',
-  }
 
   console.log('versions', versions)
   return <YStack f={1}>
@@ -264,7 +256,7 @@ const MainView = () => {
         return false
       }}
       disableItemSelection={true}
-      title={<img style={{ width: "120px", filter: darkMode ? 'invert(1)' : 'invert(0)' }} src="/public/vento-logo.png" alt="Vento logo" />}
+      title={<img style={{ width: "80px", filter: darkMode ? 'invert(1)' : 'invert(0)' }} src="/public/vento-logo.png" alt="Vento logo" />}
       dataTableGridProps={{
         marginTop: '$10',
         getCard: (element: any, width: any) => {

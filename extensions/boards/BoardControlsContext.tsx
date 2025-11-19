@@ -57,16 +57,22 @@ export const BoardControlsProvider: React.FC<{
   const isValid = (m: string): m is Mode =>
     m === 'ui' || m === 'board' || m === 'graph' || m === 'json';
 
-  const [viewMode, setViewMode] = useState<Mode>(() => {
+  const readInitialMode = () => {
     if (typeof window !== 'undefined') {
       const h = (window.location.hash || '').slice(1);
-      if (isValid(h)) return h;
+      if (isValid(h)) return h as Mode;
+    }
+    const preferred = board?.settings?.uiPreferences?.viewMode;
+    if (preferred && isValid(preferred)) {
+      return preferred as Mode;
     }
     return 'graph';
-  });
+  };
+
+  const [viewMode, setViewMode] = useState<Mode>(readInitialMode);
 
   const userForcedRef = useRef(false);
-  const initedRef = useRef(false);
+  const hashReadyRef = useRef(false);
 
   const [panelSide, setPanelSide] = useState<PanelSide>(
     (board?.settings?.panelSide as PanelSide) || 'right'
@@ -75,18 +81,27 @@ export const BoardControlsProvider: React.FC<{
   const toggleJson = () => setIsJSONView(v => !v);
   const openAdd = () => setAddOpened(true);
 
-  useEffect(() => {
+  const getHashMode = () => {
+    if (typeof window === 'undefined') return null;
     const h = (window.location.hash || '').slice(1);
-    if (isValid(h)) {
-      setViewMode(h as Mode);
-      userForcedRef.current = true;
-    } else {
-      history.replaceState(null, '', `#${viewMode}`);
-    }
-    initedRef.current = true;
-  }, []);
+    return isValid(h) ? (h as Mode) : null;
+  };
 
   useEffect(() => {
+    if (!board?.name) return;
+    const hashMode = getHashMode();
+    if (hashMode) {
+      userForcedRef.current = true;
+      setViewMode(hashMode);
+    } else {
+      const preferred = board?.settings?.uiPreferences?.viewMode;
+      setViewMode(preferred && isValid(preferred) ? (preferred as Mode) : 'graph');
+    }
+    hashReadyRef.current = true;
+  }, [board?.name, board?.settings?.uiPreferences?.viewMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     const onHashChange = () => {
       const h = (window.location.hash || '').slice(1);
       if (isValid(h)) {
@@ -99,7 +114,7 @@ export const BoardControlsProvider: React.FC<{
   }, []);
 
   useEffect(() => {
-    if (!initedRef.current) return;
+    if (!hashReadyRef.current || typeof window === 'undefined') return;
     const current = (window.location.hash || '').slice(1);
     if (current !== viewMode) {
       history.replaceState(null, '', `#${viewMode}`);

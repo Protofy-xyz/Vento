@@ -9,7 +9,7 @@ import { DashboardGrid, gridSizes, getCurrentBreakPoint } from 'protolib/compone
 import { LogPanel } from 'protolib/components/LogPanel';
 import { AlertDialog } from 'protolib/components/AlertDialog';
 import { CenterCard, HTMLView } from '@extensions/services/widgets'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEffectOnce, useUpdateEffect } from 'usehooks-ts'
 import { Tinted } from 'protolib/components/Tinted'
 import { useProtoStates } from '@extensions/protomemdb/lib/useProtoStates'
@@ -43,6 +43,15 @@ import { GraphView } from './graphView'
 import { useEventEffect } from '@extensions/events/hooks'
 
 const defaultCardMethod: "post" | "get" = 'post'
+
+type BoardViewModePreference = 'ui' | 'board' | 'graph';
+type UIPreferences = {
+  viewMode?: BoardViewModePreference;
+  layer?: string;
+};
+
+const isUIPreferenceMode = (mode?: string): mode is BoardViewModePreference =>
+  mode === 'ui' || mode === 'board' || mode === 'graph';
 
 class ValidationError extends Error {
   errors: string[];
@@ -303,7 +312,8 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     window['board'] = board;
   }, [board])
 
-  const [, setLayers] = useLayers();
+  const [availableLayers, setLayers] = useLayers();
+  const [activeLayer, setActiveLayer] = useBoardLayer();
 
   useEffect(() => {
     const set = new Set<string>(["base"]);               // 👈 siempre incluimos base
@@ -398,6 +408,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
 
   const [boardVersion, setBoardVersion] = useBoardVersion()
   const { refresh } = useBoardVersions(board.name);
+  const boardRef = useRef(board)
 
   //@ts-ignore store the states in the window object to be used in the cards htmls
   window['protoStates'] = states
@@ -477,11 +488,47 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     boardRef.current.cards = items
   }, [items])
 
-  const boardRef = useRef(board)
-
   useEffect(() => {
     boardRef.current = board;
   }, [board]);
+
+  const touchUIPreferences = useCallback((): UIPreferences => {
+    const settings = boardRef.current.settings ?? (boardRef.current.settings = {});
+    if (!settings.uiPreferences) {
+      settings.uiPreferences = {};
+    }
+    return settings.uiPreferences as UIPreferences;
+  }, []);
+
+  useEffect(() => {
+    if (!board?.name) return;
+    const prefs = touchUIPreferences();
+    let dirty = false;
+
+    if (isUIPreferenceMode(viewMode) && prefs.viewMode !== viewMode) {
+      prefs.viewMode = viewMode;
+      dirty = true;
+    }
+
+    if (activeLayer && (prefs.layer ?? 'base') !== activeLayer) {
+      prefs.layer = activeLayer;
+      dirty = true;
+    }
+
+    if (dirty) {
+      saveBoard(board.name, boardRef.current, setBoardVersion, refresh, { bumpVersion: false });
+    }
+  }, [board?.name, viewMode, activeLayer, touchUIPreferences, refresh, setBoardVersion]);
+
+  useEffect(() => {
+    if (!board?.name) return;
+    const preferredLayer = board?.settings?.uiPreferences?.layer;
+    const targetLayer =
+      preferredLayer && availableLayers.includes(preferredLayer) ? preferredLayer : 'base';
+    if (activeLayer === targetLayer) return;
+    setActiveLayer(targetLayer);
+  }, [board?.name, board?.settings?.uiPreferences?.layer, availableLayers, activeLayer, setActiveLayer]);
+
 
   const deleteCard = async (card) => {
     const newItems = items.filter(item => item.key != card.key)
@@ -509,7 +556,6 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
 
   boardRef.current.layouts = layouts
 
-  const [activeLayer] = useBoardLayer();
   const addWidget = async (card) => {
     try {
       await checkCard(boardRef.current?.cards, card)

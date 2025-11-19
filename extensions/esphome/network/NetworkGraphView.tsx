@@ -160,6 +160,8 @@ export const NetworkGraphView = ({
     [components, selectedNodeId]
   )
 
+  const isBoardComponent = (component) => component?.center === true
+
   const componentSubsystems = useMemo(() => {
     if (!selectedComponent) return []
     const candidateIds = new Set<string>()
@@ -420,29 +422,33 @@ export const NetworkGraphView = ({
           }}
         >
           {/* <h3 style={{ marginTop: 0, marginBottom: 12 }}>Editor de nodo</h3> */}
-          {selectedComponent
-            ? <DeviceEditorPanel
-              selectedComponent={selectedComponent}
-              onLabelChange={handleLabelChange}
-              onEditablePropChange={handleEditablePropChange}
-              onPinFieldChange={handlePinFieldChange}
-              componentSubsystems={componentSubsystems}
-              subsystemActionStatus={subsystemActionStatus}
-              onSubsystemAction={handleSubsystemAction}
-              deviceName={deviceName}
-              connectionOptions={connectionOptions}
-            />
-            : <AddComponentForm
-              componentTemplates={componentTemplates}
-              newComponentType={newComponentType}
-              onComponentTypeChange={(value) => setNewComponentType(value)}
-              selectedTemplate={selectedTemplate}
-              mergedNewComponentValues={mergedNewComponentValues}
-              onFieldChange={handleNewComponentValueChange}
-              onAddComponent={handleAddComponent}
-              canAddComponent={canAddComponent}
-              connectionOptions={connectionOptions}
-            />}
+          {selectedComponent && !isBoardComponent(selectedComponent)
+            ? (
+              <DeviceEditorPanel
+                selectedComponent={selectedComponent}
+                onLabelChange={handleLabelChange}
+                onEditablePropChange={handleEditablePropChange}
+                onPinFieldChange={handlePinFieldChange}
+                componentSubsystems={componentSubsystems}
+                subsystemActionStatus={subsystemActionStatus}
+                onSubsystemAction={handleSubsystemAction}
+                deviceName={deviceName}
+                connectionOptions={connectionOptions}
+              />
+            )
+            : (
+              <AddComponentForm
+                componentTemplates={componentTemplates}
+                newComponentType={newComponentType}
+                onComponentTypeChange={(value) => setNewComponentType(value)}
+                selectedTemplate={selectedTemplate}
+                mergedNewComponentValues={mergedNewComponentValues}
+                onFieldChange={handleNewComponentValueChange}
+                onAddComponent={handleAddComponent}
+                canAddComponent={canAddComponent}
+                connectionOptions={connectionOptions}
+              />
+            )}
         </div>
       </div>
     </Tinted>

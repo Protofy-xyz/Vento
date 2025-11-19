@@ -181,7 +181,7 @@ module.exports = async function downloadDendrite(AdmZip, tar) {
         const dataDir = path.join(__dirname, '..', 'data', 'dendrite');
         const keyPath = path.join(dataDir, 'matrix_key.pem');
         if (!fs.existsSync(keyPath)) {
-            console.log('Generating matrix_key.pem for Dendrite...');
+            console.log('Generating matrix_key.pem for Dendrite... wait a minute.');
             try {
                 if (!fs.existsSync(dataDir)) {
                     fs.mkdirSync(dataDir, { recursive: true });
@@ -207,8 +207,6 @@ module.exports = async function downloadDendrite(AdmZip, tar) {
             console.error("Error reading Dendrite bin directory:", e);
         }
 
-        // Ensure script terminates
-        process.nextTick(() => process.exit(0));
     }
 
     return main().catch((err) => {

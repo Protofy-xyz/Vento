@@ -8,12 +8,13 @@ interface ZodExtensions {
     indexed(indexFn?: Function): this;
     groupIndex(groupName?: string, groupCode?: string): this;
     linkTo(getElements: Function, getId: Function, readIds: Function, displayKey?: string | Function, options?: { deleteOnCascade: boolean }): this;
+    relation(targetModel): this;
     label(caption: string): this;
     hint(hintText: string): this;
     synthesize(fn: Function): this;
     display(views?: string[] | undefined): this;
     columnWidth(width: number): this;
-    hidden(views?: Array<"list" | "sheet" | "preview" | "add" | "edit" >): this;
+    hidden(views?: Array<"list" | "sheet" | "preview" | "add" | "edit">): this;
     color(): this;
     textArea(height?: number): this;
     file({ initialPath, extensions }: { initialPath?: string, extensions?: string[] }): this;
@@ -66,7 +67,15 @@ declare module 'zod' {
 export const Schema = Zod.z
 // export const z = Zod.z
 // export const ZodError = Zod.ZodError;
-export * from 'zod'
+import { z } from "zod";
+export * from "zod";
+export { z };
+
+(z as any).relation = function relation(model: string) {
+    return z.object({
+        relationId: z.string()
+    }).relation(model);
+};
 
 const onEvent = (that, eventName: string, eventHandler: string, eventContext?: 'client' | 'server' | undefined, eventParams?: any) => {
     if (!that._def.events) {
@@ -104,6 +113,13 @@ function extendZodTypePrototype(type: any) {
         return this;
     };
 
+    type.prototype.relation = function (targetModel: string) {
+        this._def.relation = {
+            model: targetModel,
+        };
+        return this;
+    };
+
     type.prototype.synthesize = function (fn) {
         this._def.synthesize = fn;
         return this;
@@ -124,7 +140,7 @@ function extendZodTypePrototype(type: any) {
         this._def.coerce = true;
         return this;
     };
-    
+
     type.prototype.sequence = function () {
         this._def.sequence = true;
         return this;
@@ -180,7 +196,7 @@ function extendZodTypePrototype(type: any) {
         this._def.generateOptions = call
         return this;
     }
-    
+
     type.prototype.visible = function (fn) {
         this._def.visible = fn
         return this;
@@ -231,7 +247,7 @@ function extendZodTypePrototype(type: any) {
         this._def.color = true;
         return this;
     };
-    
+
     type.prototype.textArea = function (height: number = 300) {
         this._def.textArea = true;
         this._def.textAreaHeight = height;

@@ -7,6 +7,7 @@ import { XStack, Text, YStack, ToggleGroup, Label, Paragraph, Spinner, Input, Bu
 import { API } from 'protobase'
 import { Tinted } from 'protolib/components/Tinted';
 import { InputMultiple } from 'protolib/components/InputMultiple';
+import { SelectList } from 'protolib/components/SelectList';
 
 type KeysSchemaFieldProps = { path: string[], value: any, setValue: (value: any) => void, mode: string, formData: any }
 
@@ -48,7 +49,7 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     const [showModifiers, setShowModifiers] = useState("")
     const modifiersOptions = ["search", "static", "secret", "display", "textArea"]
     const allModifiers = ModifiersNames.options.map((o: any) => o.value) ?? []
-    const types = ["string", "number", "boolean", "array", "union"]
+    const types = ["string", "number", "boolean", "array", "union"] // , "relation"
 
     const hasModifier = (k: string, v: string) => data?.[k]?.modifiers?.some((m: any) => m.name === v) ?? false
 
@@ -72,6 +73,18 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
             }
             next[k] = updated
             setData(next)
+        },
+        [data, setData]
+    )
+
+    const setTypeParams = useCallback(
+        (key: string, params: any[]) => {
+            const _data = { ...data }
+            const prev = _data[key]
+            const updated: any = { ...prev, params }
+
+            _data[key] = updated
+            setData(_data)
         },
         [data, setData]
     )
@@ -119,6 +132,27 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     }
 
     const keys = useMemo(() => Object.keys(data || {}), [data])
+    const typeParams = {
+        "relation": (key) => {
+            const [models, setModels] = useState([])
+            useEffect(() => {
+                const fetch = async () => {
+                    let _models = (await API.get("/api/core/v1/objects")).data?.items?.map(obj => obj.name)
+                    setModels(_models)
+                }
+                fetch()
+            }, [])
+            return <SelectList
+                title="Model name"
+                placeholder="Select related object"
+                elements={models}
+                // 0 since type relation only has one param
+                // and slice to remove <"> at the start and the end
+                value={data?.[key]?.params?.[0]?.slice(1, -1)}
+                setValue={(v) => setTypeParams(key, [`"${v}"`])}
+            />
+        }
+    }
 
 
     const KeyRow = ({ k }: { k: string }) => {
@@ -191,7 +225,7 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
                                     {data[k]?.type || "string"}
                                 </Button>
                             </Popover.Trigger>
-                            <Popover.Content maxHeight={240} padding="$2" gap="$1" bc="$gray1" borderColor="$gray5" borderWidth={1}>
+                            <Popover.Content maxHeight={240} padding="$2" gap="$1" bc="$gray1" borderColor="$gray5" borderWidth={1} overflowY="scroll" >
                                 {types.map((typeOption) => (
                                     <Button
                                         key={typeOption}
@@ -240,7 +274,11 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
                         onPress={() => onDeleteKey(k)}
                     />
                 </XStack>
-
+                {
+                    typeParams[data[k].type]
+                        ? typeParams[data[k].type](k)
+                        : <></>
+                }
                 {showModifiers == k && (
                     <YStack p="$4" borderTopColor={"$gray6"} borderTopWidth={1} gap="$4">
                         {data[k]?.type === 'union' && (

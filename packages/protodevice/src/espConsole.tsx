@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { YStack, Paragraph, Text, XStack, Button, Checkbox } from '@my/ui';
 import { Tinted } from 'protolib/components/Tinted';
-import { RefreshCcw, Download, Check } from '@tamagui/lucide-icons';
+import { RefreshCcw, Download, Check, Trash2 } from '@tamagui/lucide-icons';
 import { resetDevice, downloadLogs } from "@extensions/esphome/utils";
 
 
@@ -222,6 +222,19 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
                     <Button icon={RefreshCcw} onPress={() => resetDevice()}>Reset device</Button>
                 )}
                 <Button icon={Download} onPress={() => downloadLogs(consoleOutput, deviceName)}>Download logs</Button>
+                <Button
+                    icon={Trash2}
+                    onPress={() => {
+                        setLineElements([]);
+                        processedLengthRef.current = consoleOutput.length;
+                        ansiCarryRef.current = '';
+                        ansiStyleRef.current = 'ansiNormal';
+                        pendingLineRef.current = [];
+                        lineIdRef.current = 0;
+                    }}
+                >
+                    Clear logs
+                </Button>
             </Tinted>
         </XStack>
     </YStack>

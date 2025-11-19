@@ -181,25 +181,32 @@ module.exports = async function downloadDendrite(AdmZip, tar) {
         const dataDir = path.join(__dirname, '..', 'data', 'dendrite');
         const keyPath = path.join(dataDir, 'matrix_key.pem');
         if (!fs.existsSync(keyPath)) {
-            console.log('Generating matrix_key.pem for Dendrite...');
-            if (!fs.existsSync(dataDir)) {
-                fs.mkdirSync(dataDir, { recursive: true });
-            }
-            //inside bin folder we have generate-keys or generate-keys.exe depending on the platform
-            const binDir = path.join(__dirname, '..', 'apps', 'dendrite', 'bin');
-            const generateKeysPath = process.platform === 'win32' ? path.join(binDir, 'generate-keys.exe') : path.join(binDir, 'generate-keys');
+            console.log('Generating matrix_key.pem for Dendrite... wait a minute.');
+            try {
+                if (!fs.existsSync(dataDir)) {
+                    fs.mkdirSync(dataDir, { recursive: true });
+                }
+                //inside bin folder we have generate-keys or generate-keys.exe depending on the platform
+                const binDir = path.join(__dirname, '..', 'apps', 'dendrite', 'bin');
+                const generateKeysPath = process.platform === 'win32' ? path.join(binDir, 'generate-keys.exe') : path.join(binDir, 'generate-keys');
 
-            //execute generate-keys with child_process
-            execSync(`"${generateKeysPath}" -private-key "${keyPath}"`, { stdio: 'inherit' });
-            console.log('matrix_key.pem has been generated.');
+                //execute generate-keys with child_process
+                execSync(`"${generateKeysPath}" -private-key "${keyPath}"`, { stdio: 'inherit' });
+                console.log('matrix_key.pem has been generated successfully.');
+            }catch (err) {
+                console.error('Error generating matrix_key.pem:', err);
+            }
         } else {
             console.log('matrix_key.pem already exists. Skipping generation.');
         }
+        console.log('Dendrite setup complete.');
+        try{
+            console.log("bin:", existsSync(binDir) ? readdirSync(binDir) : "NONE");
 
-        console.log("📁 bin:", existsSync(binDir) ? readdirSync(binDir) : "NONE");
+        }catch(e){
+            console.error("Error reading Dendrite bin directory:", e);
+        }
 
-        // Ensure script terminates
-        process.nextTick(() => process.exit(0));
     }
 
     return main().catch((err) => {

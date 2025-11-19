@@ -14,6 +14,7 @@ import { FilePicker } from "../FilePicker";
 import { Circle } from 'lucide-react'
 import { useRouter, useSearchParams, usePathname } from 'solito/navigation';
 import { FormInput } from "../FormInput";
+import { RelationComponent } from "./RelationComponent";
 
 export const getElement = ({ ele, icon, i, x, data, setData, mode, customFields = {}, path = [], inArray = false, arrayName = "", URLTransform = (url) => url }) => {
     let elementDef = {
@@ -22,7 +23,6 @@ export const getElement = ({ ele, icon, i, x, data, setData, mode, customFields 
     }
 
     const isStatic = elementDef.static || elementDef.id
-
     const setFormData = (key, value) => {
         const formData = data;
         let target = formData;
@@ -166,6 +166,24 @@ export const getElement = ({ ele, icon, i, x, data, setData, mode, customFields 
             }
         }
     } else if (elementType == 'ZodObject') {
+        if (elementDef.relation) {
+            return <RelationComponent
+                ele={ele}
+                elementDef={elementDef}
+                icon={icon}
+                path={path}
+                data={data}
+                setData={setData}
+                setFormData={setFormData}
+                mode={mode}
+                customFields={customFields}
+                inArray={inArray}
+                arrayName={arrayName}
+                getFormData={getFormData}
+                URLTransform={URLTransform}
+            />
+        }
+
         if (elementDef.linkTo) {
             return <FormElement ele={ele} icon={icon} i={i} inArray={inArray}>
                 {mode != 'preview' && <Stack f={1} t={"$-2"}>

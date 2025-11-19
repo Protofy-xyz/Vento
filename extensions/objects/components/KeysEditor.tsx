@@ -7,6 +7,7 @@ import { XStack, Text, YStack, ToggleGroup, Label, Paragraph, Spinner, Input, Bu
 import { API } from 'protobase'
 import { Tinted } from 'protolib/components/Tinted';
 import { InputMultiple } from 'protolib/components/InputMultiple';
+import { SelectList } from 'protolib/components/SelectList';
 
 type KeysSchemaFieldProps = { path: string[], value: any, setValue: (value: any) => void, mode: string, formData: any }
 
@@ -48,11 +49,12 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     const [showModifiers, setShowModifiers] = useState("")
     const modifiersOptions = ["search", "static", "secret", "display", "textArea"]
     const allModifiers = ModifiersNames.options.map((o: any) => o.value) ?? []
+    const types = ["string", "number", "boolean", "array", "union"] // , "relation"
 
     const hasModifier = (k: string, v: string) => data?.[k]?.modifiers?.some((m: any) => m.name === v) ?? false
 
     const setType = useCallback(
-        (k: string, v: "string" | "number" | "boolean" | "array" | "union") => {
+        (k: string, v: typeof types[number]) => {
             const next = { ...data }
             const prev = next[k]
             const updated: any = { ...prev, type: v }
@@ -71,6 +73,18 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
             }
             next[k] = updated
             setData(next)
+        },
+        [data, setData]
+    )
+
+    const setTypeParams = useCallback(
+        (key: string, params: any[]) => {
+            const _data = { ...data }
+            const prev = _data[key]
+            const updated: any = { ...prev, params }
+
+            _data[key] = updated
+            setData(_data)
         },
         [data, setData]
     )
@@ -118,6 +132,55 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     }
 
     const keys = useMemo(() => Object.keys(data || {}), [data])
+    const typeParams = {
+        "relation": (key) => {
+            const [models, setModels] = useState([])
+            const [fields, setFields] = useState([])
+
+            useEffect(() => {
+                const fetch = async () => {
+                    let _models = (await API.get("/api/core/v1/objects")).data?.items?.map(obj => obj.name)
+                    setModels(_models)
+                }
+                fetch()
+            }, [])
+
+            useEffect(() => {
+                const fetch = async (model) => {
+                    let _fieldsObj = (await API.get("/api/core/v1/objects/" + model + "Model")).data?.keys
+                    let _fields = Object.keys(_fieldsObj ?? {})
+                    setFields(_fields)
+                }
+
+                const model = data?.[key]?.params?.[0]?.slice(1, -1)
+                if (model) {
+                    fetch(model)
+                }
+            }, [data?.[key]?.params])
+
+            return <YStack px="$2" gap="$2">
+                <Text ml="$2" color="$gray11" fontSize="$3">Relation params</Text>
+                <XStack gap="$4">
+                    <SelectList
+                        title="Model name"
+                        placeholder="Select related object"
+                        elements={models}
+                        // index 0 is the model
+                        value={data?.[key]?.params?.[0]?.slice(1, -1)}
+                        setValue={(v) => setTypeParams(key, [`"${v}"`, data?.[key]?.params?.[1]])}
+                    />
+                    <SelectList
+                        title="Display field"
+                        placeholder="Select the display field of the relation"
+                        elements={fields}
+                        // index 1 is the display field
+                        value={data?.[key]?.params?.[1]?.slice(1, -1)}
+                        setValue={(v) => setTypeParams(key, [data?.[key]?.params?.[0], `"${v}"`])}
+                    />
+                </XStack>
+            </YStack>
+        }
+    }
 
 
     const KeyRow = ({ k }: { k: string }) => {
@@ -125,7 +188,7 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
         const isId = hasModifier(k, "id")
         const isOptional = hasModifier(k, "optional")
         const [isHovered, setIsHovered] = useState(false)
-        const isEditableType = ["string", "number", "boolean", "array", "union"].includes(data[k]?.type)
+        const isEditableType = types.includes(data[k]?.type)
 
         const commitName = () => {
             if (draftName.trim() && draftName !== k) renameKey(k, draftName)
@@ -190,12 +253,12 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
                                     {data[k]?.type || "string"}
                                 </Button>
                             </Popover.Trigger>
-                            <Popover.Content maxHeight={240} padding="$2" gap="$1" bc="$gray1" borderColor="$gray5" borderWidth={1}>
-                                {["string", "number", "boolean", "array", "union"].map((typeOption) => (
+                            <Popover.Content maxHeight={240} padding="$2" gap="$1" bc="$gray1" borderColor="$gray5" borderWidth={1} overflowY="scroll" >
+                                {types.map((typeOption) => (
                                     <Button
                                         key={typeOption}
                                         onPress={() => {
-                                            setType(k, typeOption as "string" | "number" | "boolean" | "array" | "union")
+                                            setType(k, typeOption)
                                             setShowModifiers("")
                                         }}
                                         backgroundColor={data[k]?.type === typeOption ? "$color2" : "transparent"}
@@ -239,7 +302,11 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
                         onPress={() => onDeleteKey(k)}
                     />
                 </XStack>
-
+                {
+                    typeParams[data[k].type]
+                        ? typeParams[data[k].type](k)
+                        : <></>
+                }
                 {showModifiers == k && (
                     <YStack p="$4" borderTopColor={"$gray6"} borderTopWidth={1} gap="$4">
                         {data[k]?.type === 'union' && (

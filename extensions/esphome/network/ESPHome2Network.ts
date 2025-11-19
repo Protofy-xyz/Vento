@@ -132,92 +132,11 @@ const parseYaml = (yamlText: any) => {
         return null;
     }
 
-    // -----------------------------
-    // ESP32/ESP32-S3 pinout definitions
-    // -----------------------------
-    const espBoards = {
-        wroom32: {
-            id: "ESP32",
-            label: "ESP32-WROOM-32",
-            pins: {
-                left: [
-                    "3V3", "GND", "EN",
-                    "GPIO36", "GPIO39", "GPIO34", "GPIO35",
-                    "GPIO32", "GPIO33", "GPIO25", "GPIO26"
-                ],
-                right: [
-                    "GPIO27", "GPIO14", "GPIO12", "GPIO13",
-                    "GPIO23", "GPIO22", "GPIO1_TX", "GPIO3_RX",
-                    "GPIO21_SDA", "GPIO22_SCL"
-                ]
-            }
-        },
-        esp32s3_devkitc_1: {
-            id: "ESP32S3",
-            label: "ESP32-S3-DevKitC-1",
-            pins: {
-                // Esto es un ejemplo simplificado para el editor,
-                // no el pinout completo oficial.
-                left: [
-                    "3V3", "GND", "EN",
-                    "GPIO1", "GPIO2", "GPIO3", "GPIO4",
-                    "GPIO5", "GPIO6", "GPIO7", "GPIO8",
-                    "GPIO9", "GPIO10", "GPIO11", "GPIO12",
-                    "GPIO13", "GPIO14", "GPIO15"
-                ],
-                right: [
-                    "GPIO16", "GPIO17", "GPIO18", "GPIO19",
-                    "GPIO20", "GPIO21",
-                    "GPIO38", "GPIO39", "GPIO40", "GPIO41"
-                ]
-            }
-        }
-    };
-
-    const mapPins = (arr: string[]) =>
-        arr.map(name => ({
-            name,
-            type: name.startsWith("GPIO") ? "gpio" : "power"
-        }));
-
-    // ----------------------------------
-    // Detectar la placa a partir del YAML
-    // ----------------------------------
-    const esp32Config = config.esp32 || {};
-    const boardName: string = esp32Config.board || "";
-    const variant: string = esp32Config.variant || "";
-
-    let boardDef = espBoards.wroom32; // default
-
-    if (variant === "esp32s3" || boardName.includes("esp32-s3-devkitc-1")) {
-        boardDef = espBoards.esp32s3_devkitc_1;
-    }
-
     // ----------------------------------
     // Start building schematic
     // ----------------------------------
     let components: any[] = [];
     let subsystems: any[] = [];
-
-    // ESP32 / ESP32-S3 Component
-    components.push({
-        type: "device",
-        id: boardDef.id,
-        label: boardDef.label,
-        category: "esp-board",
-        meta: {
-            kind: "esp-board",
-            raw: {
-                board: boardName,
-                variant
-            }
-        },
-        center: true,
-        pins: {
-            left: mapPins(boardDef.pins.left),
-            right: mapPins(boardDef.pins.right)
-        }
-    });
 
     // ----------------------------------
     // SWITCH → RELAY

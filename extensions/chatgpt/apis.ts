@@ -95,12 +95,14 @@ export default (app, context) => {
                     "files": {
                         "visible": true,
                         "defaultValue": "",
-                        "type": "path"
+                        "type": "path",
+                        "multiple": true
                     },
                     "images": {
                         "visible": true,
                         "defaultValue": "",
-                        "type": "path"
+                        "type": "path",
+                        "multiple": true
                     }
                 },
                 markdownDisplay: true

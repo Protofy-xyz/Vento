@@ -1,6 +1,5 @@
 {
   "name": "launcher",
-  "version": "0.1.5",
   "private": true,
   "scripts": {
     "prepare-dev": "node prepare.js",

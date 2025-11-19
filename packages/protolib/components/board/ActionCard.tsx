@@ -342,8 +342,8 @@ export const ParamsForm = ({ data, children }) => {
 
                                     {type === "path" && (
                                         <FilePicker
-                                            allowMultiple={true}
-                                            mx="10px"
+                                            allowMultiple={typeof cfg.multiple === "boolean" ? cfg.multiple : true}
+                                            file={value}
                                             initialPath={"/data/public"}
                                             onFileChange={(filePath) => {
                                                 setParam(key, filePath);

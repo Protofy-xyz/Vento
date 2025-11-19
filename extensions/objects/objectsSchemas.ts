@@ -42,7 +42,8 @@ export const BaseObjectSchema = z.object({
         z.literal("object"),
         z.literal("record"),
         z.literal("union"),
-        z.literal("date")
+        z.literal("date"), 
+        z.literal("relation")
       ]),
       params: z.array(z.string()).optional(),
       modifiers: z.array(z.object({

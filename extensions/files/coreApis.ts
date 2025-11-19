@@ -35,7 +35,8 @@ export default async (app, context) => {
                 "path": {
                     "visible": true,
                     "defaultValue": "",
-                    "type": "path"
+                    "type": "path",
+                    "multiple": false
                 },
             },
             rulesCode: "return await execute_action(\"/api/core/v1/directories\", userParams)",
@@ -74,7 +75,8 @@ export default async (app, context) => {
                 "path": {
                     "visible": true,
                     "defaultValue": "",
-                    "type": "path"
+                    "type": "path",
+                    "multiple": false
                 },
             },
             rulesCode: `return await execute_action("/api/core/v1/files", userParams)`,
@@ -102,7 +104,7 @@ export default async (app, context) => {
         id: 'download',
         templateName: 'Download File from URL',
         name: 'files_url_download',
-        defaults: {
+            defaults: {
             width: 2,
             height: 9,
             type: "action",
@@ -113,7 +115,8 @@ export default async (app, context) => {
                 "path": {
                     "visible": true,
                     "defaultValue": "",
-                    "type": "path"
+                    "type": "path",
+                    "multiple": false
                 },
                 "url": {
                     "visible": true,
@@ -153,7 +156,8 @@ export default async (app, context) => {
                 "path": {
                     "visible": true,
                     "defaultValue": "",
-                    "type": "path"
+                    "type": "path",
+                    "multiple": false
                 }
             },
             "rulesCode": "return {\n    type: 'file',\n    path: params.path\n}",

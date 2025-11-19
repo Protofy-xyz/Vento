@@ -73,7 +73,9 @@ export { z };
 
 (z as any).relation = function relation(model: string, displayField: string) {
     return z.object({
-        relationId: z.string()
+        relationId: z.string(), 
+        model: z.string(), 
+        displayField: z.string()
     }).relation(model, displayField);
 };
 

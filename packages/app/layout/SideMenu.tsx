@@ -5,15 +5,17 @@ export const SideMenu = (props) => {
     const themeName = useThemeName()
 
     return <ProtoSideMenu
-        logo={<Image
-            key={themeName}
-            style={{ filter: themeName?.startsWith("dark") ? "invert(70%) brightness(10)" : "invert(5%)" }}
-            src={"/public/vento-logo.png"}
-            alt="Logo"
-            width={90}
-            height={30}
-            resizeMode='contain'
-        />}
+        logo={<YStack height={30} enterStyle={{ opacity: 0, rotate: '-3deg' }} top={0} animation={"bouncy" as any}>
+            <Image
+                key={themeName}
+                style={{ filter: themeName?.startsWith("dark") ? "invert(70%) brightness(10)" : "invert(5%)" }}
+                src={"/public/vento-logo.png"}
+                alt="Logo"
+                width={90}
+                height={30}
+                resizeMode='contain'
+            />
+        </YStack>}
         collapsedLogo={<Image
             key={themeName}
             style={{ filter: themeName?.startsWith("dark") ? "invert(70%) brightness(10)" : "invert(5%)" }}

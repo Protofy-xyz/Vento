@@ -8,7 +8,7 @@ interface ZodExtensions {
     indexed(indexFn?: Function): this;
     groupIndex(groupName?: string, groupCode?: string): this;
     linkTo(getElements: Function, getId: Function, readIds: Function, displayKey?: string | Function, options?: { deleteOnCascade: boolean }): this;
-    relation(targetModel): this;
+    relation(targetModel, displayField): this;
     label(caption: string): this;
     hint(hintText: string): this;
     synthesize(fn: Function): this;
@@ -71,10 +71,10 @@ import { z } from "zod";
 export * from "zod";
 export { z };
 
-(z as any).relation = function relation(model: string) {
+(z as any).relation = function relation(model: string, displayField: string) {
     return z.object({
         relationId: z.string()
-    }).relation(model);
+    }).relation(model, displayField);
 };
 
 const onEvent = (that, eventName: string, eventHandler: string, eventContext?: 'client' | 'server' | undefined, eventParams?: any) => {
@@ -113,9 +113,10 @@ function extendZodTypePrototype(type: any) {
         return this;
     };
 
-    type.prototype.relation = function (targetModel: string) {
+    type.prototype.relation = function (targetModel: string, displayField: string) {
         this._def.relation = {
             model: targetModel,
+            displayField: displayField,
         };
         return this;
     };

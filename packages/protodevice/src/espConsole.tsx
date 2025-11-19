@@ -91,6 +91,22 @@ function breakTokensIntoLines(tokens) {
     return lines;
 }
 
+const formatTimestamp = () => {
+    const date = new Date();
+    try {
+        return date.toLocaleTimeString(undefined, {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            fractionalSecondDigits: 3,
+        } as Intl.DateTimeFormatOptions & { fractionalSecondDigits?: number });
+    } catch {
+        const pad = (value, size = 2) => value.toString().padStart(size, '0');
+        return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+    }
+};
+
 export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset = true, disconnectInfo = null }) => {
     const scrollContainerRef = useRef(null);
     const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
@@ -158,7 +174,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
             pendingLineRef.current = last ? last : [];
         }
 
-        const timestamp = new Date().toLocaleTimeString();
+        const timestamp = formatTimestamp();
         const newElements = lines.map(lineTokens => {
             const key = lineIdRef.current++;
             return (

@@ -67,20 +67,20 @@ export const buildADS1115Template = (
   const firstBus = context.availableI2CBuses[0] || 'i2c_bus'
   return {
     label: 'ADC ADS1115',
-    description: 'Convertidor analógico a digital vía I2C.',
+    description: 'Analog-to-digital converter over I2C.',
     fields: [
-      { name: 'id', label: 'ID interno', type: 'text', required: true },
-      { name: 'label', label: 'Nombre visible', type: 'text' },
+      { name: 'id', label: 'Internal ID', type: 'text', required: true },
+      { name: 'label', label: 'Display name', type: 'text' },
       {
         name: 'i2c_id',
-        label: 'Bus I2C',
+        label: 'I2C bus',
         type: 'text',
         suggestions: context.availableI2CBuses,
         placeholder: firstBus,
       },
       {
         name: 'address',
-        label: 'Dirección I2C',
+        label: 'I2C address',
         type: 'text',
         placeholder: '0x48',
       },

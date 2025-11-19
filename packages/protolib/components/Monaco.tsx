@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Editor, { EditorProps, useMonaco, loader } from '@monaco-editor/react';
 import useKeypress from 'react-use-keypress';
 import { useThemeSetting } from '@tamagui/next-theme';
 import { useTheme } from '@my/ui';
 import { useTint } from '../lib/Tints'
 import { Tinted } from './Tinted'
-import { useEffect } from 'react';
 import convert from 'color-convert';
 
 // loader.config({
@@ -119,6 +118,7 @@ export const Monaco = ({
     autofocus = false,
     ...props
 }: Props & EditorProps) => {
+    const { options, ...restProps } = props;
     const { resolvedTheme } = useThemeSetting();
     const monaco = useMonaco();
     const customThemeName = 'myCustomTheme';
@@ -144,6 +144,16 @@ export const Monaco = ({
             ],
             colors: {
                 'editor.background': '#ffffff00',
+                'editorStickyScroll.background': resolvedTheme === 'dark'
+                    ? '#151517' // some neutral dark
+                    : '#F8F8F8', // some neutral light
+
+                'editorStickyScrollHover.background': resolvedTheme === 'dark'
+                    ? '#1E1E20'
+                    : '#F0F0F0',
+                'editorStickyScroll.border': resolvedTheme === 'dark'
+                    ? '#333335'
+                    : '#d0d0d0',
                 ...colors
             }
         });
@@ -167,7 +177,29 @@ export const Monaco = ({
         }
         
         onLoad(monaco);
-    }, [monaco, resolvedTheme, tokenColor, lightTokenColor]);
+    }, [monaco, resolvedTheme, tokenColor, lightTokenColor, theme]);
+
+    const editorOptions = useMemo(() => {
+        const defaultOptions = {
+            minimap: { enabled: false },
+            stickyScroll: { enabled: true },
+        };
+
+        const providedOptions = options ?? {};
+
+        return {
+            ...defaultOptions,
+            ...providedOptions,
+            minimap: {
+                ...defaultOptions.minimap,
+                ...(providedOptions.minimap ?? {}),
+            },
+            stickyScroll: {
+                ...defaultOptions.stickyScroll,
+                ...(providedOptions.stickyScroll ?? {}),
+            },
+        };
+    }, [options]);
 
     const handleEditorDidMount = (editor, monaco) => {
 
@@ -219,7 +251,8 @@ export const Monaco = ({
             value={sourceCode}
             onChange={onChange}
             defaultLanguage={extensionToLang[ext]}
-            {...props}
+            options={editorOptions}
+            {...restProps}
         /></Tinted>
     );
 };

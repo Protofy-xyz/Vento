@@ -2,8 +2,9 @@ import { FlowsViewer } from '@extensions/files/intents'
 import { loadEsphomeHelpers } from './utils'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml';
 import ESPHomeDiagram from './network/ESPHomeDiagram';
+import { Cpu } from '@tamagui/lucide-icons';
 
-const DIAGRAM_VISIBLE = false
+const DIAGRAM_VISIBLE = true
 
 export default ({ ...props }: any) => {
 
@@ -42,7 +43,7 @@ export default ({ ...props }: any) => {
                         id: "esphome",
                         content: (data) => {
                             return <ESPHomeDiagram yaml={data.code} setCode={data.setCode} />
-                        }, title: "Esphome Helpers", icon: () => <div>ESP Home</div>
+                        }, title: "Esphome Helpers", icon: () => <Cpu color="var(--color)" size={"$1"}/>
                     },
                 ]
             } : {}

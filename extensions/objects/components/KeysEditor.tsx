@@ -135,6 +135,8 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     const typeParams = {
         "relation": (key) => {
             const [models, setModels] = useState([])
+            const [fields, setFields] = useState([])
+
             useEffect(() => {
                 const fetch = async () => {
                     let _models = (await API.get("/api/core/v1/objects")).data?.items?.map(obj => obj.name)
@@ -142,15 +144,41 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
                 }
                 fetch()
             }, [])
-            return <SelectList
-                title="Model name"
-                placeholder="Select related object"
-                elements={models}
-                // 0 since type relation only has one param
-                // and slice to remove <"> at the start and the end
-                value={data?.[key]?.params?.[0]?.slice(1, -1)}
-                setValue={(v) => setTypeParams(key, [`"${v}"`])}
-            />
+
+            useEffect(() => {
+                const fetch = async (model) => {
+                    let _fieldsObj = (await API.get("/api/core/v1/objects/" + model + "Model")).data?.keys
+                    let _fields = Object.keys(_fieldsObj ?? {})
+                    setFields(_fields)
+                }
+
+                const model = data?.[key]?.params?.[0]?.slice(1, -1)
+                if (model) {
+                    fetch(model)
+                }
+            }, [data?.[key]?.params])
+
+            return <YStack px="$2" gap="$2">
+                <Text ml="$2" color="$gray11" fontSize="$3">Relation params</Text>
+                <XStack gap="$4">
+                    <SelectList
+                        title="Model name"
+                        placeholder="Select related object"
+                        elements={models}
+                        // index 0 is the model
+                        value={data?.[key]?.params?.[0]?.slice(1, -1)}
+                        setValue={(v) => setTypeParams(key, [`"${v}"`, data?.[key]?.params?.[1]])}
+                    />
+                    <SelectList
+                        title="Display field"
+                        placeholder="Select the display field of the relation"
+                        elements={fields}
+                        // index 1 is the display field
+                        value={data?.[key]?.params?.[1]?.slice(1, -1)}
+                        setValue={(v) => setTypeParams(key, [data?.[key]?.params?.[0], `"${v}"`])}
+                    />
+                </XStack>
+            </YStack>
         }
     }
 

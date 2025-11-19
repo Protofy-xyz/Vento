@@ -51,9 +51,9 @@ function CardMenuItem({ icon: Icon, label, onPress, iconColor }: CardMenuItemPro
 }
 
 function CardMenu({ disabled, options }: { disabled?: boolean, options: CardMenuItemProps[] }) {
-  return <Popover allowFlip>
+  return <Popover  allowFlip>
     <Popover.Trigger disabled={disabled}>
-      <InteractiveIcon IconColor="var(--color)" Icon={MoreVertical} opacity={disabled ? 0.3 : 1} />
+      <InteractiveIcon cursor={disabled ? 'not-allowed' : 'pointer'} IconColor="var(--color)" Icon={MoreVertical} opacity={disabled ? 0.3 : 1} />
     </Popover.Trigger>
     <Popover.Content left={"$7"} top={"$2"} bw={1} boc={"$borderColor"} bc={"var(--bgContent)"} >
       <Popover.Arrow borderWidth={1} boc="$gray4" />
@@ -70,13 +70,14 @@ function CardMenu({ disabled, options }: { disabled?: boolean, options: CardMenu
   </Popover>
 }
 
-function CardElement({ element, onDeleted }: any) {
+function CardElement({ element, onDeleted, busyProjectName, setBusyProjectName }: any) {
   const toast = useToastController()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [openError, setOpenError] = useState<string | null>(null)
   const [isRunning, setIsRunning] = useState(false)
+  const isOtherProjectBusy = !!busyProjectName && busyProjectName !== element.name
 
   useEffect(() => {
     if (element.status !== 'downloaded') {
@@ -101,6 +102,7 @@ function CardElement({ element, onDeleted }: any) {
     if (isDeleting) return;
     setDeleteError(null);
     setIsDeleting(true);
+    setBusyProjectName?.(element.name);
     try {
       const res = await fetch(`app://localhost/api/v1/projects/${element.name}/delete`);
       if (!res.ok) {
@@ -113,6 +115,7 @@ function CardElement({ element, onDeleted }: any) {
     } catch (err: any) {
       setDeleteError(err?.message || 'Delete failed');
     } finally {
+      setBusyProjectName?.(null);
       setIsDeleting(false);
     }
   };
@@ -141,23 +144,30 @@ function CardElement({ element, onDeleted }: any) {
   }
 
   return (
-    <YStack borderRadius={10} p="$4" jc="center" cursor="auto" backgroundColor="$bgContent">
-      <XStack f={1} ai="center">
+    <YStack
+      borderRadius={10}
+      p="$4"
+      jc="center"
+      backgroundColor="$bgContent"
+      opacity={isOtherProjectBusy ? 0.5 : 1}
+      cursor={isOtherProjectBusy ? "not-allowed" : "pointer"}
+    >
+      <XStack pointerEvents={isOtherProjectBusy ? 'none' : 'auto'} f={1} ai="center">
         <Paragraph f={1} style={{ color: 'var(--color)', fontSize: '14px', fontWeight: '600' }} numberOfLines={1} ellipsizeMode="tail">
           {element.name}
         </Paragraph>
         <CardMenu
-          disabled={isDeleting || isDownloading || isRunning}
+          disabled={isDeleting || isDownloading || isRunning || isOtherProjectBusy}
           options={[
             { icon: Trash2, iconColor: "$red8", label: "Delete", onPress: handleDelete },
             ...(element.status === "downloaded" ? [{ icon: FolderOpen, label: "Open Folder", onPress: handleOpenFolder }] : [])
           ]}
         />
       </XStack>
-      <Paragraph style={{ color: 'var(--color)', fontSize: '10px' }}>
+      <Paragraph pointerEvents='none' style={{ color: 'var(--color)', fontSize: '10px' }}>
         v: {element.version}
       </Paragraph>
-      <XStack h={"$3"} ai="center" jc="flex-end">
+      <XStack pointerEvents={isOtherProjectBusy ? 'none' : 'auto'} h={"$3"} ai="center" jc="flex-end">
         {(element.status == 'downloaded' && !isDeleting && !isRunning)
           && <XStack>
             <Tinted>
@@ -174,10 +184,12 @@ function CardElement({ element, onDeleted }: any) {
           && <Tinted>
             <InteractiveIcon size={20} IconColor="var(--color8)" Icon={Download} onPress={async () => {
               setIsDownloading(true)
+              setBusyProjectName?.(element.name);
               try {
                 const url = 'app://localhost/api/v1/projects/' + element.name + '/download'
                 await fetch(url)
               } catch (error) { }
+              setBusyProjectName?.(null);
               setIsDownloading(false)
             }} />
           </Tinted>
@@ -208,6 +220,7 @@ const objModel = ProtoModel.getClassFromDefinition(obj)
 const MainView = () => {
   const [reload, setReload] = useState(0)
   const [addOpened, setAddOpened] = useState(false)
+  const [busyProjectName, setBusyProjectName] = useState<string | null>(null)
   const [result, loading, error] = useFetch('https://api.github.com/repos/Protofy-xyz/Vento/releases', null, true)
   const { resolvedTheme } = useThemeSetting()
   const darkMode = resolvedTheme === 'dark'
@@ -260,7 +273,12 @@ const MainView = () => {
       dataTableGridProps={{
         marginTop: '$10',
         getCard: (element: any, width: any) => {
-          return <CardElement element={element} onDeleted={() => setReload((r) => r + 1)} />
+          return <CardElement
+            element={element}
+            onDeleted={() => setReload((r) => r + 1)}
+            busyProjectName={busyProjectName}
+            setBusyProjectName={setBusyProjectName}
+          />
         },
         emptyMessage: <ErrorMessage
           icon={Bird}

@@ -51,7 +51,7 @@ function CardMenuItem({ icon: Icon, label, onPress, iconColor }: CardMenuItemPro
 }
 
 function CardMenu({ disabled, options }: { disabled?: boolean, options: CardMenuItemProps[] }) {
-  return <Popover  allowFlip>
+  return <Popover allowFlip>
     <Popover.Trigger disabled={disabled}>
       <InteractiveIcon cursor={disabled ? 'not-allowed' : 'pointer'} IconColor="var(--color)" Icon={MoreVertical} opacity={disabled ? 0.3 : 1} />
     </Popover.Trigger>
@@ -70,18 +70,33 @@ function CardMenu({ disabled, options }: { disabled?: boolean, options: CardMenu
   </Popover>
 }
 
-function CardElement({ element, onDeleted, busyProjectName, setBusyProjectName }: any) {
+function CardElement({ element }: any) {
   const toast = useToastController()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [openError, setOpenError] = useState<string | null>(null)
   const [isRunning, setIsRunning] = useState(false)
-  const isOtherProjectBusy = !!busyProjectName && busyProjectName !== element.name
+  const isOtherProjectBusy = false
 
   useEffect(() => {
     if (element.status !== 'downloaded') {
       setOpenError(null);
+    }
+  }, [element.status]);
+
+  useEffect(() => {
+    if (element.status === 'downloading') {
+      setIsDownloading(true);
+    }
+    if (element.status === 'downloaded' || element.status === 'error') {
+      setIsDownloading(false);
+    }
+  }, [element.status]);
+
+  useEffect(() => {
+    if (element.status === 'deleted') {
+      setIsDeleting(false);
     }
   }, [element.status]);
 
@@ -102,20 +117,15 @@ function CardElement({ element, onDeleted, busyProjectName, setBusyProjectName }
     if (isDeleting) return;
     setDeleteError(null);
     setIsDeleting(true);
-    setBusyProjectName?.(element.name);
     try {
       const res = await fetch(`app://localhost/api/v1/projects/${element.name}/delete`);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw new Error(text || `Delete failed with status ${res.status}`);
       }
-      // Force refresh of the list if no status event arrives
-      onDeleted?.();
       return;
     } catch (err: any) {
       setDeleteError(err?.message || 'Delete failed');
-    } finally {
-      setBusyProjectName?.(null);
       setIsDeleting(false);
     }
   };
@@ -149,10 +159,10 @@ function CardElement({ element, onDeleted, busyProjectName, setBusyProjectName }
       p="$4"
       jc="center"
       backgroundColor="$bgContent"
-      opacity={isOtherProjectBusy ? 0.5 : 1}
-      cursor={isOtherProjectBusy ? "not-allowed" : "pointer"}
+      opacity={1}
+      cursor="pointer"
     >
-      <XStack pointerEvents={isOtherProjectBusy ? 'none' : 'auto'} f={1} ai="center">
+      <XStack pointerEvents="auto" f={1} ai="center">
         <Paragraph f={1} style={{ color: 'var(--color)', fontSize: '14px', fontWeight: '600' }} numberOfLines={1} ellipsizeMode="tail">
           {element.name}
         </Paragraph>
@@ -167,7 +177,7 @@ function CardElement({ element, onDeleted, busyProjectName, setBusyProjectName }
       <Paragraph pointerEvents='none' style={{ color: 'var(--color)', fontSize: '10px' }}>
         v: {element.version}
       </Paragraph>
-      <XStack pointerEvents={isOtherProjectBusy ? 'none' : 'auto'} h={"$3"} ai="center" jc="flex-end">
+      <XStack pointerEvents="auto" h={"$3"} ai="center" jc="flex-end">
         {(element.status == 'downloaded' && !isDeleting && !isRunning)
           && <XStack>
             <Tinted>
@@ -184,13 +194,18 @@ function CardElement({ element, onDeleted, busyProjectName, setBusyProjectName }
           && <Tinted>
             <InteractiveIcon size={20} IconColor="var(--color8)" Icon={Download} onPress={async () => {
               setIsDownloading(true)
-              setBusyProjectName?.(element.name);
               try {
                 const url = 'app://localhost/api/v1/projects/' + element.name + '/download'
-                await fetch(url)
-              } catch (error) { }
-              setBusyProjectName?.(null);
-              setIsDownloading(false)
+                const res = await fetch(url)
+                if (!res.ok) {
+                  const text = await res.text().catch(() => '')
+                  setIsDownloading(false)
+                  setDeleteError(text || `Download failed with status ${res.status}`)
+                }
+              } catch (error: any) {
+                setIsDownloading(false)
+                setDeleteError(error?.message || 'Download failed')
+              }
             }} />
           </Tinted>
         }
@@ -220,7 +235,7 @@ const objModel = ProtoModel.getClassFromDefinition(obj)
 const MainView = () => {
   const [reload, setReload] = useState(0)
   const [addOpened, setAddOpened] = useState(false)
-  const [busyProjectName, setBusyProjectName] = useState<string | null>(null)
+  const [statusByName, setStatusByName] = useState<Record<string, string>>({})
   const [result, loading, error] = useFetch('https://api.github.com/repos/Protofy-xyz/Vento/releases', null, true)
   const { resolvedTheme } = useThemeSetting()
   const darkMode = resolvedTheme === 'dark'
@@ -231,10 +246,7 @@ const MainView = () => {
     if (!api?.onProjectStatus) return;
 
     const handler = ({ name, status }: { name: string; status: string }) => {
-      // simple approach: any status change triggers a refresh of the list
-      if (['downloaded', 'error', 'deleted'].includes(status)) {
-        setReload((r) => r + 1);
-      }
+      setStatusByName((prev) => ({ ...prev, [name]: status }));
     };
 
     api.onProjectStatus(handler);
@@ -273,11 +285,10 @@ const MainView = () => {
       dataTableGridProps={{
         marginTop: '$10',
         getCard: (element: any, width: any) => {
+          const effectiveStatus = statusByName[element.name] ?? element.status
+          if (effectiveStatus === 'deleted') return null
           return <CardElement
-            element={element}
-            onDeleted={() => setReload((r) => r + 1)}
-            busyProjectName={busyProjectName}
-            setBusyProjectName={setBusyProjectName}
+            element={{ ...element, status: effectiveStatus }}
           />
         },
         emptyMessage: <ErrorMessage
@@ -311,9 +322,6 @@ const MainView = () => {
           .after('name')
           .defaultValue(
             "latest")
-        // versions
-        //   .filter((v: any) => v !== "latest")
-        //   .sort((a: any, b: any) => semver.rcompare(semver.coerce(a)!, semver.coerce(b)!))[0]) // highest version
       }}
     />
   </YStack>

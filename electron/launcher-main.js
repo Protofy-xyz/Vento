@@ -1,8 +1,8 @@
-const { app, BrowserWindow, protocol, session, ipcMain, shell, dialog, systemPreferences } = require('electron');
+const { app, BrowserWindow, protocol, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Readable } = require('stream');
-const { spawnSync } = require('child_process');
+const { spawnSync, fork } = require('child_process');
 
 const isDev = process.argv.includes('--ui-dev');
 const PROJECTS_DIR = path.join(app.getPath('userData'), 'vento-projects');
@@ -119,27 +119,6 @@ const respond = ({ statusCode = 200, data = Buffer.from(""), mimeType = "text/pl
   return new Response(data, { status: statusCode, headers })
 }
 
-const cameraPermission = async () => {
-  const status = systemPreferences.getMediaAccessStatus('camera'); // 'not-determined' | 'granted' | 'denied' | 'restricted'
-  await dialog.showErrorBox("CameraPermission", `Status: ${status}`)
-  if (status === 'not-determined') {
-    const granted = await systemPreferences.askForMediaAccess('camera');
-    return { status: granted ? 'granted' : 'denied' };
-  }
-  if (status === 'denied' || status === 'restricted') {
-    // opcional: abre Preferencias si está denegado
-    try {
-      // Electron tiene openSystemPreferences en macOS; si no, abre la URL
-      if (systemPreferences.openSystemPreferences) {
-        await systemPreferences.openSystemPreferences('security', 'Privacy_Camera');
-      } else {
-        shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera');
-      }
-    } catch { }
-    return { status };
-  }
-  return { status }; // 'granted'
-}
 
 app.whenReady().then(async () => {
   protocol.handle('app', async (request) => {
@@ -169,72 +148,43 @@ app.whenReady().then(async () => {
       const match = pathname.match(/^\/api\/v1\/projects\/([^\/]+)\/download$/);
       const projectName = match?.[1];
 
+      // start background worker and return quickly so the UI stays responsive
       try {
-        // read project to get version
         const projects = readProjects();
         const project = projects.find(p => p.name === projectName);
         if (!project) {
           return respond({ statusCode: 404, data: Buffer.from('Project not found') });
         }
 
-        // >>> ADD: mark JSON status
-        // updateProjectStatus(projectName, 'downloading');
+        updateProjectStatus(projectName, 'downloading');
 
-        // get zip url from github (keep your code, or apply your 'stable→latest' tweak if you want)
-        const url = 'https://api.github.com/repos/Protofy-xyz/Vento/releases/tags/' + (project.version == 'latest' ? 'latest' : 'v' + project.version);
-        const response = await fetch(url);
-        const data = await response.json();
-        const zipBallUrl = data?.assets[0]?.browser_download_url;
-        if (!zipBallUrl) {
-          return respond({ statusCode: 404, data: Buffer.from('Release not found') });
-        }
+        const workerPath = path.join(__dirname, 'launcher-download-worker.js');
+        const child = fork(workerPath, [PROJECTS_DIR, projectName, String(project.version || '')], {
+          stdio: 'inherit',
+        });
 
-        // download the zip file to PROJECTS_DIR
-        const zipFilePath = path.join(PROJECTS_DIR, `${projectName}.zip`);
-        const zipResponse = await fetch(zipBallUrl);
-        if (!zipResponse.ok) {
-          return respond({ statusCode: zipResponse.status, data: Buffer.from('Failed to download project zip') });
-        }
-        const arrayBuffer = await zipResponse.arrayBuffer();
-        const zipBuffer = Buffer.from(arrayBuffer);
-        fs.writeFileSync(zipFilePath, zipBuffer);
-        console.log('Project downloaded:', zipFilePath);
+        child.on('exit', (code) => {
+          if (code === 0) {
+            updateProjectStatus(projectName, 'downloaded');
+          } else {
+            updateProjectStatus(projectName, 'error');
+          }
+        });
 
-        // extract the zip file
-        const AdmZip = require('adm-zip');
-        const zip = new AdmZip(zipFilePath);
-        const projectFolderPath = path.join(PROJECTS_DIR, projectName);
-        zip.extractAllTo(projectFolderPath, true);
-        console.log('Project extracted to:', projectFolderPath);
-        fs.unlinkSync(zipFilePath);
-        console.log('Zip file removed:', zipFilePath);
-
-        // run scripts
-        const removeDevModeScript = path.join(projectFolderPath, 'scripts', 'removeDevMode.js');
-        require(removeDevModeScript);
-        console.log('removeDevMode script executed');
-
-        const downloadBinariesScript = path.join(projectFolderPath, 'scripts', 'download-bins.js');
-        await require(downloadBinariesScript)(AdmZip, require('tar'));
-        console.log('download-bins script executed');
-
-        const downloadDendriteScript = path.join(projectFolderPath, 'scripts', 'download-dendrite.js');
-        await require(downloadDendriteScript)(AdmZip, require('tar'));
-        console.log('download-dendrite script executed');
-
-        // >>> ADD: mark JSON status
-        updateProjectStatus(projectName, 'downloaded');
+        child.on('error', (err) => {
+          console.error('Download worker error:', err);
+          updateProjectStatus(projectName, 'error');
+        });
 
         return respond({
           mimeType: 'application/json',
-          data: Buffer.from(JSON.stringify({ success: true, message: 'done' }))
+          data: Buffer.from(JSON.stringify({ success: true, message: 'Download started' }))
         });
       } catch (err) {
-        console.error('Download failed:', err);
-        // >>> ADD: mark JSON status
+        console.error('Download failed to start:', err);
         updateProjectStatus(projectName, 'error');
 
-        return respond({ statusCode: 500, data: Buffer.from('Failed to download project') });
+        return respond({ statusCode: 500, data: Buffer.from('Failed to start project download') });
       }
     } else if (
       request.method === 'GET' &&
@@ -249,9 +199,17 @@ app.whenReady().then(async () => {
         writeProjects(updatedProjects);
         const projectPath = path.join(PROJECTS_DIR, projectName);
         if (fs.existsSync(projectPath)) {
-          fs.rmSync(projectPath, { recursive: true, force: true });
+          // delete folder asynchronously to avoid blocking the main process
+          fs.rm(projectPath, { recursive: true, force: true }, (err) => {
+            if (err) {
+              console.error('Failed to delete project folder:', err);
+              return;
+            }
+            notifyProjectStatus(projectName, 'deleted');
+            console.log('Project deleted:', projectPath);
+          });
+        } else {
           notifyProjectStatus(projectName, 'deleted');
-          console.log('Project deleted:', projectPath);
         }
         return respond({
           mimeType: 'application/json',

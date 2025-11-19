@@ -95,6 +95,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
     const scrollContainerRef = useRef(null);
     const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
     const [lineElements, setLineElements] = useState<React.ReactNode[]>([]);
+    const [plainLines, setPlainLines] = useState<string[]>([]);
     const processedLengthRef = useRef(0);
     const ansiCarryRef = useRef('');
     const ansiStyleRef = useRef('ansiNormal');
@@ -104,6 +105,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
     useEffect(() => {
         if (consoleOutput !== '') return;
         setLineElements([]);
+        setPlainLines([]);
         processedLengthRef.current = 0;
         ansiCarryRef.current = '';
         ansiStyleRef.current = 'ansiNormal';
@@ -156,8 +158,8 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
             pendingLineRef.current = last ? last : [];
         }
 
+        const timestamp = new Date().toLocaleTimeString();
         const newElements = lines.map(lineTokens => {
-            const timestamp = new Date().toLocaleTimeString();
             const key = lineIdRef.current++;
             return (
                 <Paragraph
@@ -179,6 +181,12 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
         });
 
         setLineElements(prev => [...prev, ...newElements]);
+        setPlainLines(prev => [
+            ...prev,
+            ...lines.map(lineTokens =>
+                `[${timestamp}] ${lineTokens.map(t => t.text).join('')}`
+            )
+        ]);
     }, [consoleOutput]);
 
     useEffect(() => {
@@ -221,11 +229,17 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
                 {showReset && (
                     <Button icon={RefreshCcw} onPress={() => resetDevice()}>Reset device</Button>
                 )}
-                <Button icon={Download} onPress={() => downloadLogs(consoleOutput, deviceName)}>Download logs</Button>
+                <Button
+                    icon={Download}
+                    onPress={() => downloadLogs(plainLines.join('\n'), deviceName)}
+                >
+                    Download logs
+                </Button>
                 <Button
                     icon={Trash2}
                     onPress={() => {
                         setLineElements([]);
+                        setPlainLines([]);
                         processedLengthRef.current = consoleOutput.length;
                         ansiCarryRef.current = '';
                         ansiStyleRef.current = 'ansiNormal';

@@ -7,7 +7,7 @@ import { API } from 'protobase'
 import { SelectList } from "../../components/SelectList";
 
 export const RelationComponent = ({ ele, elementDef, icon, path, data, setData, setFormData, mode, customFields, inArray, arrayName, getFormData, URLTransform }) => {
-  const [instances, setInstances] = useState([])
+  const [instances, setInstances] = useState({})
   const model = elementDef?.relation?.model
   const displayField = elementDef?.relation?.displayField
   if (!model) return <p>Model not found in relation</p>
@@ -21,14 +21,19 @@ export const RelationComponent = ({ ele, elementDef, icon, path, data, setData, 
         return foundModifierId ? true : false
       }) ?? "id" // fallback to key "id"
 
-      let _instances = (await API.get("/api/v1/" + model)).data?.items?.map(obj => {
-        // print model ID or selectedDisplayField
+      // instances is a map where "display field" or "id"
+      // are set as keys and are related to the original 
+      // instance value as id
+      let _instancesList = (await API.get("/api/v1/" + model)).data?.items
+      let _instances = {}
+      _instancesList.forEach(obj => {
+        let key = id
         if (displayField && obj[displayField]) {
-          return obj[displayField]
-        } 
-        return obj[id]
-      }).filter(v => v)
-      console.log("id: ", id, _instances)
+          key = obj[displayField]
+        }
+        _instances[key] = obj[id]
+      })
+
       setInstances(_instances)
     }
     fetch()
@@ -38,9 +43,9 @@ export const RelationComponent = ({ ele, elementDef, icon, path, data, setData, 
     <SelectList
       title="Model name"
       placeholder="Select related object"
-      elements={instances}
+      elements={Object.keys(instances)}
       value={data?.[ele?.name]?.["relationId"] ?? "default"}
-      setValue={(v) => setFormData(ele.name, { relationId: v })}
+      setValue={(k) => setFormData(ele.name, { relationId: instances[k], model, displayField: displayField ?? "id" })}
     />
   </FormElement>
 }

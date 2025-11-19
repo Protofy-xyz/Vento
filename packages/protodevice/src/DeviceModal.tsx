@@ -53,6 +53,7 @@ const DeviceModal = ({
   compileSessionId,
   onSelectAction,
   logSource, // 'mqtt' | 'usb' | null | undefined
+  disconnectInfo,
 }) => {    
     const [fullscreen, setFullscreen] = useState(false);
     const [manifestUrl, setManifestUrl] = useState(null)
@@ -144,6 +145,7 @@ const DeviceModal = ({
                         setFullscreen(false)
                     }}
                     showReset={logSource === 'usb'}
+                    disconnectInfo={disconnectInfo}
                 />
                 : <YStack>
                     <YStack justifyContent="center" flex={1} gap={"$2"}>

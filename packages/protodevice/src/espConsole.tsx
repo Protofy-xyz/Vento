@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { YStack, Paragraph, Text, XStack, Button, Checkbox } from '@my/ui';
 import { Tinted } from 'protolib/components/Tinted';
-import { RefreshCcw, Download, Check, Trash2 } from '@tamagui/lucide-icons';
+import { RefreshCcw, Download, Check, Trash2, AlertTriangle } from '@tamagui/lucide-icons';
 import { resetDevice, downloadLogs } from "@extensions/esphome/utils";
 
 
@@ -91,7 +91,7 @@ function breakTokensIntoLines(tokens) {
     return lines;
 }
 
-export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset = true }) => {
+export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset = true, disconnectInfo = null }) => {
     const scrollContainerRef = useRef(null);
     const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
     const [lineElements, setLineElements] = useState<React.ReactNode[]>([]);
@@ -197,7 +197,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
     }, [lineElements, autoScrollEnabled]);
 
     return <YStack gap={"$2"} justifyContent="space-between" flex={1} >
-        <XStack jc="flex-end">
+        <XStack jc="space-between" ai="center">
             <XStack ai="center" gap="$2">
                 <Text color="$color10" fontSize="$2">
                     Autoscroll
@@ -212,6 +212,23 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
                     </Checkbox.Indicator>
                 </Checkbox>
             </XStack>
+            {disconnectInfo && (
+                <Tinted>
+                    <XStack
+                        ai="center"
+                        gap="$2"
+                        px="$3"
+                        py="$1"
+                        br="$2"
+                        backgroundColor="$red3"
+                    >
+                        <AlertTriangle size={14} color="$red10" />
+                        <Text color="$red10" fontSize="$2">
+                            {disconnectInfo.message}
+                        </Text>
+                    </XStack>
+                </Tinted>
+            )}
         </XStack>
         <YStack
             ref={scrollContainerRef}

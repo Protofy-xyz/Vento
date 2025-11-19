@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from 'next/router';
 import { BookOpen, Tag, Router, Wrench } from '@tamagui/lucide-icons';
 import { DevicesModel } from './devicesSchemas';
@@ -169,6 +169,20 @@ export default {
     const [logSourceChooserOpen, setLogSourceChooserOpen] = useState(false);
     const [logSource, setLogSource] = useState<null | 'mqtt' | 'usb'>(null);
     const [currentDeviceHasMqtt, setCurrentDeviceHasMqtt] = useState(false);
+    const [deviceOnline, setDeviceOnline] = useState(false);
+    const [deviceDisconnectInfo, setDeviceDisconnectInfo] = useState<null | { source: 'usb' | 'mqtt'; message: string }>(null);
+
+    const setDeviceDisconnected = useCallback((source: 'usb' | 'mqtt', customMessage?: string) => {
+      setDeviceDisconnectInfo(prev => {
+        const message = customMessage || (source === 'usb' ? 'USB device disconnected' : 'Device is offline');
+        if (prev?.source === source && prev?.message === message) return prev;
+        return { source, message };
+      });
+    }, []);
+
+    const clearDeviceDisconnect = useCallback(() => {
+      setDeviceDisconnectInfo(null);
+    }, []);
 
     const hasMqttSubsystem = (subs: any): boolean => {
       if (!subs) return false;
@@ -362,6 +376,8 @@ export default {
         return;
       }
 
+      clearDeviceDisconnect();
+
       // Prevent multiple readers
       if (isReadingRef.current || readerRef.current) {
         console.warn('Already reading from port');
@@ -389,7 +405,12 @@ export default {
 
         while (isReadingRef.current) {
           const { value, done } = await reader.read();
-          if (done) break;
+          if (done) {
+            if (isReadingRef.current) {
+              setDeviceDisconnected('usb', 'Device disconnected from USB');
+            }
+            break;
+          }
           if (value) {
             setConsoleOutput(prev => prev + decoder.decode(value));
           }
@@ -397,6 +418,9 @@ export default {
       } catch (err) {
         // Will often be a DOMException: "The device has been lost" or "readable stream is locked"
         console.error('Error reading from port:', err);
+        if (isReadingRef.current) {
+          setDeviceDisconnected('usb', 'Device disconnected from USB');
+        }
       } finally {
         // Reader cleanup (don’t close the port here; do it in stopConsole)
         try {
@@ -434,6 +458,7 @@ export default {
         console.warn('Error closing port:', e);
       } finally {
         setPort(null);
+        clearDeviceDisconnect();
       }
     };
 
@@ -442,6 +467,12 @@ export default {
       if (stage !== 'console') return;
       return () => { stopConsole(); }; // cleanup when stage changes away from console
     }, [stage]);
+
+    useEffect(() => {
+      if (stage !== 'console') {
+        clearDeviceDisconnect();
+      }
+    }, [stage, clearDeviceDisconnect]);
 
     useEffect(() => {
       const processStage = async () => {
@@ -473,6 +504,10 @@ export default {
       : [];
 
     const { message: mqttLogMessage } = useSubscription(mqttDebugTopic);
+    const mqttStatusTopic = targetDeviceName
+      ? [`devices/${targetDeviceName}/status`]
+      : [];
+    const { message: mqttStatusMessage } = useSubscription(mqttStatusTopic);
 
     useEffect(() => {
       if (logSource !== 'mqtt') return;
@@ -505,6 +540,29 @@ export default {
         setConsoleOutput(prev => (prev || '') + '\n' + String(raw) + '\n');
       }
     }, [mqttLogMessage, logSource]);
+
+    useEffect(() => {
+      if (!targetDeviceName) return;
+      const raw = mqttStatusMessage?.message;
+      if (!raw) return;
+      if(raw == undefined) return;
+      try {
+        const text =
+          typeof raw === 'string'
+            ? raw
+            : raw.toString?.() ?? String(raw);
+        const normalized = text.trim().toLowerCase();
+        if (normalized === 'offline') {
+          setDeviceOnline(false);
+          setDeviceDisconnected('mqtt', 'Device went offline');
+        } else if (normalized === 'online') {
+          setDeviceOnline(true);
+          clearDeviceDisconnect();
+        }
+      } catch {
+        // ignore parsing issues
+      }
+    }, [mqttStatusMessage, targetDeviceName, setDeviceDisconnected, clearDeviceDisconnect]);
 
     // ===== Actions =====
     const extraMenuActions = [
@@ -541,6 +599,7 @@ export default {
         action: async (element) => {
           setTargetDeviceName(element.data.name)
           setTargetDeviceModel(element)
+          clearDeviceDisconnect()
           setLogsRequested(true)
           setConsoleOutput('')
 
@@ -628,6 +687,7 @@ export default {
     ]
     const chooseLogsSource = async (source: 'mqtt' | 'usb') => {
       setLogSourceChooserOpen(false);
+      clearDeviceDisconnect();
 
       if (source === 'usb') {
         // Try to open the port BEFORE opening the modal
@@ -696,11 +756,13 @@ export default {
           showModal={showModal}
           selectedDevice={targetDeviceModel}
           compileSessionId={compileSessionId}
+          disconnectInfo={deviceDisconnectInfo}
           onSelectAction={(next) => {
             if (next === 'console') {
               // Force USB logs, assume port is already connected
               setConsoleOutput('');
               setLogSource('usb');
+              clearDeviceDisconnect();
 
               if (!port) {
                 // Guard just in case the port isn't actually set
@@ -872,9 +934,20 @@ export default {
             </Paragraph>
             <YStack gap="$2" mt="$2">
               {currentDeviceHasMqtt && (
-                <Button onPress={() => chooseLogsSource('mqtt')}>
-                  MQTT
-                </Button>
+                <YStack gap="$1">
+                  <Button
+                    onPress={() => chooseLogsSource('mqtt')}
+                    disabled={!deviceOnline}
+                    opacity={!deviceOnline ? 0.6 : 1}
+                  >
+                    MQTT
+                  </Button>
+                  {!deviceOnline && (
+                    <Paragraph ta="center" size="$2" color="$red10">
+                      Device offline. Please wait for it to reconnect.
+                    </Paragraph>
+                  )}
+                </YStack>
               )}
               <Button onPress={() => chooseLogsSource('usb')}>
                 USB

@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Editor, { EditorProps, useMonaco, loader } from '@monaco-editor/react';
 import useKeypress from 'react-use-keypress';
 import { useThemeSetting } from '@tamagui/next-theme';
 import { useTheme } from '@my/ui';
 import { useTint } from '../lib/Tints'
 import { Tinted } from './Tinted'
-import { useEffect } from 'react';
 import convert from 'color-convert';
 
 // loader.config({
@@ -119,6 +118,7 @@ export const Monaco = ({
     autofocus = false,
     ...props
 }: Props & EditorProps) => {
+    const { options, ...restProps } = props;
     const { resolvedTheme } = useThemeSetting();
     const monaco = useMonaco();
     const customThemeName = 'myCustomTheme';
@@ -168,6 +168,25 @@ export const Monaco = ({
         
         onLoad(monaco);
     }, [monaco, resolvedTheme, tokenColor, lightTokenColor]);
+
+    const editorOptions = useMemo(() => {
+        const defaultOptions = {
+            minimap: { enabled: false },
+        };
+
+        if (!options) {
+            return defaultOptions;
+        }
+
+        return {
+            ...defaultOptions,
+            ...options,
+            minimap: {
+                ...defaultOptions.minimap,
+                ...(options.minimap ?? {}),
+            },
+        };
+    }, [options]);
 
     const handleEditorDidMount = (editor, monaco) => {
 
@@ -219,7 +238,8 @@ export const Monaco = ({
             value={sourceCode}
             onChange={onChange}
             defaultLanguage={extensionToLang[ext]}
-            {...props}
+            options={editorOptions}
+            {...restProps}
         /></Tinted>
     );
 };

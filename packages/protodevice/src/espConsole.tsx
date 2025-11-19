@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react';
-import { YStack, Paragraph, Text, XStack, Button } from '@my/ui';
+import React, { useRef, useEffect, useState } from 'react';
+import { YStack, Paragraph, Text, XStack, Button, Checkbox } from '@my/ui';
 import { Tinted } from 'protolib/components/Tinted';
-import { RefreshCcw, Download } from '@tamagui/lucide-icons';
+import { RefreshCcw, Download, Check } from '@tamagui/lucide-icons';
 import { resetDevice, downloadLogs } from "@extensions/esphome/utils";
 
 
@@ -98,16 +98,34 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
     });
 
     const scrollContainerRef = useRef(null);
+    const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 
     useEffect(() => {
+        if (!autoScrollEnabled) return;
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
         }
-    }, [tokens]);
+    }, [tokens, autoScrollEnabled]);
 
     const lines = breakTokensIntoLines(tokens);
 
-    return <YStack gap={"$6"} justifyContent="space-between" flex={1} >
+    return <YStack gap={"$2"} justifyContent="space-between" flex={1} >
+        <XStack jc="flex-end">
+            <XStack ai="center" gap="$2">
+                <Text color="$color10" fontSize="$2">
+                    Autoscroll
+                </Text>
+                <Checkbox
+                    checked={autoScrollEnabled}
+                    onCheckedChange={(val) => setAutoScrollEnabled(!!val)}
+                    aria-label="Toggle autoscroll"
+                >
+                    <Checkbox.Indicator>
+                        <Check size={14} />
+                    </Checkbox.Indicator>
+                </Checkbox>
+            </XStack>
+        </XStack>
         <YStack
             ref={scrollContainerRef}
             backgroundColor="#1f1f1f"
@@ -137,7 +155,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
                 );
             })}
         </YStack>
-        <XStack justifyContent="center" gap={"$4"}>
+        <XStack justifyContent="center" gap={"$4"} mt={"$6"}>
             <Button onPress={() => onCancel()}>Cancel</Button>
             <Tinted>
                 {showReset && (

@@ -5,10 +5,25 @@ import { manifest } from "protodevice/src/manifest";
 
 import { CompletionsHandler } from "./esphomeEditor/completions-handler";
 import { DefinitionHandler } from "./esphomeEditor/definition-handler";
-import { fromMonacoPosition } from "./esphomeEditor/editor-shims";
+import { fromMonacoPosition, setSchemaVersion } from "./esphomeEditor/editor-shims";
 import { ESPHomeDocuments } from "./esphomeEditor/esphome-document";
 import { HoverHandler } from "./esphomeEditor/hover-handler";
 import { TextBuffer } from "./esphomeEditor/utils/text-buffer";
+const debounce = (func: Function, wait: number) => {
+    let timeout: number | null;
+    return function () {
+        // @ts-ignore
+        let context = this,
+            args = arguments;
+        let later = function () {
+            timeout = null;
+            func.apply(context, args);
+        };
+        clearTimeout(timeout!);
+        // @ts-ignore
+        timeout = setTimeout(later, wait);
+    };
+};
 
 export let port;
 
@@ -993,7 +1008,219 @@ export const loadEsphomeHelpers = (monaco) => {
                 ],
             },
         });
-
-
+        initEsphomeMonacoValidation(monaco);
     }
+};
+
+// ---- ESPhome Monaco validation over websocket ----
+const ESPHOME_ACE_WS_URL = "wss://compile.protofy.xyz/esphome/ace";
+const WS_OPEN = 1;
+const WS_CLOSED = 3;
+
+function initEsphomeMonacoValidation(monaco: any) {
+    let ws: WebSocket | null = null;
+    let lastValidatedModelUri: string | null = null;
+
+    const resolveEsphomeModel = () => {
+        if (lastValidatedModelUri) {
+            const existingModel = monaco.editor
+                .getModels()
+                .find((m: any) => m.uri.toString() === lastValidatedModelUri);
+            if (existingModel) {
+                return existingModel;
+            }
+        }
+        return monaco.editor.getModels().find((m: any) => {
+            const lang = m.getLanguageId ? m.getLanguageId() : m.getModeId?.();
+            return lang === "esphome";
+        });
+    };
+
+    const clearEsphomeMarkers = () => {
+        const model = resolveEsphomeModel();
+        if (!model) {
+            return;
+        }
+        monaco.editor.setModelMarkers(model, "esphome", []);
+    };
+
+    const ensureSocket = () => {
+        if (ws && ws.readyState !== WS_CLOSED) {
+            return;
+        }
+
+        ws = new WebSocket(ESPHOME_ACE_WS_URL);
+
+        ws.addEventListener("open", () => {
+            // On connection send {"type":"spawn"}
+            try {
+                const msg = JSON.stringify({ type: "spawn" });
+                ws!.send(msg);
+            } catch (err) {
+                console.error("[ESPHome Monaco] failed to send spawn", err);
+            }
+        });
+
+        ws.addEventListener("message", (event) => {
+            try {
+                const raw = JSON.parse(event.data);
+                if (raw.event !== "line") {
+                    return;
+                }
+
+                const msg = JSON.parse(raw.data);
+
+                if (msg.type === "version") {
+                    setSchemaVersion(msg.value);
+                    return;
+                }
+
+                if (msg.type !== "result") {
+                    return;
+                }
+
+                const markers: any[] = [];
+
+                const validationErrors = (msg.validation_errors ?? []).slice().reverse();
+                const yamlErrors = msg.yaml_errors ?? [];
+
+                for (const v of validationErrors) {
+                    const marker: any = {
+                        message: v.message,
+                        severity: monaco.MarkerSeverity.Error,
+                        startLineNumber: 1,
+                        startColumn: 1,
+                        endLineNumber: 1,
+                        endColumn: 1,
+                    };
+                    if (v.range) {
+                        marker.startLineNumber = v.range.start_line + 1;
+                        marker.startColumn = v.range.start_col + 1;
+                        marker.endLineNumber = v.range.end_line + 1;
+                        marker.endColumn = v.range.end_col + 1;
+                    }
+                    markers.push(marker);
+                }
+
+                for (const v of yamlErrors) {
+                    const yamlError = (v.message as string).match(
+                        /Invalid YAML syntax:[\r\n][\r\n](.*)[\r\n]\s\sin "([^"]*)", line (\d*), column (\d*):/,
+                    );
+
+                    if (yamlError) {
+                        markers.push({
+                            message: yamlError[1],
+                            severity: monaco.MarkerSeverity.Error,
+                            startLineNumber: parseInt(yamlError[3], 10),
+                            startColumn: parseInt(yamlError[4], 10),
+                            endLineNumber: 0,
+                            endColumn: 0,
+                        });
+                    } else {
+                        markers.push({
+                            message: v.message,
+                            severity: monaco.MarkerSeverity.Error,
+                            startLineNumber: v.range?.start_line ?? 0,
+                            startColumn: v.range?.start_col ?? 1,
+                            endLineNumber: v.range?.end_line ?? 0,
+                            endColumn: v.range?.end_col ?? 1,
+                        });
+                    }
+                }
+
+                // Apply markers to the last validated ESPhome model
+                const model = resolveEsphomeModel();
+                if (!model) {
+                    console.warn("[ESPHome Monaco] no model found to apply markers");
+                    return;
+                }
+                monaco.editor.setModelMarkers(model, "esphome", markers);
+            } catch (err) {
+                console.error("[ESPHome Monaco] error handling websocket message", err);
+            }
+        });
+
+        ws.addEventListener("close", () => {
+            ws = null;
+            clearEsphomeMarkers();
+            setTimeout(ensureSocket, 5000);
+        });
+
+        ws.addEventListener("error", (err) => {
+            console.error("[ESPHome Monaco] WebSocket error", err);
+            if (!ws || ws.readyState !== WS_OPEN) {
+                clearEsphomeMarkers();
+            }
+        });
+    };
+
+    const attachModel = (model: any) => {
+        const languageId = model.getLanguageId
+            ? model.getLanguageId()
+            : model.getModeId
+                ? model.getModeId()
+                : null;
+        if (languageId !== "esphome") {
+            return;
+        }
+
+        ensureSocket();
+
+        const doValidate = () => {
+            if (!ws || ws.readyState !== WS_OPEN) {
+                console.log("[ESPHome Monaco] doValidate aborted, socket not open");
+                return;
+            }
+
+            lastValidatedModelUri = model.uri.toString();
+            const content = model.getValue();
+            // Every time content changes:
+            // send {"type":"stdin","data":"{\"type\":\"validate\",\"file\":\"config.yaml\"}\n"}
+            try {
+                const validatePayload = {
+                    type: "stdin",
+                    data: `${JSON.stringify({
+                        type: "validate",
+                        file: "config.yaml",
+                    })}\n`,
+                };
+                ws.send(JSON.stringify(validatePayload));
+            } catch (err) {
+                console.error("[ESPHome Monaco] failed to send validate", err);
+            }
+
+            // and {"type":"stdin","data":"{\"type\":\"file_response\",\"content\":\"...\"}\n"}
+            try {
+                const filePayload = {
+                    type: "stdin",
+                    data: `${JSON.stringify({
+                        type: "file_response",
+                        content,
+                    })}\n`,
+                };
+                ws.send(JSON.stringify(filePayload));
+            } catch (err) {
+                console.error("[ESPHome Monaco] failed to send file_response", err);
+            }
+        };
+
+        const debouncedValidate = debounce(() => {
+            doValidate();
+        }, 250);
+
+        model.onDidChangeContent(() => {
+            debouncedValidate();
+        });
+
+        // initial validation on attach
+        debouncedValidate();
+    };
+
+    // Attach to already existing models
+    monaco.editor.getModels().forEach(attachModel);
+
+    // Attach to future models
+    monaco.editor.onDidCreateModel((model: any) => {
+        attachModel(model);
+    });
 }

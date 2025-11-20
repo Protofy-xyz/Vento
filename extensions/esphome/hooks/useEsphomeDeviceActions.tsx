@@ -37,7 +37,8 @@ const MqttTest = ({
   stage: DeviceModalStage | "";
 }) => {
   const [messages, setMessages] = React.useState<string[]>([]);
-  const [lastMessage, setLastMessage] = React.useState<string>("");
+  const messagesRef = React.useRef<string[]>([]);
+  const lastProcessedRef = React.useRef<string | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const isDoneRef = React.useRef(false);
   const { message } = useSubscription([compileMessagesTopic(compileSessionId)]);
@@ -49,20 +50,41 @@ const MqttTest = ({
     }
   }, [messages]);
 
+  // prepare for a new compilation cycle
+  React.useEffect(() => {
+    if (stage === "yaml") {
+      messagesRef.current = [];
+      lastProcessedRef.current = null;
+      isDoneRef.current = false;
+      setMessages([]);
+      onSetModalFeedback(undefined);
+    }
+  }, [stage, onSetModalFeedback]);
+
   React.useEffect(() => {
     if (stage !== "compile") return;
     if (!message?.message) return;
 
     try {
-      const data = JSON.parse(message.message.toString());
+      const rawMsg =
+        typeof message.message === "string" ? message.message : message.message?.toString?.();
+
+      if (!rawMsg) return;
+
+      // guard against duplicate payloads
+      if (lastProcessedRef.current === rawMsg) return;
+      lastProcessedRef.current = rawMsg;
+
+      const data = JSON.parse(rawMsg);
       const text =
         typeof data.message === "string"
           ? data.message
           : data?.message?.toString?.() ?? "";
+      const trimmedText = text?.trim?.() ?? "";
 
-      if (text) {
-        setMessages((prev) => [...prev, text]);
-        setLastMessage(text.trim());
+      if (trimmedText) {
+        messagesRef.current = [...messagesRef.current, trimmedText];
+        setMessages(messagesRef.current);
       }
 
       // ---- queue / position updates ----
@@ -77,14 +99,14 @@ const MqttTest = ({
       }
 
       // ---- live progress ----
-      if (text && !isDoneRef.current) {
+      if (trimmedText && !isDoneRef.current) {
         onSetModalFeedback({
           message: (
             <YStack gap="$2">
               <Paragraph fontWeight="600">Compiling firmware:</Paragraph>
-              {lastMessage && (
+              {trimmedText && (
                 <Paragraph height={50} overflow="hidden">
-                  {lastMessage}
+                  {trimmedText}
                 </Paragraph>
               )}
             </YStack>
@@ -96,6 +118,7 @@ const MqttTest = ({
       // ---- exit event ----
       if (data.event === "exit" && data.code === 0) {
         isDoneRef.current = true;
+        messagesRef.current = [];
         setMessages([]);
         onSetStage("upload");
       } else if (data.event === "exit" && data.code !== 0) {
@@ -121,7 +144,7 @@ const MqttTest = ({
                 overflow="auto"
                 textAlign="left"
                 resize="none"
-                value={messages.join("")}
+                value={messagesRef.current.join("\n")}
               />
             </YStack>
           ),
@@ -131,7 +154,7 @@ const MqttTest = ({
     } catch (err) {
       console.log("Error parsing compile message:", err);
     }
-  }, [message, stage, lastMessage, onSetModalFeedback, onSetStage]);
+  }, [message, stage, onSetModalFeedback, onSetStage]);
 
   return null;
 };

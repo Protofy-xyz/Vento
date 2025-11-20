@@ -204,6 +204,9 @@ export default {
             </YStack>
           </CardBody>
         }}
+        dataTableListProps={{
+          onEditItem: (item) => replace('editFile', item.getConfigFile())
+        }}
         extraMenuActions={extraMenuActions}
       />
     </AdminPage>)

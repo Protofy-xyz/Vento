@@ -10,6 +10,9 @@ import { PublicIcon } from '../IconSelect';
 import { useThemeSetting } from '@tamagui/next-theme'
 import { v4 as uuidv4 } from 'uuid';
 import { Markdown } from '../../components/Markdown';
+import { useRemoteStateList } from '../../lib/useRemoteState';
+import { CardModel } from '@extensions/cards/cardsSchemas';
+import { API, getPendingResult } from 'protobase';
 
 const SelectGrid = ({ children }) => {
   return <XStack jc="flex-start" ai="center" gap={25} flexWrap='wrap'>
@@ -465,9 +468,14 @@ function flattenTree(obj, currentGroup = null) {
   return leaves;
 }
 
+const fetch = async (fn) => {
+  const data = await API.get({ url: '/api/core/v1/cards'})
+  fn(data)
+}
+
 const useCards = (extraCards = []) => {
-  const availableCards = useProtoStates({}, 'cards/#', 'cards')
-  return [...extraCards, ...flattenTree(availableCards)]
+  const [_items, setItems] = useRemoteStateList(getPendingResult('pending'), fetch, 'notifications/card/#', CardModel);
+  return [...extraCards, ...(_items?.data?.items ?? [])]
 }
 
 const makeDefaultCard = (tpl) => ({

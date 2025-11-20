@@ -56,6 +56,7 @@ type AutoAPIOptions = {
     skipDatabaseIndexes?: boolean,
     allowUpsert?: boolean,
     skipDatabaseInitialization?: boolean,
+    ephemeralEvents?: boolean,
     dbOptions?: {
         batch?: boolean,
         batchLimit?: number,
@@ -84,7 +85,7 @@ export const AutoAPI = ({
     logLevel = 'info',
     itemsPerPage = 25,
     allowUpsert = false,
-    skipStorage = async (data, session?,req?)=> false,
+    skipStorage = async (data, session?, req?) => false,
     onBeforeList = async (data, session?, req?) => data,
     onAfterList = async (data, session?, req?) => data,
     onBeforeCreate = async (data, session?, req?) => data,
@@ -99,13 +100,14 @@ export const AutoAPI = ({
     dbOptions = {},
     defaultOrderBy = undefined,
     defaultOrderDirection = 'asc',
-    skipDatabaseInitialization = false
+    skipDatabaseInitialization = false,
+    ephemeralEvents = false,
 }: AutoAPIOptions) => async (app, context) => {
-    const defaultName  = dbName ?? modelName
+    const defaultName = dbName ?? modelName
     const groupIndexes = modelType.getGroupIndexes()
 
     const getDBPath = (action: "init" | "list" | "create" | "read" | "update" | "delete", req?, entityModel?) => {
-        if(dbName && typeof dbName == 'function') {
+        if (dbName && typeof dbName == 'function') {
             return dbName(action, req, entityModel)
         }
 
@@ -113,21 +115,21 @@ export const AutoAPI = ({
     }
 
     const _notify = (entityModel, action) => {
-        if(notify) return notify(entityModel, action)
-            
-        if(context && context.mqtt) {
+        if (notify) return notify(entityModel, action)
+
+        if (context && context.mqtt) {
             context.mqtt.publish(entityModel.getNotificationsTopic(action), entityModel.getNotificationsPayload())
         }
     }
 
-    if(!skipDatabaseInitialization) {
-        await connectDB(getDBPath("init"), initialData, skipDatabaseIndexes? {} : getDBOptions(modelType, dbOptions))
+    if (!skipDatabaseInitialization) {
+        await connectDB(getDBPath("init"), initialData, skipDatabaseIndexes ? {} : getDBOptions(modelType, dbOptions))
     }
 
     const _onBeforeList = async (data, session, req) => {
         groupIndexes.forEach((val) => {
-            if(data[val.name] === undefined) return
-            if(data.filter === undefined) {
+            if (data[val.name] === undefined) return
+            if (data.filter === undefined) {
                 data.filter = {}
             }
             data.filter[val.key] = data[val.name]
@@ -137,9 +139,9 @@ export const AutoAPI = ({
 
     const processLinks = (item) => {
         const links = modelType.getSchemaLinks()
-        if(links) {
-            for(const link of links) {
-                if(item[link.field] !== undefined) {
+        if (links) {
+            for (const link of links) {
+                if (item[link.field] !== undefined) {
                     const linkId = link.linkToId(item[link.field])
                     item[link.field] = linkId
                 }
@@ -151,8 +153,8 @@ export const AutoAPI = ({
     const recoverLinks = async (items) => {
         const links = modelType.getSchemaLinks()
 
-        if(links) {
-            for(const link of links) {
+        if (links) {
+            for (const link of links) {
                 let idsToRequest = items.map(x => x[link.field]).filter(x => x !== undefined)
                 idsToRequest = [...new Set(idsToRequest)]
                 items = await link.linkToReadIds(link, idsToRequest, items)
@@ -194,13 +196,13 @@ export const AutoAPI = ({
 
         const db = getDB(getDBPath("list", req), req, session, context);
 
-        if(req.query.group) {
+        if (req.query.group) {
             let options = []
-            if(db.hasCapability && db.hasCapability('groupBySingle')) {
-                options = await db.getGroupIndexOptions(req.query.group, req.query.limit || 100)   
+            if (db.hasCapability && db.hasCapability('groupBySingle')) {
+                options = await db.getGroupIndexOptions(req.query.group, req.query.limit || 100)
             }
 
-            if(req.query.search) {
+            if (req.query.search) {
                 const search = req.query.search as string
                 options = options.filter(x => x.toLowerCase().startsWith(search.toLowerCase()))
             }
@@ -212,11 +214,11 @@ export const AutoAPI = ({
         const allResults: any[] = [];
 
         const search = req.query.search;
-        const groupIndexes = modelType.getGroupIndexes().reduce((acc, val) => { 
-            if(req.query[val.name] === undefined) return acc
-            if(acc) {
-                acc[val.key] = req.query[val.name]; 
-                return acc 
+        const groupIndexes = modelType.getGroupIndexes().reduce((acc, val) => {
+            if (req.query[val.name] === undefined) return acc
+            if (acc) {
+                acc[val.key] = req.query[val.name];
+                return acc
             } else {
                 return {
                     [val.key]: req.query[val.name]
@@ -227,9 +229,9 @@ export const AutoAPI = ({
 
         let filter = req.query.filter
 
-        if(groupIndexes) {
-            if(filter) {
-                filter = {...(filter as object), ...groupIndexes}
+        if (groupIndexes) {
+            if (filter) {
+                filter = { ...(filter as object), ...groupIndexes }
             } else {
                 filter = groupIndexes
             }
@@ -240,13 +242,13 @@ export const AutoAPI = ({
         let prompt, jsCode
         if (search && mode == "ai") {
             //get a sample of model elements to use as context for the AI
-            let sampleElements = await API.get(prefix + modelName + '?token='+getServiceToken()) as any
+            let sampleElements = await API.get(prefix + modelName + '?token=' + getServiceToken()) as any
             sampleElements = sampleElements?.data?.items || []
             sampleElements = JSON.stringify(sampleElements) //take only the first 10 elements
             // console.log('sampleElements: ', sampleElements)
             prompt = await context.autopilot.getPromptFromTemplate({
                 sampleElements,
-                templateName: "aiSearch", 
+                templateName: "aiSearch",
                 search,
                 modelName,
                 modelType: modelType.toString(),
@@ -260,8 +262,8 @@ export const AutoAPI = ({
             // console.log('-------------------------------------------------------------------------')
             // console.log("******** AI code: ", jsCode)
             // console.log('-------------------------------------------------------------------------')
-        } 
-        
+        }
+
         const parseResult = async (value, skipFilters?) => {
             const model = modelType.unserialize(value, session);
             const extraListData = typeof extraData?.list == 'function' ? await extraData.list(session, model, req) : (extraData?.list ?? {})
@@ -270,20 +272,20 @@ export const AutoAPI = ({
         }
         const _itemsPerPage = Math.max(Number(req.query.itemsPerPage) || (itemsPerPage ?? 25), 1);
 
-        const filterKeys = Object.keys(filter || {})    
-        if(!search && (!filter || ((!req.query.orderBy || req.query.orderBy == modelType.getIdField()) && filterKeys.length == 1 && db.hasCapability && db.hasCapability('groupBySingle') && await db.hasGroupIndexes(filterKeys))) && !skipDatabaseIndexes && db.hasCapability && db.hasCapability('pagination')) {
+        const filterKeys = Object.keys(filter || {})
+        if (!search && (!filter || ((!req.query.orderBy || req.query.orderBy == modelType.getIdField()) && filterKeys.length == 1 && db.hasCapability && db.hasCapability('groupBySingle') && await db.hasGroupIndexes(filterKeys))) && !skipDatabaseIndexes && db.hasCapability && db.hasCapability('pagination')) {
             // console.log('Using indexed retrieval: ', modelName, 'filters: ', filter)
             const indexedKeys = await db.getIndexedKeys()
-            const filterData = filter ? {key: filterKeys[0], value: filter[filterKeys[0]]} : null
+            const filterData = filter ? { key: filterKeys[0], value: filter[filterKeys[0]] } : null
             const total = parseInt(await db.count(filterData), 10)
             const page = Number(req.query.page) || 0;
             const orderBy: string = req.query.orderBy ? req.query.orderBy as string : (defaultOrderBy ?? modelType.getIdField())
             const orderDirection = req.query.orderDirection || defaultOrderDirection;
-            if(indexedKeys.length && indexedKeys.includes(orderBy)) {
+            if (indexedKeys.length && indexedKeys.includes(orderBy)) {
                 let allResults = await Promise.all((await db.getPageItems(total, orderBy, page, _itemsPerPage, orderDirection, filterData)).map(async x => await parseResult(x, true)))
                 allResults = await recoverLinks(allResults)
                 const result = {
-                    itemsPerPage:_itemsPerPage,
+                    itemsPerPage: _itemsPerPage,
                     items: allResults,
                     total: total,
                     page: req.query.all ? 0 : page,
@@ -305,7 +307,7 @@ export const AutoAPI = ({
         }
 
         res.send(await onAfterList(await _list(req, allResults, _itemsPerPage), session, req));
-        
+
     }));
 
     //create
@@ -318,21 +320,21 @@ export const AutoAPI = ({
             return
         }
 
-        if(req.query.action == 'read_multiple') {
+        if (req.query.action == 'read_multiple') {
             const ids = req.body
-            if(!ids || !ids.length) {
+            if (!ids || !ids.length) {
                 res.status(400).send({ error: "No ids provided" })
                 return
             }
             const db = getDB(getDBPath("read", req), req, session, context)
             const allResults: any[] = []
-            for(const id of ids) {
+            for (const id of ids) {
                 try {
                     const item = modelType.unserialize(await db.get(id), session)
                     const readData = typeof extraData?.read == 'function' ? await extraData.read(session, item, req) : (extraData?.read ?? {})
                     allResults.push(await onAfterRead(await item.readTransformed(transformers, readData), session, req))
                 } catch (e) {
-                    logger.error({error: e}, "Error reading item: " + id)
+                    logger.error({ error: e }, "Error reading item: " + id)
                 }
             }
             res.send(allResults)
@@ -345,7 +347,7 @@ export const AutoAPI = ({
         }
 
         const entityModel = await (modelType.load(await onBeforeCreate(req.body, session, req), session).createTransformed(transformers))
-        const skipStorageResult = skipStorage? await skipStorage(entityModel.read(), session, req):false
+        const skipStorageResult = skipStorage ? await skipStorage(entityModel.read(), session, req) : false
         if (!skipStorageResult) {
             let dbPath = getDBPath("create", req, entityModel)
             if (!dbPath) {
@@ -359,16 +361,16 @@ export const AutoAPI = ({
             for (const path of dbPath) {
                 const db = getDB(path, req, session, context)
                 try {
-                    if(allowUpsert) throw new Error("Upsert enabled, inserting new document")
+                    if (allowUpsert) throw new Error("Upsert enabled, inserting new document")
                     await db.get(entityModel.getId())
                     res.status(409).send({ error: "Already exists" })
                     return
                 } catch (e) {
-                    await db.put(entityModel.getId(), JSON.stringify(processLinks(entityModel.serialize(true))), {...dbOptions, action: 'create', entityId: modelType.getIdField()})
+                    await db.put(entityModel.getId(), JSON.stringify(processLinks(entityModel.serialize(true))), { ...dbOptions, action: 'create', entityId: modelType.getIdField() })
                 }
             }
         }
-        
+
         _notify(entityModel, 'create')
 
         if (!disableEvents) {
@@ -379,10 +381,12 @@ export const AutoAPI = ({
                 payload: {
                     id: entityModel.getId(),
                     data: entityModel.read()
-                } // event payload, event-specific data
+                }, // event payload, event-specific data
+                ephemeral: ephemeralEvents ?? false
             }, getServiceToken())
         }
-        logger[logLevel ?? 'info']({ data: entityModel.read() }, modelName + " created: " + entityModel.getId() + skipStorageResult?" storage skipped":"")
+        logger[logLevel ?? 'info']({ id: entityModel.getId() }, modelName + " created: " + entityModel.getId())
+
         res.send(await onAfterCreate(await entityModel.readTransformed(transformers), session, req))
     }));
 
@@ -435,8 +439,8 @@ export const AutoAPI = ({
         const modelData = (await recoverLinks([JSON.parse(await db.get(req.params.key))]))[0]
         const entityModel = await (modelType.load(modelData, session).updateTransformed(requestModel, transformers))
         const isPatch = req?.query?.patch === 'true'
-        
-        await db.put(entityModel.getId(), JSON.stringify({...(isPatch ? modelData : {}), ...processLinks(entityModel.serialize(true))})) 
+
+        await db.put(entityModel.getId(), JSON.stringify({ ...(isPatch ? modelData : {}), ...processLinks(entityModel.serialize(true)) }))
         _notify(entityModel, 'update')
 
         if (!disableEvents) {
@@ -447,7 +451,8 @@ export const AutoAPI = ({
                 payload: {
                     id: entityModel.getId(),
                     data: entityModel.read()
-                } // event payload, event-specific data
+                }, // event payload, event-specific data
+                ephemeral: ephemeralEvents ?? false
             }, getServiceToken())
         }
         logger[logLevel ?? 'info']({ data: entityModel.read() }, modelName + " updated: " + entityModel.getId())
@@ -463,7 +468,7 @@ export const AutoAPI = ({
 
         const db = getDB(getDBPath("delete", req), req, session, context)
         const rawEntityData = await db.get(req.params.key)
-        
+
         if (!paginatedRead) {
             onBeforeDelete(rawEntityData, session, req)
             await db.del(req.params.key, rawEntityData)
@@ -483,14 +488,15 @@ export const AutoAPI = ({
                         who: '-', //TODO: wire session in dataview to api,
                         id: entityModel.getId(),
                         data: entityModel.read()
-                    } // event payload, event-specific data
+                    }, // event payload, event-specific data
+                    ephemeral: ephemeralEvents ?? false
                 }, getServiceToken())
             }
             logger[logLevel ?? 'info']({ data: entityModel.read() }, modelName + " deleted: " + entityModel.getId())
-        } catch (e){
-            logger.error({e}, "Error during delete notification")
+        } catch (e) {
+            logger.error({ e }, "Error during delete notification")
         }
-        
+
         res.send(await onAfterDelete({ "result": "deleted" }, session, req))
     }));
 }

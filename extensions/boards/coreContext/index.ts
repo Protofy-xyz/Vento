@@ -1,5 +1,5 @@
 import { getLogger } from "protobase";
-import { getRoot } from "protonode";
+import { getRoot, processAgentResponse } from "protonode";
 
 const logger = getLogger()
 const memory = {}
@@ -45,11 +45,13 @@ export const clearVar = (key) => {
     delete memory[key]
 }
 
+export { processAgentResponse }
 
 export default {
     getStatesByType,
     setVar,
     getVar,
     hasVar,
-    clearVar
+    clearVar,
+    processAgentResponse
 }

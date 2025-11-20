@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useTabVisible } from './store/boardStore';
 import { API } from 'protobase'
+import { getUIPreferences, isUIPreferenceMode, mergeUIPreferences, BoardControlMode } from './utils/uiPreferences'
 
 type PanelSide = 'right' | 'left';
-type Mode = 'board' | 'json' | 'ui' | 'graph';
+export type BoardViewModePreference = 'ui' | 'board' | 'graph';
+export type BoardControlMode = BoardViewModePreference | 'json';
+
 
 interface Controls {
   isJSONView: boolean;
@@ -19,14 +22,18 @@ interface Controls {
   setTabVisible: (value: string) => void;
   tabVisible: string;
 
-  viewMode: Mode;
-  setViewMode: (mode: Mode) => void;
+  viewMode: BoardControlMode;
+  setViewMode: (mode: BoardControlMode) => void;
 
   saveJson: () => void;
 
   panelSide: PanelSide;
   setPanelSide: (side: PanelSide) => void;
 }
+const CONTROL_MODES = new Set<BoardControlMode>(['ui', 'board', 'graph', 'json']);
+
+export const isBoardControlMode = (mode?: string): mode is BoardControlMode =>
+  !!mode && CONTROL_MODES.has(mode as BoardControlMode);
 
 const BoardControlsContext = createContext<Controls | null>(null);
 export const useBoardControls = () => useContext(BoardControlsContext)!;
@@ -34,7 +41,7 @@ export const BoardControlsProvider: React.FC<{
   boardName: string;
   children: React.ReactNode;
   board: any;
-  mode?: Mode;
+  mode?: BoardControlMode;
   addMenu?: 'open' | 'closed';
   dialog?: string;
   autopilotRunning?: boolean;
@@ -54,22 +61,25 @@ export const BoardControlsProvider: React.FC<{
   const [autopilot, setAutopilot] = useState(autopilotRunning);
   const [tabVisible, setTabVisible] = useTabVisible();
 
-  const isValid = (m: string): m is Mode =>
-    m === 'ui' || m === 'board' || m === 'graph' || m === 'json';
+  const isValid = (m: string): m is BoardControlMode => isBoardControlMode(m);
+
+  const getHashMode = () => {
+    if (typeof window === 'undefined') return null;
+    const h = (window.location.hash || '').slice(1);
+    return isValid(h) ? (h as BoardControlMode) : null;
+  };
 
   const readInitialMode = () => {
-    if (typeof window !== 'undefined') {
-      const h = (window.location.hash || '').slice(1);
-      if (isValid(h)) return h as Mode;
-    }
-    const preferred = board?.settings?.uiPreferences?.viewMode;
-    if (preferred && isValid(preferred)) {
-      return preferred as Mode;
+    const hashMode = getHashMode();
+    if (hashMode) return hashMode;
+    const preferred = getUIPreferences(board?.name).viewMode;
+    if (isUIPreferenceMode(preferred)) {
+      return preferred;
     }
     return 'graph';
   };
 
-  const [viewMode, setViewMode] = useState<Mode>(readInitialMode);
+  const [viewMode, setViewMode] = useState<BoardControlMode>(readInitialMode);
 
   const userForcedRef = useRef(false);
   const hashReadyRef = useRef(false);
@@ -81,31 +91,26 @@ export const BoardControlsProvider: React.FC<{
   const toggleJson = () => setIsJSONView(v => !v);
   const openAdd = () => setAddOpened(true);
 
-  const getHashMode = () => {
-    if (typeof window === 'undefined') return null;
-    const h = (window.location.hash || '').slice(1);
-    return isValid(h) ? (h as Mode) : null;
-  };
-
   useEffect(() => {
     if (!board?.name) return;
+    hashReadyRef.current = false;
     const hashMode = getHashMode();
     if (hashMode) {
       userForcedRef.current = true;
       setViewMode(hashMode);
     } else {
-      const preferred = board?.settings?.uiPreferences?.viewMode;
-      setViewMode(preferred && isValid(preferred) ? (preferred as Mode) : 'graph');
+      const preferred = getUIPreferences(board.name).viewMode;
+      setViewMode(isUIPreferenceMode(preferred) ? preferred : 'graph');
     }
     hashReadyRef.current = true;
-  }, [board?.name, board?.settings?.uiPreferences?.viewMode]);
+  }, [board?.name]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onHashChange = () => {
       const h = (window.location.hash || '').slice(1);
       if (isValid(h)) {
-        setViewMode(h as Mode);
+        setViewMode(h as BoardControlMode);
         userForcedRef.current = true;
       }
     };
@@ -120,6 +125,13 @@ export const BoardControlsProvider: React.FC<{
       history.replaceState(null, '', `#${viewMode}`);
     }
   }, [viewMode]);
+
+  useEffect(() => {
+    if (!board?.name || !isUIPreferenceMode(viewMode)) return;
+    const stored = getUIPreferences(board.name).viewMode;
+    if (stored === viewMode) return;
+    mergeUIPreferences(board.name, { viewMode });
+  }, [board?.name, viewMode]);
 
 
   useEffect(() => {

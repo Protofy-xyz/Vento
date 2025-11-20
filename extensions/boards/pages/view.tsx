@@ -9,7 +9,7 @@ import { DashboardGrid, gridSizes, getCurrentBreakPoint } from 'protolib/compone
 import { LogPanel } from 'protolib/components/LogPanel';
 import { AlertDialog } from 'protolib/components/AlertDialog';
 import { CenterCard, HTMLView } from '@extensions/services/widgets'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useEffectOnce, useUpdateEffect } from 'usehooks-ts'
 import { Tinted } from 'protolib/components/Tinted'
 import { useProtoStates } from '@extensions/protomemdb/lib/useProtoStates'
@@ -41,17 +41,9 @@ import { VersionTimeline } from '../VersionTimeline'
 import { useBoardVersions, latestVersion } from '../utils/versions'
 import { GraphView } from './graphView'
 import { useEventEffect } from '@extensions/events/hooks'
+import { getUIPreferences, mergeUIPreferences } from '../utils/uiPreferences'
 
 const defaultCardMethod: "post" | "get" = 'post'
-
-type BoardViewModePreference = 'ui' | 'board' | 'graph';
-type UIPreferences = {
-  viewMode?: BoardViewModePreference;
-  layer?: string;
-};
-
-const isUIPreferenceMode = (mode?: string): mode is BoardViewModePreference =>
-  mode === 'ui' || mode === 'board' || mode === 'graph';
 
 class ValidationError extends Error {
   errors: string[];
@@ -314,6 +306,9 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
 
   const [availableLayers, setLayers] = useLayers();
   const [activeLayer, setActiveLayer] = useBoardLayer();
+  const persistLayerBoardRef = useRef<string | null>(null);
+  const activeLayerRef = useRef(activeLayer);
+  activeLayerRef.current = activeLayer;
 
   useEffect(() => {
     const set = new Set<string>(["base"]);               // 👈 siempre incluimos base
@@ -492,42 +487,25 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     boardRef.current = board;
   }, [board]);
 
-  const touchUIPreferences = useCallback((): UIPreferences => {
-    const settings = boardRef.current.settings ?? (boardRef.current.settings = {});
-    if (!settings.uiPreferences) {
-      settings.uiPreferences = {};
-    }
-    return settings.uiPreferences as UIPreferences;
-  }, []);
-
   useEffect(() => {
     if (!board?.name) return;
-    const prefs = touchUIPreferences();
-    let dirty = false;
-
-    if (isUIPreferenceMode(viewMode) && prefs.viewMode !== viewMode) {
-      prefs.viewMode = viewMode;
-      dirty = true;
-    }
-
-    if (activeLayer && (prefs.layer ?? 'base') !== activeLayer) {
-      prefs.layer = activeLayer;
-      dirty = true;
-    }
-
-    if (dirty) {
-      saveBoard(board.name, boardRef.current, setBoardVersion, refresh, { bumpVersion: false });
-    }
-  }, [board?.name, viewMode, activeLayer, touchUIPreferences, refresh, setBoardVersion]);
-
-  useEffect(() => {
-    if (!board?.name) return;
-    const preferredLayer = board?.settings?.uiPreferences?.layer;
+    const preferredLayer = getUIPreferences(board.name).layer;
     const targetLayer =
       preferredLayer && availableLayers.includes(preferredLayer) ? preferredLayer : 'base';
-    if (activeLayer === targetLayer) return;
+    const currentLayer = activeLayerRef.current;
+    if (!targetLayer || targetLayer === currentLayer) return;
     setActiveLayer(targetLayer);
-  }, [board?.name, board?.settings?.uiPreferences?.layer, availableLayers, activeLayer, setActiveLayer]);
+  }, [board?.name, availableLayers, setActiveLayer]);
+
+  useEffect(() => {
+    if (!board?.name || !activeLayer) return;
+    const boardChanged = persistLayerBoardRef.current !== board.name;
+    persistLayerBoardRef.current = board.name;
+    if (boardChanged) return;
+    const storedLayer = getUIPreferences(board.name).layer ?? 'base';
+    if (storedLayer === activeLayer) return;
+    mergeUIPreferences(board.name, { layer: activeLayer });
+  }, [board?.name, activeLayer]);
 
 
   const deleteCard = async (card) => {

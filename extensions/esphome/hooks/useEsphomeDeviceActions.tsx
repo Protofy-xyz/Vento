@@ -231,6 +231,50 @@ export const useEsphomeDeviceActions = () => {
   }, []);
 
   useEffect(() => {
+    if (!port) return;
+
+    const handleUsbDisconnect = () => {
+      if (stage === "console") {
+        // let console flow handle disconnects without changing modal state
+        return;
+      }
+      setPort(null);
+      setDeviceDisconnected("usb", "USB device disconnected. Please reconnect and select the port again.");
+    };
+
+    try {
+      if (typeof port.addEventListener === "function") {
+        port.addEventListener("disconnect", handleUsbDisconnect);
+      } else if (typeof port.on === "function") {
+        port.on("disconnect", handleUsbDisconnect);
+      }
+    } catch {
+      // best-effort listener
+    }
+
+    return () => {
+      try {
+        if (typeof port.removeEventListener === "function") {
+          port.removeEventListener("disconnect", handleUsbDisconnect);
+        } else if (typeof port.off === "function") {
+          port.off("disconnect", handleUsbDisconnect);
+        }
+      } catch {
+        // ignore cleanup issues
+      }
+    };
+  }, [port, setDeviceDisconnected, stage]);
+
+  useEffect(() => {
+    if (deviceDisconnectInfo?.source === "usb" && ["select-action", "confirm-erase"].includes(stage)) {
+      setModalFeedback({
+        message: deviceDisconnectInfo.message,
+        details: { error: true },
+      });
+    }
+  }, [deviceDisconnectInfo, stage]);
+
+  useEffect(() => {
     const api = (window as any)?.serial;
     if (!api) return;
 

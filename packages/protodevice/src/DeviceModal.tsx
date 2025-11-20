@@ -194,7 +194,7 @@ const DeviceModal = ({
                                 )}
                         </YStack>
                     )}
-                    {stage == "confirm-erase" &&
+                    {stage == "confirm-erase" && !isError &&
                         <XStack mt={"$8"} width={"100%"} f={1} alignItems="center" jc={"center"} gap="$2">
                             <Text>Erase device</Text>
                             <Tinted>

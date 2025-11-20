@@ -1014,12 +1014,30 @@ export const loadEsphomeHelpers = (monaco) => {
 
 // ---- ESPhome Monaco validation over websocket ----
 const ESPHOME_ACE_WS_URL = "wss://compile.protofy.xyz/esphome/ace";
+export const ESPHOME_VALIDATION_EVENT = "esphome-validation-status";
 const WS_OPEN = 1;
 const WS_CLOSED = 3;
 
 function initEsphomeMonacoValidation(monaco: any) {
     let ws: WebSocket | null = null;
     let lastValidatedModelUri: string | null = null;
+    let lastValidationPayload: string | null = null;
+
+    const emitValidationState = (hasErrors: boolean, errors: string[] = []) => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        const payload = JSON.stringify({ hasErrors, errors });
+        if (lastValidationPayload === payload) {
+            return;
+        }
+        lastValidationPayload = payload;
+        window.dispatchEvent(
+            new CustomEvent(ESPHOME_VALIDATION_EVENT, {
+                detail: { hasErrors, errors },
+            }),
+        );
+    };
 
     const resolveEsphomeModel = () => {
         if (lastValidatedModelUri) {
@@ -1038,10 +1056,10 @@ function initEsphomeMonacoValidation(monaco: any) {
 
     const clearEsphomeMarkers = () => {
         const model = resolveEsphomeModel();
-        if (!model) {
-            return;
+        if (model) {
+            monaco.editor.setModelMarkers(model, "esphome", []);
         }
-        monaco.editor.setModelMarkers(model, "esphome", []);
+        emitValidationState(false, []);
     };
 
     const ensureSocket = () => {
@@ -1080,6 +1098,7 @@ function initEsphomeMonacoValidation(monaco: any) {
                 }
 
                 const markers: any[] = [];
+                const collectedMessages: string[] = [];
 
                 const validationErrors = (msg.validation_errors ?? []).slice().reverse();
                 const yamlErrors = msg.yaml_errors ?? [];
@@ -1100,6 +1119,9 @@ function initEsphomeMonacoValidation(monaco: any) {
                         marker.endColumn = v.range.end_col + 1;
                     }
                     markers.push(marker);
+                    if (v.message) {
+                        collectedMessages.push(v.message);
+                    }
                 }
 
                 for (const v of yamlErrors) {
@@ -1116,6 +1138,7 @@ function initEsphomeMonacoValidation(monaco: any) {
                             endLineNumber: 0,
                             endColumn: 0,
                         });
+                        collectedMessages.push(yamlError[1]);
                     } else {
                         markers.push({
                             message: v.message,
@@ -1125,6 +1148,9 @@ function initEsphomeMonacoValidation(monaco: any) {
                             endLineNumber: v.range?.end_line ?? 0,
                             endColumn: v.range?.end_col ?? 1,
                         });
+                        if (v.message) {
+                            collectedMessages.push(v.message as string);
+                        }
                     }
                 }
 
@@ -1135,6 +1161,7 @@ function initEsphomeMonacoValidation(monaco: any) {
                     return;
                 }
                 monaco.editor.setModelMarkers(model, "esphome", markers);
+                emitValidationState(markers.length > 0, collectedMessages);
             } catch (err) {
                 console.error("[ESPHome Monaco] error handling websocket message", err);
             }

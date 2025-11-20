@@ -5,7 +5,7 @@ import { DataCard } from 'protolib/components/DataCard'
 import AsyncView from 'protolib/components/AsyncView'
 import { useFileFromAPI } from 'protolib/lib/useFileFromAPI'
 import { IconContainer } from 'protolib/components/IconContainer'
-import { Save, Workflow, Code, Ban, Check, X, Sparkles } from '@tamagui/lucide-icons';
+import { Save, Workflow, Code, Ban, Check, X, Sparkles, AlertTriangle } from '@tamagui/lucide-icons';
 import { useThemeSetting } from '@tamagui/next-theme'
 // import GLTFViewer from 'protolib/adminpanel/features/components/ModelViewer'
 import { Monaco } from 'protolib/components/Monaco'
@@ -33,6 +33,7 @@ import { Panel, PanelGroup } from "react-resizable-panels";
 import CustomPanelResizeHandle from 'protolib/components/MainPanel/CustomPanelResizeHandle'
 import { useSettingValue } from '@extensions/settings/hooks';
 import ESPHomeViewer from '@extensions/esphome/viewers'
+import { SaveButtonWarning } from './saveButtonWarning'
 
 const GLTFViewer = dynamic(() => import('protolib/adminpanel/features/components/ModelViewer'), {
   loading: () => <Center>
@@ -79,8 +80,31 @@ const JSONViewer = ({ extraIcons, name, path }) => {
 
 type SaveButtonStates = "available" | "unavailable" | "loading" | "error"
 
-const SaveButton = ({ checkStatus = () => true, defaultState = 'available', path, getContent, positionStyle, onSave = () => { } }) => {
+const SaveButton = ({
+  checkStatus = () => true,
+  defaultState = 'available',
+  path,
+  getContent,
+  positionStyle,
+  onSave = () => { },
+  warning,
+}: {
+  checkStatus?: () => boolean;
+  defaultState?: SaveButtonStates;
+  path: string;
+  getContent: () => string;
+  positionStyle?: any;
+  onSave?: () => void;
+  warning?: SaveButtonWarning;
+}) => {
   const [state, setState] = useState(defaultState)
+  const [isHovering, setIsHovering] = useState(false)
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const warningActive = warning?.isActive ?? false;
+  const warningColor = warning?.color ?? "var(--yellow10)";
+  const warningTitle = warning?.title ?? "Resolve validation errors before saving.";
+  const warningMessages = warning?.messages ?? [];
+  const displayState: SaveButtonStates = warningActive && state !== "loading" ? "error" : state;
 
   const onEvent = (event) => {
     setState(defaultState)
@@ -98,6 +122,29 @@ const SaveButton = ({ checkStatus = () => true, defaultState = 'available', path
     if (checkStatus() && state == 'unavailable') setState('available')
   }, 250)
 
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+    setIsHovering(true)
+  }
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    hoverTimeoutRef.current = setTimeout(() => setIsHovering(false), 200)
+  }
+
   const _onSave = async () => {
     setState("loading")
     const content = getContent();
@@ -109,18 +156,110 @@ const SaveButton = ({ checkStatus = () => true, defaultState = 'available', path
   };
 
   return (
-    <XStack position="absolute" {...positionStyle}>
-      {<IconContainer disabled={state == 'unavailable'} onPress={_onSave}>
-        {state != 'error' && state !== 'loading' && <Save color="var(--color)" size={"$1"} />}
-        {state == 'error' && <Ban color="var(--red10)" size={"$1"} />}
-        {/*@ts-ignore*/}
-        {state == "loading" && <Spinner color={"$color"} opacity={0.5} size={17} />}
-      </IconContainer>}
+    <XStack
+      position="absolute"
+      {...positionStyle}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <IconContainer
+        disabled={state == 'unavailable'}
+        onPress={_onSave}
+      >
+        {displayState == "loading" && <Spinner color={"$color"} opacity={0.5} size={17} />}
+        {displayState == 'error' && displayState !== "loading" && (
+          <Ban color={warningActive ? warningColor : "var(--red10)"} size={"$1"} />
+        )}
+        {displayState !== 'error' && displayState !== "loading" && (
+          <Save color="var(--color)" size={"$1"} />
+        )}
+      </IconContainer>
+      {warningActive && isHovering && (
+        <XStack
+          position="absolute"
+          paddingHorizontal={"$3"}
+          paddingVertical={"$2"}
+          ai="flex-start"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          style={{
+            backgroundColor: "rgba(255, 196, 0, 0.15)",
+            borderRadius: 6,
+            border: "1px solid rgba(255, 196, 0, 0.5)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            top: "calc(100% + 8px)",
+            maxWidth: 400,
+            width: "clamp(250px, 50vw, 400px)",
+            right: 0,
+            left: "auto",
+            whiteSpace: "normal",
+            wordBreak: "break-word",
+            zIndex: 20,
+          }}
+        >
+          <YStack gap="$2" width="100%">
+            <XStack gap="$2" ai="center" width="100%">
+              <AlertTriangle color={warningColor} size={"$1"} />
+              <Text
+                fontSize={"$2"}
+                color="$color"
+                style={{
+                  whiteSpace: "normal",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                  flexShrink: 1,
+                }}
+              >
+                {warningTitle}
+              </Text>
+            </XStack>
+            <YStack gap="$1" width="100%">
+              {warningMessages.length === 0 && (
+                <Text
+                  fontSize={"$2"}
+                  color="$color"
+                  style={{ whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere" }}
+                >
+                  Validation failed with unknown error.
+                </Text>
+              )}
+              {warningMessages.slice(0, 3).map((message, index) => (
+                <Text
+                  key={index}
+                  fontSize={"$2"}
+                  color="$color"
+                  style={{ whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere" }}
+                >
+                  • {message}
+                </Text>
+              ))}
+              {warningMessages.length > 3 && (
+                <Text
+                  fontSize={"$2"}
+                  color="$color"
+                  style={{ whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere" }}
+                >
+                  • {warningMessages.length - 3} more error(s)…
+                </Text>
+              )}
+            </YStack>
+          </YStack>
+        </XStack>
+      )}
     </XStack>
   );
 };
 
-export const FlowsViewer = ({ extraIcons, path, isModified, setIsModified, masksPath = undefined , codeviewProps = {}, monacoProps = {}}) => {
+export const FlowsViewer = ({ extraIcons, path, isModified, setIsModified, masksPath = undefined , codeviewProps = {}, monacoProps = {}, saveButtonWarning }: {
+  extraIcons?: React.ReactNode,
+  path: string,
+  isModified?: any,
+  setIsModified?: any,
+  masksPath?: string,
+  codeviewProps?: any,
+  monacoProps?: any,
+  saveButtonWarning?: SaveButtonWarning
+}) => {
   const [fileContent, setFileContent] = useFileFromAPI(path)
   const searchParams = useSearchParams();
   const query = Object.fromEntries(searchParams.entries());
@@ -186,6 +325,7 @@ export const FlowsViewer = ({ extraIcons, path, isModified, setIsModified, masks
             return sourceCode.current
           }}
           positionStyle={{ position: "relative" }}
+          warning={saveButtonWarning}
         />
         {extraIcons}
       </CodeView>
@@ -238,7 +378,7 @@ export const CodeView = ({
   console.log('sourceCode: ', sourceCode)
   const monaco = useMemo(() => {
     return monacoInstance ?? <Monaco
-      key={Math.random()}
+      key={path}
       path={path}
       onMount={(editor, monaco) => {
         monacoOnMount(editor, monaco)

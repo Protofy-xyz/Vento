@@ -3,13 +3,16 @@ import { loadEsphomeHelpers } from './utils'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml';
 import ESPHomeDiagram from './network/ESPHomeDiagram';
 import { Cpu } from '@tamagui/lucide-icons';
+import { useEsphomeValidationWarning } from './hooks/useEsphomeValidationWarning';
 
 const DIAGRAM_VISIBLE = true
 
 export default ({ ...props }: any) => {
+    const validationWarning = useEsphomeValidationWarning();
 
     return <FlowsViewer
         {...props}
+        saveButtonWarning={validationWarning}
         codeviewProps={{
             rulesProps: {
                 "title": "ESPHome YAML",

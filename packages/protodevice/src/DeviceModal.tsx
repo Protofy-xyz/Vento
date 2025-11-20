@@ -98,6 +98,18 @@ const DeviceModal = ({
         fetchManifestUrl();
     }, [stage, selectedDevice, compileSessionId]);
 
+    useEffect(() => {
+        if (!showModal) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                onCancel();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showModal, onCancel]);
+
 
     return <AlertDialog open={showModal} hideAccept={true}>
         <YStack

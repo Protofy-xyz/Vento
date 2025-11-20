@@ -171,7 +171,7 @@ const DeviceModal = ({
                             py="$3"
                             overflow="auto"
                         >
-                            <YStack width="100%" flex={1} maxHeight="100%" overflow="auto" ai="center" jc="center">
+                            <YStack width="100%" flex={1} maxHeight="100%" overflow="auto" jc="center">
                                 {modalFeedback?.message
                                     ? (typeof modalFeedback?.message === 'string'
                                         ? <Text color="red" textAlign="center">{modalFeedback.message}</Text>

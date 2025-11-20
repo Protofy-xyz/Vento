@@ -147,30 +147,53 @@ const DeviceModal = ({
                     showReset={logSource === 'usb'}
                     disconnectInfo={disconnectInfo}
                 />
-                : <YStack>
-                    <YStack justifyContent="center" flex={1} gap={"$2"}>
-
-                        <Text fontWeight={"600"} textAlign="center" color={isError ? 'red' : ''}>
-                            {modalFeedback && ['write', 'compile', 'upload', 'yaml'].includes(stage)
-                                ? modalFeedback.message
-                                : stages[stage]
-                            }
-                        </Text>
-                        {
-                            !isError && images[themeName] && images[themeName][isLoading ? 'loading' : stage] && (
-                                <img
-                                    alt="protofito dancing"
-                                    style={{
-                                        height: isLoading ? "200px" : "180px",
-                                        width: isLoading ? "300px" : "190px",
-                                        alignSelf: "center",
-                                        objectFit: 'cover',
-                                        paddingTop: "20px"
-                                    }}
-                                    src={images[themeName][isLoading ? 'loading' : stage]}
-                                />
-                            )}
-                    </YStack>
+                : <YStack flex={1} maxHeight="100%" overflow="hidden">
+                    {isError ? (
+                        <YStack
+                            flex={1}
+                            gap="$3"
+                            maxHeight="100%"
+                            width="100%"
+                            ai="center"
+                            jc="flex-start"
+                            py="$3"
+                            overflow="auto"
+                        >
+                            <YStack width="100%" flex={1} maxHeight="100%" overflow="auto">
+                                {modalFeedback?.message
+                                    ? (typeof modalFeedback?.message === 'string'
+                                        ? <Text color="red">{modalFeedback.message}</Text>
+                                        : modalFeedback.message)
+                                    : <Text fontWeight={"600"} textAlign="center" color={'red'}>
+                                        {stages[stage]}
+                                      </Text>
+                                }
+                            </YStack>
+                        </YStack>
+                    ) : (
+                        <YStack justifyContent="center" flex={1} gap={"$2"} maxHeight="100%">
+                            <Text fontWeight={"600"} textAlign="center" color={isError ? 'red' : ''}>
+                                {modalFeedback && ['write', 'compile', 'upload', 'yaml'].includes(stage)
+                                    ? modalFeedback.message
+                                    : stages[stage]
+                                }
+                            </Text>
+                            {
+                                !isError && images[themeName] && images[themeName][isLoading ? 'loading' : stage] && (
+                                    <img
+                                        alt="protofito dancing"
+                                        style={{
+                                            height: isLoading ? "200px" : "180px",
+                                            width: isLoading ? "300px" : "190px",
+                                            alignSelf: "center",
+                                            objectFit: 'cover',
+                                            paddingTop: "20px"
+                                        }}
+                                        src={images[themeName][isLoading ? 'loading' : stage]}
+                                    />
+                                )}
+                        </YStack>
+                    )}
                     {stage == "confirm-erase" &&
                         <XStack mt={"$8"} width={"100%"} f={1} alignItems="center" jc={"center"} gap="$2">
                             <Text>Erase device</Text>

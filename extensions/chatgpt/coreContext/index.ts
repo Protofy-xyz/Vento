@@ -4,7 +4,7 @@ import { getKey } from "@extensions/keys/coreContext";
 import OpenAI from 'openai';
 import axios from "axios";
 import * as fs from "fs";
-import { getRoot } from "protonode";
+import { getRoot, processAgentResponse } from "protonode";
 import * as path from "path";
 import * as fsp from "fs/promises";
 import * as fspath from "node:path";
@@ -419,67 +419,7 @@ export const prompt = async (options: {
     return response && Array.isArray(response) ? response[0] : response;
 }
 
-export const processResponse = async ({ response, execute_action, done = async (v) => v, error = (e) => e }) => {
-    if (!response) return null;
-    if (!execute_action) return null;
-
-    try {
-        const parsedResponse = JSON.parse(
-            response
-                .replace(/^```[\w]*\n?/, '') // elimina apertura ```json o ```any
-                .replace(/```$/, '')         // elimina cierre ```
-                .trim()
-        );
-        const executedActions = [];
-        const approvals = [];
-        for (const action of parsedResponse.actions || []) {
-            if (!action || !action.name) continue;
-            const params = action.params || {};
-            const result = await execute_action(action.name, params);
-
-            executedActions.push({
-                name: action.name,
-                params,
-                result,
-            });
-
-            if (result && typeof result === "object" && result.offered === true && result.approvalId) {
-                const boardId = result.boardId
-                const actionName = result.action || action.name;
-                const approvalId = result.approvalId;
-                const message = result.message;
-
-                let urls = undefined;
-                if (boardId && actionName && approvalId) {
-                    const base = `/api/core/v1/boards/${boardId}/actions/${actionName}/approvals/${approvalId}`;
-                    urls = {
-                        accept: `${base}/accept`,
-                        reject: `${base}/reject`,
-                        status: `${base}/status`,
-                    };
-                }
-
-                approvals.push({
-                    boardId,
-                    action: actionName,
-                    approvalId,
-                    id: approvalId,
-                    message,
-                    params,
-                    urls,
-                });
-            }
-        }
-
-        return await done({
-            response: parsedResponse.response ?? "",
-            executedActions,
-            approvals,
-        });
-    } catch (e) {
-        return error(e);
-    }
-};
+export const processResponse = processAgentResponse;
 
 export const getSystemPrompt = ({ prompt, done = async (prompt) => prompt, error = (e) => e }) => {
     const result = [

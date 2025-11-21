@@ -753,12 +753,10 @@ export const useEsphomeDeviceActions = () => {
     setStage("");
     setLogsRequested(false);
 
-    if (logsRequested || stage === "console") {
-      stopConsole().catch(() => {
-        /* best effort */
-      });
-    }
-  }, [logsRequested, stage, stopConsole]);
+    stopConsole().catch(() => {
+      /* best effort */
+    });
+  }, [stopConsole]);
 
   const deviceActionsUi = (
     <>

@@ -1,0 +1,47 @@
+{
+  "defaults": {
+    "width": 4,
+    "height": 12,
+    "icon": "grid-3x3",
+    "type": "action",
+    "name": "interactive_grid",
+    "displayResponse": true,
+    "displayIcon": true,
+    "params": {
+      "grid": "2D array representing the grid state",
+      "rows": "number of grid rows",
+      "columns": "number of grid columns",
+      "action": "create | update"
+    },
+    "configParams": {
+      "grid": {
+        "visible": false,
+        "defaultValue": "",
+        "type": "array"
+      },
+      "rows": {
+        "visible": true,
+        "defaultValue": "8",
+        "type": "number"
+      },
+      "columns": {
+        "visible": true,
+        "defaultValue": "8",
+        "type": "number"
+      },
+      "action": {
+        "visible": false,
+        "defaultValue": "create",
+        "type": "string"
+      }
+    },
+    "description": "Actions can perform tasks, automate processes, and enhance user interactions. It can also trigger other action-type cards on the board.\n\n  #### Key Features\n  - Run actions from rules.\n  - Chain/trigger other action cards.\n  - Parameterized execution.\n  - Customize parameters.\n  - Customize the card view (UI/render).",
+    "rulesCode": "if (params.action == \"create\") {\n\n    return Array.from({ length: params.rows }, () =>\n        Array.from({ length: params.columns }, () => ({ value: \"false\" }))\n    )\n\n} else if (params.action == \"update\") {\n    return params.grid\n}",
+    "html": "//@card/react\n\nfunction Widget(card) {\n  if (card?.value?.length > 0) {\n    return <InteractiveGrid\n      onChange={(data) => execute_action(card.name, { grid: data })}\n      data={card.value}\n    />\n  } else {\n    return <Tinted>\n      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n        <ActionCard data={card}>\n          <ParamsForm data={card}>\n            <YStack flex={1} jc=\"center\" ai=\"center\" gap=\"$5\">\n            {card.icon && card.displayIcon !== false && (\n          <Icon name={card.icon} size={48} color={card.color}/>\n      )}\n              <Text maw=\"320px\" textAlign=\"center\">Add the number of rows and columns you want and click \"Create\" to create a grid</Text>\n            </YStack>\n          </ParamsForm>\n        </ActionCard>\n      </ProtoThemeProvider>\n    </Tinted>\n  }\n}\n"
+  },
+  "name": "interactive_grid",
+  "id": "board.grid.interactive_grid",
+  "group": "board",
+  "tag": "grid",
+  "templateName": "Interactive Grid"
+}

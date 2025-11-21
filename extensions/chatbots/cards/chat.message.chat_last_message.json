@@ -1,0 +1,16 @@
+{
+  "defaults": {
+    "type": "value",
+    "icon": "messages-square",
+    "name": "chat_message",
+    "description": "Last chat message",
+    "rulesCode": "return states.chat?.messages?.lastMessage;",
+    "width": 3,
+    "height": 7
+  },
+  "name": "chat_last_message",
+  "id": "chat.message.chat_last_message",
+  "group": "chat",
+  "tag": "message",
+  "templateName": "Receive chat messages"
+}

@@ -1,0 +1,26 @@
+{
+  "defaults": {
+    "width": 4,
+    "height": 4,
+    "name": "Key Setter",
+    "icon": "key",
+    "description": "Displays a key setter for a specific key or in case already set displays key is set",
+    "type": "value",
+    "html": "\n//@react\nreactCard(`\n  async function validateKey(apiKey) {\n   // return true or false if the key is valid or not\n    return true;\n  }\n\n  function Widget() {\n    return (\n          <View className=\"no-drag\">\n            <KeySetter\n              nameKey={data?.configParams?.nameKey?.defaultValue}\n              validate={validateKey}\n              onAdd={(key) => {\n                // alert(\"add: \"+key)\n              }}\n              onRemove={(key) => {\n                // alert(\"remove: \"+key)\n              }}\n            />\n          </View>\n    );\n  }\n\n`, data.domId)\n\n            ",
+    "rulesCode": "",
+    "params": {
+      "nameKey": "The key name to set"
+    },
+    "configParams": {
+      "nameKey": {
+        "visible": true,
+        "defaultValue": "key_name"
+      }
+    }
+  },
+  "name": "pie",
+  "id": "keys.keys.pie",
+  "group": "keys",
+  "tag": "keys",
+  "templateName": "Key Setter"
+}

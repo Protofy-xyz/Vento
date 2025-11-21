@@ -1077,22 +1077,4 @@ export default (app, context) => {
         compileClient.end(true, () => logger.info('compile MQTT client closed (SIGTERM)'));
     });
 
-
-    addCard({
-        group: 'devices',
-        tag: "table",
-        id: 'devices_table',
-        templateName: "Interactive devices table",
-        name: "devices_table",
-        defaults: {
-            width: 5, 
-            height: 12,
-            name: "Devices Table",
-            icon: "router",
-            description: "Interactive devices table",
-            type: 'value',
-            html: "\n//data contains: data.value, data.icon and data.color\nreturn card({\n    content: iframe({src:'/workspace/devices?mode=embed'}), mode: 'slim'\n});\n",
-        },
-        emitEvent: true
-    })
 }

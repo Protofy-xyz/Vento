@@ -1,0 +1,21 @@
+{
+  "defaults": {
+    "width": 2.5,
+    "height": 10,
+    "name": "Pie Chart",
+    "icon": "chart-pie",
+    "description": "## Pie Chart\r\n\r\nDisplays a pie chart using Recharts.\r\n\r\nThe data should be an array of objects with the properties name and value. The name is the name for the element in the chart, and the value is the numerical value for this elements in the chart.",
+    "rulesCode": "return [{\r\n    \"name\": \"john\",\r\n    \"value\": 33\r\n}, {\r\n    \"name\": \"mike\",\r\n    \"value\": 20\r\n}, {\r\n    \"name\": \"susan\",\r\n    \"value\": 10\r\n}, {\r\n    \"name\": \"ton\",\r\n    \"value\": 30\r\n}]",
+    "type": "value",
+    "html": "\n\nreactCard(`\n  function Widget(props) {\n    const aspect = useCardAspectRatio('${data.domId}')\n    return (\n          <View className=\"no-drag\">\n            <PieChart\n              colors={chartColors}\n              title={\"players score\"}\n              id={\"piechart\"}\n              data={props.value}\n              dataKey={props.params.dataKey}\n              nameKey={props.params.nameKey}\n              isAnimationActive={false}\n              aspect={aspect}\n            />\n          </View>\n    );\n  }\n\n`, data.domId, data)\n\n\n\n            ",
+    "params": {
+      "nameKey": "name",
+      "dataKey": "value"
+    }
+  },
+  "name": "pie",
+  "id": "charts.rechart.pie",
+  "group": "charts",
+  "tag": "rechart",
+  "templateName": "Pie Chart"
+}

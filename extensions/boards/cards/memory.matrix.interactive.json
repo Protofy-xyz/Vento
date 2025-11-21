@@ -1,0 +1,61 @@
+{
+  "defaults": {
+    "name": "matrix",
+    "icon": "grid-3x3",
+    "width": 4,
+    "height": 12,
+    "description": "# Matrix / Grid\r\n\r\nCreates and manipulates bi-dimensional grids. The grid is stored as a bidimensional\r\narray where the first level is the row, and second level is the column.\r\n\r\n## Accessing a specific position given row and column\r\n\r\n```js\r\nmatrix[row][column]\r\n```\r\n\r\n## Actions\r\n\r\n### `reset`\r\n\r\nCreates a new matrix with the given dimensions and initializes all cells with a value.\r\n\r\n**Parameters:**\r\n\r\n* `action`: `\"reset\"`\r\n* `width`: number of columns (must be a positive integer)\r\n* `height`: number of rows (must be a positive integer)\r\n* `value`: initial value for all cells\r\n\r\n**Example:**\r\n\r\n```json\r\n{\r\n  \"action\": \"reset\",\r\n  \"width\": 3,\r\n  \"height\": 3,\r\n  \"value\": \"\"\r\n}\r\n```\r\n\r\n**Effect:**\r\nResets the matrix to a 3×3 grid with all cells initialized to an empty string (`\"\"`).\r\n\r\n---\r\n\r\n### `setCell`\r\n\r\nSets a specific cell at position `(x, y)` to the given value.\r\nCoordinates are 0-based: `x` is the column index, `y` is the row index.\r\n\r\n**Parameters:**\r\n\r\n* `action`: `\"setCell\"`\r\n* `x`: column index\r\n* `y`: row index\r\n* `value`: value to set in the specified cell\r\n\r\n**Example:**\r\n\r\n```json\r\n{\r\n  \"action\": \"setCell\",\r\n  \"x\": 1,\r\n  \"y\": 2,\r\n  \"value\": \"X\"\r\n}\r\n```\r\n\r\n**Effect:**\r\nSets the value `\"X\"` in the cell located at column 1, row 2.",
+    "type": "action",
+    "editorOptions": {},
+    "rulesCode": "const matrix = board?.[name];\r\n\r\nif (params.action === 'reset') {\r\n  const width = params.width;\r\n  const height = params.height;\r\n  const initialValue = params.value;\r\n\r\n  if (!Number.isInteger(width) || width <= 0 ||\r\n      !Number.isInteger(height) || height <= 0) {\r\n    throw new TypeError('matrix reset error: width and height should positive numbers');\r\n  }\r\n\r\n  // Nueva matriz de height x width\r\n  return Array.from({ length: height }, () =>\r\n    Array.from({ length: width }, () => initialValue)\r\n  );\r\n} else {\r\n  if (!Array.isArray(matrix)) {\r\n    throw new Error('matrix set error: cannot set a value in an empty matrix');\r\n  }\r\n\r\n  const posX = params.x;\r\n  const posY = params.y;\r\n  const val = params.value;\r\n\r\n  if (!Number.isInteger(posY) || posY < 0 || posY >= matrix.length) {\r\n    throw new RangeError(`matrix set error: y out of range: ${posY}`);\r\n  }\r\n  const row = matrix[posY];\r\n  if (!Array.isArray(row)) {\r\n    throw new TypeError(`matrix set error: invalud row`);\r\n  }\r\n  if (!Number.isInteger(posX) || posX < 0 || posX >= row.length) {\r\n    throw new RangeError(`matrix set error x out of range: ${posX}`);\r\n  }\r\n\r\n  // Copia inmutable y set\r\n  const next = matrix.map(r => r.slice());\r\n  next[posY][posX] = val;\r\n  return next;\r\n}",
+    "html": "//@card/react\n\nfunction MatrixTable({ data }) {\n  const rows = Array.isArray(data) ? data : []\n  const maxCols = rows.reduce((m, r) => Math.max(m, Array.isArray(r) ? r.length : 0), 0)\n\n  const wrapStyle = {\n    width: '100%',\n    height: '100%',\n    overflow: 'auto',\n  }\n  const tableStyle = {\n    borderCollapse: 'collapse',\n    width: '100%',\n    height: '100%',\n  }\n  const cellStyle = {\n    border: '1px solid #ccc',\n    padding: '6px 8px',\n    textAlign: 'center',\n  }\n\n  return (\n    <div style={wrapStyle}>\n      <table style={tableStyle}>\n        <tbody>\n          {rows.map((row, rIdx) => (\n            <tr key={rIdx}>\n              {Array.from({ length: maxCols }).map((_, cIdx) => {\n                const v = Array.isArray(row) ? row[cIdx] : undefined\n                const text = v == null ? '' : String(v)\n                return <td key={cIdx} style={cellStyle}><CardValue value={text ?? \"\"} /></td>\n              })}\n            </tr>\n          ))}\n        </tbody>\n      </table>\n    </div>\n  )\n}\n\nfunction Widget(card) {\n  const value = card.value;\n  const isMatrix = Array.isArray(value) && value.every(r => Array.isArray(r));\n  const fullHeight = value !== undefined && typeof value !== \"string\" && typeof value !== \"number\" && typeof value !== \"boolean\";\n\n  const content = (\n    <YStack f={1} h=\"100%\" miH={0} mt={fullHeight ? \"20px\" : \"0px\"} ai=\"stretch\" jc=\"flex-start\" width=\"100%\">\n      {card.icon && card.displayIcon !== false && (\n        <Icon name={card.icon} size={48} color={card.color} />\n      )}\n\n      {card.displayResponse !== false && (\n        isMatrix ? (\n          <YStack f={1} miH={0} width=\"100%\">\n            <MatrixTable data={value} />\n          </YStack>\n        ) : (\n          <YStack f={1} miH={0} width=\"100%\"><h1>{value !== undefined ? String(value) : 'Empty table'}</h1></YStack>\n        )\n      )}\n    </YStack>\n  );\n\n  return (\n    <Tinted>\n      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n        <ActionCard data={card} style={{ height: '100%'}}>\n          {card.displayButton !== false ? (\n            <ParamsForm data={card} style={{ height: '100%' }}>\n              {content}\n            </ParamsForm>\n          ) : (\n            card.displayResponse !== false && content\n          )}\n        </ActionCard>\n      </ProtoThemeProvider>\n    </Tinted>\n  );\n}",
+    "displayResponse": true,
+    "params": {
+      "x": "position  x only needed when using setCell",
+      "y": "position y only needed when using setCell",
+      "action": "reset or setCell",
+      "value": "initialization value when using reset, value for cell when using setCell",
+      "width": "width of the matrix: needed for reset",
+      "height": "height of the matrix: needed for reset"
+    },
+    "configParams": {
+      "x": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "number"
+      },
+      "y": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "number"
+      },
+      "action": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "string"
+      },
+      "value": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "string"
+      },
+      "width": {
+        "visible": true,
+        "defaultValue": "3",
+        "type": "number"
+      },
+      "height": {
+        "visible": true,
+        "defaultValue": "3",
+        "type": "number"
+      }
+    },
+    "displayButton": true,
+    "displayIcon": false
+  },
+  "name": "interactive",
+  "id": "memory.matrix.interactive",
+  "group": "memory",
+  "tag": "matrix",
+  "templateName": "Matrix grid"
+}

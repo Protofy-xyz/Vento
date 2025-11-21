@@ -1,0 +1,21 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 10,
+    "name": "Radar Chart",
+    "icon": "chart-network",
+    "description": "Displays a radar chart using Recharts",
+    "type": "value",
+    "html": "\n\nreactCard(`\n  function Widget(props) {\n    const aspect = useCardAspectRatio('${data.domId}')\n    return (\n      <View className=\"no-drag\">\n        <RadarChart\n          colors={[\"#8884d8\", \"#82ca9d\"]}\n          id={\"radarchart\"}\n          data={props.value}\n          dataKey={props.params.dataKey}\n          nameKey={props.params.nameKey}\n          isAnimationActive={false}\n          aspect={aspect}\n          colors={chartColors}\n          color={chartColors[1]}\n        />\n      </View>\n    );\n  }\n`, data.domId, data)\n    ",
+    "params": {
+      "nameKey": "stat",
+      "dataKey": "value"
+    },
+    "rulesCode": "return [{\r\n    \"name\": \"john\",\r\n    \"value\": 33\r\n}, {\r\n    \"name\": \"mike\",\r\n    \"value\": 20\r\n}, {\r\n    \"name\": \"susan\",\r\n    \"value\": 10\r\n}, {\r\n    \"name\": \"ton\",\r\n    \"value\": 30\r\n}]"
+  },
+  "name": "radar",
+  "id": "charts.rechart.radar",
+  "group": "charts",
+  "tag": "rechart",
+  "templateName": "Radar Chart"
+}

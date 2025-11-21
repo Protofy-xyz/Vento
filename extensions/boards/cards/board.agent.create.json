@@ -1,0 +1,48 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 10,
+    "icon": "bot",
+    "type": "action",
+    "name": "create agent",
+    "displayResponse": true,
+    "displayIcon": false,
+    "params": {
+      "url": "http endpoint to call",
+      "method": "method for the call: get or post",
+      "name": "name of the agent to create",
+      "template": "template to use"
+    },
+    "configParams": {
+      "url": {
+        "visible": false,
+        "defaultValue": "/api/core/v1/import/board",
+        "type": "any"
+      },
+      "method": {
+        "visible": false,
+        "defaultValue": "post",
+        "type": "string"
+      },
+      "name": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "string"
+      },
+      "template": {
+        "visible": true,
+        "defaultValue": "smart ai agent",
+        "type": "string"
+      }
+    },
+    "description": "Create a new agent given the agent name and the template",
+    "layer": "base",
+    "rulesCode": "// return {\r\n//     url: params.url + '?token='+token,\r\n//     name: params.name,\r\n//     template: 'smart ai agent'\r\n// }\r\nreturn await context.apis.fetch(params.method ?? 'get', params.url + '?token='+token, {\r\n    name: params.name,\r\n    template: {id: params.template}\r\n})",
+    "html": "//@card/react\n\nfunction Widget(card) {\n  const value = card.value;\n\n  const content = <YStack f={1} ai=\"center\" jc=\"center\" width=\"100%\">\n      {card.icon && card.displayIcon !== false && (\n          <Icon name={card.icon} size={48} color={card.color}/>\n      )}\n      {card.displayResponse !== false && (\n          <CardValue mode={card.markdownDisplay ? 'markdown' : card.htmlDisplay ? 'html' : 'normal'} value={value ?? \"N/A\"} />\n      )}\n  </YStack>\n\n  return (\n      <Tinted>\n        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n          <ActionCard data={card}>\n            {card.displayButton !== false ? <ParamsForm data={card}>{content}</ParamsForm> : card.displayResponse !== false && content}\n          </ActionCard>\n        </ProtoThemeProvider>\n      </Tinted>\n  );\n}\n"
+  },
+  "name": "create",
+  "id": "board.agent.create",
+  "group": "board",
+  "tag": "agent",
+  "templateName": "Create New Agent"
+}

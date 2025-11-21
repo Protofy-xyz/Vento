@@ -1,0 +1,26 @@
+{
+  "defaults": {
+    "type": "action",
+    "icon": "message-square-text",
+    "name": "send_user_message",
+    "description": "Send chat message",
+    "params": {
+      "message": "Message to send to the user, just a text"
+    },
+    "configParams": {
+      "message": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "string"
+      }
+    },
+    "width": 2,
+    "height": 10,
+    "rulesCode": "return await execute_action(\"/api/core/v1/chatbot/send\", userParams)"
+  },
+  "name": "chat_send",
+  "id": "chat.message.chat_send",
+  "group": "chat",
+  "tag": "message",
+  "templateName": "Send chat message"
+}

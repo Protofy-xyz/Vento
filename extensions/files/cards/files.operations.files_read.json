@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "width": 2,
+    "height": 8,
+    "type": "action",
+    "icon": "file",
+    "name": "files_read",
+    "description": "Read a file or directory",
+    "params": {
+      "path": "Path to the file or directory to read"
+    },
+    "configParams": {
+      "path": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "path",
+        "multiple": false
+      }
+    },
+    "rulesCode": "return await execute_action(\"/api/core/v1/files\", userParams)",
+    "displayResponse": true
+  },
+  "name": "files_read",
+  "id": "files.operations.files_read",
+  "group": "files",
+  "tag": "operations",
+  "templateName": "Read File or Directory"
+}

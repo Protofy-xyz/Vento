@@ -11,7 +11,6 @@ import { VersionsDir } from '@extensions/versions/versions'
 import { Manager } from "./manager";
 import { dbProvider, getDBOptions } from 'protonode';
 import { acquireLock, releaseLock } from "./system/lock";
-import { registerCards } from "./system/cards";
 import { BoardsDir, getBoard, getBoards, cleanObsoleteCardFiles, getBoardFilePath } from "./system/boards";
 import { getActions, handleBoardAction, setActionValue, buildActionWrapper, normalizeRulesCode } from "./system/actions";
 import { TypeParser } from "./system/types";
@@ -1666,7 +1665,6 @@ export default async (app, context) => {
         )
     }
 
-    await registerCards()
     registerActions()
     registerAgentTemplates()
     registerEventListener()

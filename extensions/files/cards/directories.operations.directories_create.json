@@ -1,0 +1,27 @@
+{
+  "defaults": {
+    "width": 2,
+    "height": 8,
+    "type": "action",
+    "icon": "folder-plus",
+    "name": "create directory",
+    "description": "Create a directory",
+    "params": {
+      "path": "Path to the directory to create"
+    },
+    "configParams": {
+      "path": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "path",
+        "multiple": false
+      }
+    },
+    "rulesCode": "return await execute_action(\"/api/core/v1/directories\", userParams)"
+  },
+  "name": "directories_create",
+  "id": "directories.operations.directories_create",
+  "group": "directories",
+  "tag": "operations",
+  "templateName": "Create Directory"
+}

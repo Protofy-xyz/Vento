@@ -19,31 +19,4 @@ export default (app, context) => {
         },
         token: getServiceToken(),
     })
-
-    context.cards.add({
-        group: 'storages',
-        tag: 'services',
-        name: 'list',
-        id: 'services_list',
-        templateName: 'List Internal Services',
-        defaults: {
-            width: 2,
-            height: 14,
-            icon: 'cog',
-            displayResponse: true,
-            name: `list services`,
-            type: 'action',
-            description: `Returns a list of system services objects. You can filter the results by passing itemsPerPage, page, search, orderBy and orderDirection parameters.`,
-            params: {
-                itemsPerPage: 'number of items per page (optional)',
-                page: 'page number to retrieve (optional)',
-                search: 'search term to filter the results (optional)',
-                orderBy: 'field to order the results by (optional)',
-                orderDirection: 'direction to order the results by (asc or desc) (optional)'
-            },
-            rulesCode: `return execute_action("/api/v1/actions/services/list", userParams)`
-        },
-        token: getServiceToken(),
-        emitEvent: true
-    })
 }

@@ -1,0 +1,17 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 10,
+    "name": "Table",
+    "icon": "table-properties",
+    "description": "Display an array of objects in a table",
+    "type": "value",
+    "html": "\n//data contains: data.value, data.icon and data.color\nreturn card({\n    content: cardTable(data.value), padding: '3px'\n});\n",
+    "rulesCode": "return [{name: \"protofito\", age: 20}, {name: \"protofita\", age: 19}, {name: \"bad protofito\", age: 10}]"
+  },
+  "name": "show",
+  "id": "board.table.show",
+  "group": "board",
+  "tag": "table",
+  "templateName": "Display an array of objects in a table"
+}

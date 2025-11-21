@@ -1,0 +1,18 @@
+{
+  "defaults": {
+    "width": 4,
+    "height": 12,
+    "name": "Frame",
+    "icon": "monitor-stop",
+    "description": "Display a link in an iframe",
+    "type": "value",
+    "rulesCode": "return {\n  frame: \"\", //url to display\n  type: \"frame\",\n};\n",
+    "html": "\n// data contains: data.value, data.icon and data.color\nreturn card({\n  content: iframe({ src: `${data.value.frame}` }),\n  padding: '3px'\n});\n",
+    "editorOptions": {}
+  },
+  "name": "show",
+  "id": "board.iframe.show",
+  "group": "board",
+  "tag": "iframe",
+  "templateName": "Display a link in an iframe"
+}

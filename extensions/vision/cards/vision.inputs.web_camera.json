@@ -1,0 +1,33 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 12,
+    "icon": "webcam",
+    "html": "//@card/react\nfunction Widget(props) {\n    return (\n        <Tinted>\n            <CameraCard params={props.configParams} onPicture={async (picture64) => {\n              const url = document.location.origin + (await execute_action('/api/core/v1/vision/frame/set', {id: 'frame', image: picture64}))\n              execute_action(props.name, {picture: url})\n            }}/>\n        </Tinted>\n    );\n  }\n",
+    "name": "webcam",
+    "description": "Display a React component",
+    "type": "action",
+    "method": "post",
+    "displayButton": true,
+    "rulesCode": "const id =  Math.random()\r\nreturn {\r\n    frame: params.picture,\r\n    type: \"frame\",\r\n    key: id,\r\n    imageUrl: params.picture + \"&mode=image/png&key=\" + id \r\n}",
+    "params": {
+      "mode": "manual or auto (auto is experimental)",
+      "fps": "fps to capture"
+    },
+    "configParams": {
+      "mode": {
+        "visible": false,
+        "defaultValue": "manual"
+      },
+      "fps": {
+        "visible": false,
+        "defaultValue": "0.5"
+      }
+    }
+  },
+  "name": "web_camera",
+  "id": "vision.inputs.web_camera",
+  "group": "vision",
+  "tag": "inputs",
+  "templateName": "Webcam"
+}

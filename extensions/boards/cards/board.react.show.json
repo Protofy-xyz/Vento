@@ -1,0 +1,16 @@
+{
+  "defaults": {
+    "width": 2,
+    "height": 8,
+    "name": "React",
+    "icon": "table-properties",
+    "description": "Display a React component",
+    "type": "value",
+    "html": "reactCard(`\n  function Widget() {\n    return (\n        <Tinted>\n          <View className=\"no-drag\">\n            {/* you can use data.value here to access the value */}\n            <center><Text>Hello from react</Text></center>\n          </View>\n        </Tinted>\n    );\n  }\n\n`, data.domId)\n"
+  },
+  "name": "show",
+  "id": "board.react.show",
+  "group": "board",
+  "tag": "react",
+  "templateName": "Display a React component"
+}

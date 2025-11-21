@@ -1,0 +1,33 @@
+{
+  "defaults": {
+    "width": 2,
+    "height": 8,
+    "type": "action",
+    "icon": "file-stack",
+    "name": "pdf dump pages",
+    "description": "Dump all pages of a PDF file to a directory.",
+    "params": {
+      "path": "pdf file path",
+      "outputDir": "output directory"
+    },
+    "configParams": {
+      "path": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "path"
+      },
+      "outputDir": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "path"
+      }
+    },
+    "rulesCode": "return await execute_action(\"/api/v1/pdf/dumpPages\", userParams)",
+    "displayResponse": true
+  },
+  "name": "pdf_dump_pages",
+  "id": "pdf.operations.pdf_dump_pages",
+  "group": "pdf",
+  "tag": "operations",
+  "templateName": "Dump all pages of a PDF file"
+}

@@ -1,0 +1,23 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 4,
+    "name": "Area Chart",
+    "icon": "chart-area",
+    "type": "value",
+    "html": "\n\nreactCard(`\n  function Widget(props) {\n    const aspect = useCardAspectRatio('${data.domId}')\n    return (\n      <View className=\"no-drag\">\n        <AreaChart\n          colors={chartColors}\n          color={chartColors[0]}\n          title={\"players score\"}\n          id={\"areachart\"}\n          data={props.value}\n          dataKeys={props.params.dataKeys}\n          nameKey={props.params.nameKey}\n          isAnimationActive={false}\n          aspect={aspect}\n        />\n      </View>\n    );\n  }\n`, data.domId, data)\n    ",
+    "params": {
+      "nameKey": "name",
+      "dataKeys": [
+        "value",
+        "time"
+      ]
+    },
+    "rulesCode": "return [{\r\n    \"name\": \"john\",\r\n    \"value\": 33,\r\n    \"time\": 5\r\n}, {\r\n    \"name\": \"mike\",\r\n    \"value\": 20,\r\n    \"time\": 10\r\n}, {\r\n    \"name\": \"susan\",\r\n    \"value\": 10,\r\n    \"time\": 15\r\n}, {\r\n    \"name\": \"ton\",\r\n    \"value\": 30,\r\n    \"time\": 20\r\n}]"
+  },
+  "name": "area",
+  "id": "charts.rechart.area",
+  "group": "charts",
+  "tag": "rechart",
+  "templateName": "Area Chart"
+}

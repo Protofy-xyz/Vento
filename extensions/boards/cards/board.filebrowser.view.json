@@ -1,0 +1,30 @@
+{
+  "defaults": {
+    "width": 5.5,
+    "height": 16,
+    "name": "File Browser",
+    "icon": "folder-search",
+    "description": "Render a file browser",
+    "type": "action",
+    "html": "// @card/react\r\n\r\nfunction Widget(card) {\r\n  const data = card?.value ?? {}\r\n\r\n  const onFileActionEvent = async (event) => {\r\n    if (event.id == \"refresh_files\" && event.payload.path) {\r\n      await execute_action(card.name, {\r\n        path: event.payload.path\r\n      })\r\n    }\r\n  }\r\n\r\n  const content = <YStack f={1}  pt={\"20px\"} ai=\"center\" jc=\"center\" width=\"100%\">\r\n        {card.icon && card.displayIcon !== false && (\r\n            <Icon name={card.icon} size={48} color={card.color}/>\r\n        )}\r\n        {card.displayResponse !== false && (\r\n            <CardValue mode={card.markdownDisplay ? 'markdown' : 'normal'} value={card?.value ?? \"N/A\"} />\r\n        )}\r\n  </YStack>\r\n\r\n  return (\r\n    <div className=\"no-drag\" style={{\r\n      height: \"100%\",\r\n      padding: \"1em\",\r\n      overflow: \"auto\",\r\n      fontFamily: \"sans-serif\",\r\n      fontSize: \"14px\",\r\n      display: \"flex\",\r\n      color: \"var(--color)\"\r\n    }}>\r\n      <Tinted>\r\n        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\r\n          <YStack f={1}>\r\n            <YStack f={1}>\r\n              <FileBrowser initialPath={data.path} explorer={{onFileActionEvent}}/>\r\n            </YStack>\r\n            <YStack>\r\n              <ActionCard data={card}>\r\n                {card.displayButton !== false ? <ParamsForm data={card}>{content}</ParamsForm> : card.displayResponse !== false && content}\r\n              </ActionCard>\r\n            </YStack>\r\n          </YStack>\r\n        </ProtoThemeProvider>\r\n      </Tinted>\r\n    </div>\r\n  );\r\n}",
+    "rulesCode": "const data = {\n  list: await execute_action(\"/api/core/v1/files\", userParams),\n  path: userParams.path,\n};\n\nreturn data;\n",
+    "displayResponse": false,
+    "displayIcon": false,
+    "params": {
+      "path": "path to browse (default: /)"
+    },
+    "configParams": {
+      "path": {
+        "visible": true,
+        "defaultValue": "/",
+        "type": "string"
+      }
+    },
+    "editorOptions": {}
+  },
+  "name": "view",
+  "id": "board.filebrowser.view",
+  "group": "board",
+  "tag": "filebrowser",
+  "templateName": "File Browser"
+}

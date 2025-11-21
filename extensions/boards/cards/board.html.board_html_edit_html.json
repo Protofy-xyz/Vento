@@ -1,0 +1,38 @@
+{
+  "defaults": {
+    "id": "edit_html",
+    "width": 4,
+    "height": 18,
+    "htmlDisplay": true,
+    "icon": "scan-text",
+    "type": "action",
+    "name": "html",
+    "displayIcon": false,
+    "rulesCode": "if (userParams.editedValue) {\n  return userParams.editedValue;\n} else {\n  return userParams.state;\n}\n",
+    "html": "//@card/react\n\nfunction Widget(card) {\n  const value = card.value;\n\n  const content = <YStack f={1} mt={\"20px\"} ai=\"center\" jc=\"center\" width=\"100%\">\n    {card.icon && card.displayIcon !== false && (\n      <Icon name={card.icon} size={48} color={card.color} />\n    )}\n    {card.displayResponse !== false && (\n      <CardValue\n        mode={card.markdownDisplay? \"markdown\" : card.htmlDisplay ? 'html' : 'normal'}\n        value={value}\n        readOnly={false}\n        executeActionOnEdit={(val) => { executeAction(card.name, { editedValue: val }) }}\n      />\n    )}\n  </YStack>\n\n  return (\n    <Tinted>\n      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n        <ActionCard data={card}>\n          {card.displayButton !== false ? <ParamsForm data={card}>{content}</ParamsForm> : card.displayResponse !== false && content}\n        </ActionCard>\n      </ProtoThemeProvider>\n    </Tinted>\n  );\n}\n",
+    "value": "\n<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\"\n\"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<head>\n  <title>Title of document</title>\n</head>\n<body>\n\n  some content here...\n\n</body>\n</html>\n",
+    "params": {
+      "editedValue": "",
+      "state": ""
+    },
+    "configParams": {
+      "editedValue": {
+        "visible": false,
+        "defaultValue": "",
+        "type": "string"
+      },
+      "state": {
+        "visible": false,
+        "defaultValue": "",
+        "type": "string"
+      }
+    },
+    "displayButton": true,
+    "buttonLabel": "Refresh from state"
+  },
+  "name": "board_html_edit_html",
+  "id": "board.html.board_html_edit_html",
+  "group": "board",
+  "tag": "html",
+  "templateName": "Edit HTML"
+}

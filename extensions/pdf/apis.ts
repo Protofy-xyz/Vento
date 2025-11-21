@@ -43,37 +43,6 @@ export default async (app, context) => {
         token: token
     })
 
-    addCard({
-        group: 'pdf',
-        tag: 'operations',
-        id: 'pdf_get_total_pages',
-        templateName: 'Get total pages of a PDF file',
-        name: 'pdf_get_total_pages',
-        defaults: {
-            width: 2,
-            height: 8,
-            type: "action",
-            icon: 'file-stack',
-            name: 'pdf pages',
-            description: 'Get the total number of pages in a PDF file.',
-            params: {
-                path: "pdf file path"
-            },
-            configParams: {
-                path: {
-                    visible: true,
-                    defaultValue: "",
-                    type: "path"
-                },
-            },
-            rulesCode: `return await execute_action("/api/v1/pdf/getTotalPages", userParams)`,
-            displayResponse: true
-        },
-        emitEvent: true,
-        token: token
-    })
-
-
 
     app.get('/api/v1/pdf/dumpPages', requireAdmin(), async (req, res) => {
         const { path, outputDir } = req.query;
@@ -121,41 +90,6 @@ export default async (app, context) => {
         params: {
             path: "pdf file path",
             outputDir: "output directory"
-        },
-        emitEvent: true,
-        token: token
-    })
-    addCard({
-        group: 'pdf',
-        tag: 'operations',
-        id: 'pdf_dump_pages',
-        templateName: 'Dump all pages of a PDF file',
-        name: 'pdf_dump_pages',
-        defaults: {
-            width: 2,
-            height: 8,
-            type: "action",
-            icon: 'file-stack',
-            name: 'pdf dump pages',
-            description: 'Dump all pages of a PDF file to a directory.',
-            params: {
-                path: "pdf file path",
-                outputDir: "output directory"
-            },
-            configParams: {
-                path: {
-                    visible: true,
-                    defaultValue: "",
-                    type: "path"
-                },
-                outputDir: {
-                    visible: true,
-                    defaultValue: "",
-                    type: "path"
-                }
-            },
-            rulesCode: `return await execute_action("/api/v1/pdf/dumpPages", userParams)`,
-            displayResponse: true
         },
         emitEvent: true,
         token: token

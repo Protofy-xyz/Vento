@@ -1,0 +1,16 @@
+{
+  "defaults": {
+    "width": 5,
+    "height": 12,
+    "name": "Devices Table",
+    "icon": "router",
+    "description": "Interactive devices table",
+    "type": "value",
+    "html": "\n//data contains: data.value, data.icon and data.color\nreturn card({\n    content: iframe({src:'/workspace/devices?mode=embed'}), mode: 'slim'\n});\n"
+  },
+  "name": "devices_table",
+  "id": "devices.table.devices_table",
+  "group": "devices",
+  "tag": "table",
+  "templateName": "Interactive devices table"
+}

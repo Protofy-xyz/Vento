@@ -1,6 +1,6 @@
 import { API, getLogger, ProtoMemDB, generateEvent } from 'protobase';
 import {getServiceToken} from 'protonode';
-import { setContext } from '@extensions/state/coreContext/setContext';
+
 const logger = getLogger();
 
 export const addCard = async (options: {
@@ -49,12 +49,13 @@ export const addCard = async (options: {
     const content = {
         defaults: defaults,
         readme: readme,
-        name: templateName,
+        name: name,
         id: id,
         group: group,
-        tag: tag
+        tag: tag,
+        templateName: templateName
     }
 
-    const response = await API.post(`/api/core/v1/cards?token=`+getServiceToken(), {templateName, ...content})
+    const response = await API.post(`/api/core/v1/cards?token=`+getServiceToken(), content)
     return response
 }

@@ -49,7 +49,7 @@ const FirstSlide = ({ selected, setSelected, options, errors }) => {
   const getFilteredOptions = (options, search, selectedGroups) => {
     const lowerSearch = search.toLowerCase();
     return options.filter(opt => {
-      const matchSearch = opt.name?.toLowerCase().includes(lowerSearch);
+      const matchSearch = opt.templateName?.toLowerCase().includes(lowerSearch);
       const matchGroup = selectedGroups.length === 0 || selectedGroups.includes(opt.group);
       return matchSearch && matchGroup;
     });
@@ -170,7 +170,7 @@ const FirstSlide = ({ selected, setSelected, options, errors }) => {
                             size={20}
                           />
                         </YStack>
-                        <Text ml="$2" fontSize="$4">{option.name}</Text>
+                        <Text ml="$2" fontSize="$4">{option.templateName}</Text>
                       </XStack>
                     ))}
                   </SelectGrid>
@@ -344,8 +344,11 @@ const extraCards = [
   - Customize parameters.
   - Customize the card view (UI/render).`,
     },
-    name: 'Action',
-    id: 'action'
+    group: "base",
+    tag: "cards",
+    name: 'action',
+    id: 'base.cards.action',
+    templateName: 'Action',
   },
   {
     defaults: {
@@ -415,8 +418,11 @@ const extraCards = [
       displayButtonIcon: true,
       icon: 'sparkles'
     },
-    name: 'AI Action',
-    id: 'aiagent',
+    name: 'aiaction',
+    id: 'base.cards.aiaction',
+    templateName: 'AI Action',
+    group: "base",
+    tag: "cards",
   },
   {
     defaults: {
@@ -445,7 +451,10 @@ const extraCards = [
       rulesCode: "return params.input;\n",
     },
     name: 'Value',
-    id: 'value'
+    id: 'base.cards.value',
+    group: "base",
+    tag: "cards",
+    templateName: 'Value',
   }
 ]
 

@@ -60,14 +60,14 @@ function parseAnsiText(text, initialStyle = 'ansiNormal') {
 }
 
 const styleMap = {
-    ansiNormal: { color: '#F6F6F6' },
-    ansiRed: { color: '#FF6666' },
-    ansiGreen: { color: '#66FF66' },
-    ansiYellow: { color: '#FFFF66' },
-    ansiBlue: { color: '#66A3FF' },
-    ansiMagenta: { color: '#FF66FF' },
-    ansiCyan: { color: '#66FFFF' },
-    ansiWhite: { color: '#FFFFFF' },
+    ansiNormal: { color: 'var(--color12)' },
+    ansiRed: { color: 'var(--red11)' },
+    ansiGreen: { color: 'var(--green11)' },
+    ansiYellow: { color: 'var(--yellow11)' },
+    ansiBlue: { color: 'var(--blue11)' },
+    ansiMagenta: { color: 'var(--purple11)' },
+    ansiCyan: { color: 'var(--blue12)' },
+    ansiWhite: { color: 'var(--color12)' },
 };
 
 
@@ -184,7 +184,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
                     whiteSpace="pre-wrap"
                     marginBottom={4}
                 >
-                    <Text style={{ color: '#F6F6F6' }} mr={"$2"}>
+                    <Text color="$color11" mr={"$2"}>
                         [{timestamp}]
                     </Text>
                     {lineTokens.map((token, tokenIndex) => (
@@ -248,7 +248,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
         </XStack>
         <YStack
             ref={scrollContainerRef}
-            backgroundColor="#1f1f1f"
+            backgroundColor="$bgContent"
             padding="$3"
             borderRadius="$2"
             flex={1}

@@ -198,16 +198,25 @@ export const useEsphomeDeviceActions = () => {
   const expectChooserRef = useRef(false);
   const portRequestRef = useRef<Promise<{ port: any | null; error?: string }> | null>(null);
 
+  const appendConsoleLog = useCallback((line: string) => {
+    const trimmed = line.trimEnd();
+    setConsoleOutput((prev) => {
+      const prefix = prev && !prev.endsWith("\n") ? "\n" : "";
+      return `${prev || ""}${prefix}${trimmed}\n`;
+    });
+  }, []);
+
   const setDeviceDisconnected = useCallback(
     (source: "usb" | "mqtt", customMessage?: string) => {
       setDeviceDisconnectInfo((prev) => {
         const message =
           customMessage || (source === "usb" ? "USB device disconnected" : "Device is offline");
         if (prev?.source === source && prev?.message === message) return prev;
+        appendConsoleLog(`---- ${message} ----`);
         return { source, message };
       });
     },
-    [],
+    [appendConsoleLog],
   );
 
   const clearDeviceDisconnect = useCallback(() => {
@@ -643,6 +652,7 @@ export const useEsphomeDeviceActions = () => {
       } else if (normalized === "online") {
         setDeviceOnline(true);
         clearDeviceDisconnect();
+        appendConsoleLog("---- Device is online ----");
       }
     } catch {
       // ignore parsing issues

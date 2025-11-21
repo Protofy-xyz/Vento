@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { YStack, Paragraph, Text, XStack, Button, Checkbox } from '@my/ui';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { YStack, Paragraph, Text, XStack, Button, Checkbox, useThemeName } from '@my/ui';
 import { Tinted } from 'protolib/components/Tinted';
 import { RefreshCcw, Download, Check, Trash2, AlertTriangle } from '@tamagui/lucide-icons';
 import { resetDevice, downloadLogs } from "@extensions/esphome/utils";
@@ -59,18 +59,6 @@ function parseAnsiText(text, initialStyle = 'ansiNormal') {
     return { tokens, endStyle: currentStyle };
 }
 
-const styleMap = {
-    ansiNormal: { color: 'var(--color12)' },
-    ansiRed: { color: 'var(--red11)' },
-    ansiGreen: { color: 'var(--green11)' },
-    ansiYellow: { color: 'var(--yellow11)' },
-    ansiBlue: { color: 'var(--blue11)' },
-    ansiMagenta: { color: 'var(--purple11)' },
-    ansiCyan: { color: 'var(--blue12)' },
-    ansiWhite: { color: 'var(--color12)' },
-};
-
-
 function breakTokensIntoLines(tokens) {
     const lines = [];
     let currentLine = [];
@@ -117,6 +105,33 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
     const ansiStyleRef = useRef('ansiNormal');
     const pendingLineRef = useRef<Token[]>([]);
     const lineIdRef = useRef(0);
+    const themeName = useThemeName();
+
+    const styleMap = useMemo(() => {
+        const isDark = (themeName || '').toLowerCase().includes('dark');
+        if (isDark) {
+            return {
+                ansiNormal: { color: '#d0d0d0' },
+                ansiRed: { color: '#ff5f5f' },
+                ansiGreen: { color: '#9ef542' },
+                ansiYellow: { color: '#ffd75f' },
+                ansiBlue: { color: '#58b7ff' },
+                ansiMagenta: { color: '#cf87ff' },
+                ansiCyan: { color: '#6ee7ff' },
+                ansiWhite: { color: '#ffffff' },
+            };
+        }
+        return {
+            ansiNormal: { color: '#444444' },
+            ansiRed: { color: '#d12f2f' },
+            ansiGreen: { color: '#2f9e44' },
+            ansiYellow: { color: '#b88700' },
+            ansiBlue: { color: '#1f6feb' },
+            ansiMagenta: { color: '#8c4fa8' },
+            ansiCyan: { color: '#0b8ba7' },
+            ansiWhite: { color: '#222222' },
+        };
+    }, [themeName]);
 
     useEffect(() => {
         if (consoleOutput !== '') return;
@@ -184,7 +199,7 @@ export const EspConsole = ({ consoleOutput = '', onCancel, deviceName, showReset
                     whiteSpace="pre-wrap"
                     marginBottom={4}
                 >
-                    <Text color="$color11" mr={"$2"}>
+                    <Text style={styleMap.ansiNormal} mr={"$2"}>
                         [{timestamp}]
                     </Text>
                     {lineTokens.map((token, tokenIndex) => (

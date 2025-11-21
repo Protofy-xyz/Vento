@@ -747,13 +747,17 @@ export const useEsphomeDeviceActions = () => {
     [flashDevice],
   );
 
-  const handleCancel = useCallback(async () => {
-    if (logsRequested || stage === "console") {
-      await stopConsole();
-      setLogsRequested(false);
-    }
+  const handleCancel = useCallback(() => {
+    // Close the modal immediately; stopConsole runs in the background.
     setShowModal(false);
     setStage("");
+    setLogsRequested(false);
+
+    if (logsRequested || stage === "console") {
+      stopConsole().catch(() => {
+        /* best effort */
+      });
+    }
   }, [logsRequested, stage, stopConsole]);
 
   const deviceActionsUi = (

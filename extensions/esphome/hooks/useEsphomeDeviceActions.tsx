@@ -194,6 +194,9 @@ export const useEsphomeDeviceActions = () => {
   const [deviceDisconnectInfo, setDeviceDisconnectInfo] = useState<
     null | { source: "usb" | "mqtt"; message: string }
   >(null);
+  const latestChooserReqRef = useRef<string | null>(null);
+  const expectChooserRef = useRef(false);
+  const portRequestRef = useRef<Promise<{ port: any | null; error?: string }> | null>(null);
 
   const setDeviceDisconnected = useCallback(
     (source: "usb" | "mqtt", customMessage?: string) => {
@@ -279,10 +282,13 @@ export const useEsphomeDeviceActions = () => {
     if (!api) return;
 
     const offOpen = api.onChooserOpen?.(({ reqId, ports }) => {
+      if (!expectChooserRef.current) return;
       setSerialChooser({ reqId, ports });
+      latestChooserReqRef.current = reqId;
     });
 
     const offUpdate = api.onChooserUpdate?.(({ reqId, ports }) => {
+      if (!expectChooserRef.current) return;
       setSerialChooser((prev) => {
         if (!prev || prev.reqId !== reqId) return prev;
         return { reqId, ports };
@@ -292,6 +298,15 @@ export const useEsphomeDeviceActions = () => {
     return () => {
       if (typeof offOpen === "function") offOpen();
       if (typeof offUpdate === "function") offUpdate();
+      try {
+        if (latestChooserReqRef.current) {
+          (window as any)?.serial?.cancel(latestChooserReqRef.current);
+        }
+      } catch {
+        // ignore cancel errors
+      }
+      latestChooserReqRef.current = null;
+      expectChooserRef.current = false;
     };
   }, []);
 
@@ -300,6 +315,8 @@ export const useEsphomeDeviceActions = () => {
       (window as any)?.serial?.choose(serialChooser?.reqId, String(portId));
     } finally {
       setSerialChooser(null);
+      expectChooserRef.current = false;
+      latestChooserReqRef.current = null;
     }
   };
 
@@ -308,8 +325,36 @@ export const useEsphomeDeviceActions = () => {
       (window as any)?.serial?.cancel(serialChooser?.reqId);
     } finally {
       setSerialChooser(null);
+      expectChooserRef.current = false;
+      latestChooserReqRef.current = null;
     }
   };
+
+  const requestSerialPort = useCallback(async () => {
+    expectChooserRef.current = true;
+    if (!portRequestRef.current) {
+      portRequestRef.current = connectSerialPort().finally(() => {
+        portRequestRef.current = null;
+        expectChooserRef.current = false;
+      });
+    }
+    return portRequestRef.current;
+  }, []);
+
+  // If we already have a port, dismiss any lingering chooser overlay.
+  useEffect(() => {
+    if (port && serialChooser) {
+      try {
+        (window as any)?.serial?.cancel(serialChooser.reqId);
+      } catch {
+        // ignore
+      } finally {
+        setSerialChooser(null);
+        latestChooserReqRef.current = null;
+        expectChooserRef.current = false;
+      }
+    }
+  }, [port, serialChooser]);
 
   const flashDevice = useCallback(
     async (device: DevicesModel, yaml?: string) => {
@@ -327,14 +372,14 @@ export const useEsphomeDeviceActions = () => {
   );
 
   const onSelectPort = useCallback(async () => {
-    const { port, error } = await connectSerialPort();
+    const { port, error } = await requestSerialPort();
     if (!port || error) {
       setModalFeedback({ message: error || "No port detected.", details: { error: true } });
       return;
     }
     setPort(port);
     setStage("select-action");
-  }, []);
+  }, [requestSerialPort]);
 
   const handleYamlStage = useCallback(async () => {
     const uploadYaml = async (yaml: string) => {
@@ -610,7 +655,7 @@ export const useEsphomeDeviceActions = () => {
       clearDeviceDisconnect();
 
       if (source === "usb") {
-        const { port, error } = await connectSerialPort();
+        const { port, error } = await requestSerialPort();
 
         if (error === "Any port selected") {
           setLogsRequested(false);
@@ -642,7 +687,7 @@ export const useEsphomeDeviceActions = () => {
         details: { error: false },
       });
     },
-    [clearDeviceDisconnect, targetDeviceName],
+    [clearDeviceDisconnect, requestSerialPort, targetDeviceName],
   );
 
   const cancelLogsSource = useCallback(() => {
@@ -665,7 +710,7 @@ export const useEsphomeDeviceActions = () => {
       if (hasMqtt) {
         setLogSourceChooserOpen(true);
       } else {
-        const { port, error } = await connectSerialPort();
+        const { port, error } = await requestSerialPort();
         if (error === "Any port selected") {
           setLogsRequested(false);
           setLogSource(null);
@@ -683,7 +728,7 @@ export const useEsphomeDeviceActions = () => {
         setStage("console");
       }
     },
-    [clearDeviceDisconnect, hasMqttSubsystem],
+    [clearDeviceDisconnect, hasMqttSubsystem, requestSerialPort],
   );
 
   const uploadConfigFile = useCallback(

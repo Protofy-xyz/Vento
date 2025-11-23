@@ -1,0 +1,7 @@
+{
+  "host": "http://localhost:8000",
+  "username": "admin",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwidHlwZSI6ImFkbWluIiwiYWRtaW4iOnRydWUsInBlcm1pc3Npb25zIjpbIioiLCJhZG1pbiJdLCJpYXQiOjE3NjM5MzYzMzEsImV4cCI6MTc2NzUzNjMzMX0.chpi-J9xFvVsd3C-9wmoglHpGB7QknbSWQoXWn9CKl4",
+  "device_name": "desktop_01o9l9d_7dd870",
+  "monitor_interval_seconds": 30
+}

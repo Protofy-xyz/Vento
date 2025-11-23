@@ -1,0 +1,11 @@
+{
+  "name": "client",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "compile": "shx mkdir -p dist && go build -o dist/ventoagent ./cmd/ventoagent"
+  },
+  "devDependencies": {
+    "shx": "^0.4.0"
+  }
+}

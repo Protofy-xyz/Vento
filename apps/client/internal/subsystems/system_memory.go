@@ -2,8 +2,10 @@ package subsystems
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	vmem "github.com/shirou/gopsutil/v4/mem"
@@ -13,15 +15,10 @@ import (
 
 // SystemMemoryTemplate is an example of a monitor-heavy subsystem.
 // Copy this file to add more hardware monitors or metrics.
-type SystemMemoryTemplate struct {
-	interval time.Duration
-}
+type SystemMemoryTemplate struct{}
 
-func NewSystemMemoryTemplate(interval time.Duration) Template {
-	if interval <= 0 {
-		interval = 30 * time.Second
-	}
-	return &SystemMemoryTemplate{interval: interval}
+func NewSystemMemoryTemplate(time.Duration) Template {
+	return &SystemMemoryTemplate{}
 }
 
 func (t *SystemMemoryTemplate) Build(string) Definition {
@@ -32,14 +29,14 @@ func (t *SystemMemoryTemplate) Build(string) Definition {
 			{
 				Monitor: vento.Monitor{
 					Name:           "memory_total",
-					Label:          "Installed RAM",
+					Label:          "Total memory",
 					Description:    "Total physical memory detected when the agent booted",
 					Units:          "bytes",
 					Endpoint:       vento.MemoryTotalEndpoint,
 					ConnectionType: "mqtt",
 					Ephemeral:      false,
 					CardProps: map[string]any{
-						"icon":  "hard-drive",
+						"icon":  "database",
 						"color": "$green10",
 					},
 				},
@@ -48,7 +45,7 @@ func (t *SystemMemoryTemplate) Build(string) Definition {
 			{
 				Monitor: vento.Monitor{
 					Name:           "memory_used",
-					Label:          "Used RAM",
+					Label:          "Used memory",
 					Description:    "Periodically reported RAM usage",
 					Units:          "bytes",
 					Endpoint:       vento.MemoryUsageEndpoint,
@@ -59,8 +56,26 @@ func (t *SystemMemoryTemplate) Build(string) Definition {
 						"color": "$blue10",
 					},
 				},
-				Interval: t.interval,
+				Interval: 5 * time.Second,
 				Tick:     t.publishUsage,
+			},
+		},
+		Actions: []ActionConfig{
+			{
+				Action: vento.Action{
+					Name:           "print",
+					Label:          "Print to stdout",
+					Description:    "Send a message that the local agent prints to stdout",
+					Endpoint:       vento.PrintActionEndpoint,
+					ConnectionType: "mqtt",
+					Payload: vento.ActionPayload{
+						Type: "string",
+					},
+					CardProps: map[string]any{
+						"icon": "terminal",
+					},
+				},
+				Handler: handlePrintAction,
 			},
 		},
 	}
@@ -71,12 +86,7 @@ func (t *SystemMemoryTemplate) publishTotal(ctx context.Context, mqtt *vento.MQT
 	if err != nil {
 		return err
 	}
-	payload := map[string]any{
-		"bytes":     stats.Total,
-		"human":     humanizeBytes(stats.Total),
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	}
-	return mqtt.Publish(vento.MemoryTotalEndpoint, payload)
+	return mqtt.Publish(vento.MemoryTotalEndpoint, fmt.Sprintf("%d", stats.Total))
 }
 
 func (t *SystemMemoryTemplate) publishUsage(ctx context.Context, mqtt *vento.MQTTClient) error {
@@ -84,13 +94,7 @@ func (t *SystemMemoryTemplate) publishUsage(ctx context.Context, mqtt *vento.MQT
 	if err != nil {
 		return err
 	}
-	payload := map[string]any{
-		"bytes":     stats.Used,
-		"human":     humanizeBytes(stats.Used),
-		"percent":   math.Round(stats.UsedPercent*100) / 100,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	}
-	return mqtt.Publish(vento.MemoryUsageEndpoint, payload)
+	return mqtt.Publish(vento.MemoryUsageEndpoint, fmt.Sprintf("%d", stats.Used))
 }
 
 func humanizeBytes(v uint64) string {
@@ -105,4 +109,21 @@ func humanizeBytes(v uint64) string {
 	}
 	value := float64(v) / math.Pow(unit, i)
 	return fmt.Sprintf("%.2f %s", value, sizes[int(i)])
+}
+
+func handlePrintAction(payload []byte) error {
+	trimmed := strings.TrimSpace(string(payload))
+	if trimmed == "" {
+		fmt.Println("[action:print] <empty>")
+		return nil
+	}
+	var asJSON any
+	if json.Unmarshal(payload, &asJSON) == nil {
+		if formatted, err := json.MarshalIndent(asJSON, "", "  "); err == nil {
+			fmt.Printf("[action:print] %s\n", formatted)
+			return nil
+		}
+	}
+	fmt.Printf("[action:print] %s\n", trimmed)
+	return nil
 }

@@ -23,7 +23,6 @@ func NewSet(cfg *config.Config) *Set {
 	return &Set{
 		templates: []Template{
 			NewSystemMemoryTemplate(cfg.MonitorInterval()),
-			NewStdoutPrintTemplate(),
 		},
 	}
 }
@@ -43,9 +42,9 @@ func (s *Set) Prepare(deviceName string) {
 
 // DevicePayload returns the payload used to register the device in Vento.
 func (s *Set) DevicePayload(deviceName string) vento.DevicePayload {
-	subsystems := make(map[string]vento.Subsystem, len(s.definitions))
-	for _, def := range s.definitions {
-		subsystems[def.Name] = def.subsystem()
+	subsystems := make([]vento.Subsystem, len(s.definitions))
+	for i, def := range s.definitions {
+		subsystems[i] = def.subsystem()
 	}
 	return vento.BuildDevicePayload(deviceName, subsystems)
 }

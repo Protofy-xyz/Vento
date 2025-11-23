@@ -73,8 +73,21 @@ func (c *Client) DeviceExists(ctx context.Context, token, deviceName string) (bo
 }
 
 // RegisterDevice registers a new device with the provided definition.
-func (c *Client) RegisterDevice(ctx context.Context, token string, payload DevicePayload) error {
+func (c *Client) RegisterDevice(ctx context.Context, token string, payload any) error {
 	return c.doJSON(ctx, http.MethodPost, "/api/core/v1/devices", token, payload, nil)
+}
+
+// UpdateDevice updates an existing device payload.
+func (c *Client) UpdateDevice(ctx context.Context, token, deviceName string, payload any) error {
+	return c.doJSON(ctx, http.MethodPost, "/api/core/v1/devices/"+deviceName, token, payload, nil)
+}
+
+// SetSubsystems replaces the subsystem array for a device.
+func (c *Client) SetSubsystems(ctx context.Context, token, deviceName string, subs []Subsystem) error {
+	body := map[string]any{
+		"subsystem": subs,
+	}
+	return c.UpdateDevice(ctx, token, deviceName, body)
 }
 
 // TriggerRegisterActions forces Vento to rebuild the device boards.
@@ -180,4 +193,3 @@ func (e *Error) Error() string {
 	}
 	return fmt.Sprintf("vento api error %d", e.StatusCode)
 }
-

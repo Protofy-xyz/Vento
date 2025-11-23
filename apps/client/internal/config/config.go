@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -162,9 +161,9 @@ func GenerateDeviceName() string {
 		host = "device"
 	}
 
-	buf := make([]byte, 3)
-	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
-		return fmt.Sprintf("%s_%d", host, time.Now().Unix())
+	buf := make([]byte, 2)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Sprintf("%s_%s", host, "0000")
 	}
 	return fmt.Sprintf("%s_%s", host, strings.ToLower(hex.EncodeToString(buf)))
 }

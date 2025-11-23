@@ -4,7 +4,7 @@ export const DevicesSchema = Schema.object({
   name: z.string().hint("Device name").static().regex(/^[a-z0-9_]+$/, "Only lower case chars, numbers or _").id().search().label("Name"),
   deviceDefinition: z.string().label("Definition").optional(),
   substitutions: z.record(z.string().optional(), z.any().optional()).optional().hidden(),
-  subsystem: z.record(z.string(), z.any()).optional().hidden(),
+  subsystem: z.array(z.any()).optional().hidden(),
   data: z.record(z.string(), z.any()).optional().hidden(),
   currentSdk: z.string().hidden().generate("esphome"),
   location: z.object({

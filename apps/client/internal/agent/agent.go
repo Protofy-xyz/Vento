@@ -82,12 +82,19 @@ func (a *Agent) ensureDevice(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	payload := a.subs.DevicePayload(a.cfg.DeviceName)
 	if exists {
-		return nil
+		return a.http.UpdateDevice(ctx, a.cfg.Token, a.cfg.DeviceName, payload)
 	}
 	log.Printf("device %s not found, registering...", a.cfg.DeviceName)
-	payload := a.subs.DevicePayload(a.cfg.DeviceName)
-	if err := a.http.RegisterDevice(ctx, a.cfg.Token, payload); err != nil {
+	createPayload := map[string]any{
+		"name":       payload.Name,
+		"currentSdk": payload.CurrentSDK,
+	}
+	if err := a.http.RegisterDevice(ctx, a.cfg.Token, createPayload); err != nil {
+		return err
+	}
+	if err := a.http.UpdateDevice(ctx, a.cfg.Token, a.cfg.DeviceName, payload); err != nil {
 		return err
 	}
 	if !a.skipRegisterActions {

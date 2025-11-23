@@ -2,9 +2,9 @@ package vento
 
 // DevicePayload represents the device registration payload.
 type DevicePayload struct {
-	Name       string               `json:"name"`
-	CurrentSDK string               `json:"currentSdk"`
-	Subsystem  map[string]Subsystem `json:"subsystem,omitempty"`
+	Name       string      `json:"name"`
+	CurrentSDK string      `json:"currentSdk"`
+	Subsystem  []Subsystem `json:"subsystem,omitempty"`
 }
 
 // Subsystem defines monitors/actions for a device capability.
@@ -55,7 +55,7 @@ const (
 )
 
 // BuildDevicePayload builds the device payload using the provided subsystem definitions.
-func BuildDevicePayload(deviceName string, subs map[string]Subsystem) DevicePayload {
+func BuildDevicePayload(deviceName string, subs []Subsystem) DevicePayload {
 	return DevicePayload{
 		Name:       deviceName,
 		CurrentSDK: "ventoagent",

@@ -4,7 +4,6 @@ const fs = require('fs');
 const { Readable } = require('stream');
 const { spawnSync, fork } = require('child_process');
 const os = require('os');
-const dotenv = require('dotenv');
 const { v4: uuid } = require('uuid');
 
 const isDev = process.argv.includes('--ui-dev');
@@ -122,6 +121,28 @@ const respond = ({ statusCode = 200, data = Buffer.from(""), mimeType = "text/pl
   return new Response(data, { status: statusCode, headers })
 }
 
+function parseEnv(raw = '') {
+  return raw
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'))
+    .reduce((acc, line) => {
+      const idx = line.indexOf('=');
+      if (idx === -1) return acc;
+      const key = line.slice(0, idx).trim();
+      const value = stripOuterQuotes(line.slice(idx + 1).trim());
+      if (key) acc[key] = value;
+      return acc;
+    }, {});
+}
+
+function stripOuterQuotes(value = '') {
+  const wrapped =
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"));
+  return wrapped && value.length >= 2 ? value.slice(1, -1) : value;
+}
+
 const rootPath = path.resolve(__dirname, '..');
 
 function readEnvValue(rootPath, key) {
@@ -152,7 +173,7 @@ function getPackageInfo(rootPath) {
 const ensureLauncherInstanceId = async (envPath) => {
   try {
     const rawEnv = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
-    const parsed = rawEnv ? dotenv.parse(rawEnv) : {};
+    const parsed = rawEnv ? parseEnv(rawEnv) : {};
     const existing = parsed.LAUNCHER_INSTANCE_ID || process.env.LAUNCHER_INSTANCE_ID;
     if (existing) {
       process.env.LAUNCHER_INSTANCE_ID = existing;

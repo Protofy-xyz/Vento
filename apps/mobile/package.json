@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "expo": "~54.0.25",
+    "expo-av": "^16.0.7",
     "expo-camera": "~17.0.9",
     "expo-device": "~8.0.9",
     "expo-file-system": "^19.0.19",
+    "expo-haptics": "^15.0.7",
     "expo-keep-awake": "~15.0.7",
     "expo-location": "~19.0.7",
     "expo-secure-store": "~15.0.7",

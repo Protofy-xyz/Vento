@@ -3230,6 +3230,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-av@npm:^16.0.7":
+  version: 16.0.7
+  resolution: "expo-av@npm:16.0.7"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+    react-native-web: "*"
+  peerDependenciesMeta:
+    react-native-web:
+      optional: true
+  checksum: 10/d8e78d2e57dbd849a443c3c2def6a2c5482434dce6263a63e2d0c7260a8a2c5d367bbbe1a0cbb5de61d23b103ea71427e7f7557fc327e5004892813a8b822fdb
+  languageName: node
+  linkType: hard
+
 "expo-camera@npm:~17.0.9":
   version: 17.0.9
   resolution: "expo-camera@npm:17.0.9"
@@ -3291,6 +3306,15 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/29511a5ba7b8a2c37d7941d6d2908f9a07d7efbf227b507a85582fc9e24ac3eb9e119e0b8329e37835e8250ec10e65fe80076c4f81cac91904c718fd892386c5
+  languageName: node
+  linkType: hard
+
+"expo-haptics@npm:^15.0.7":
+  version: 15.0.7
+  resolution: "expo-haptics@npm:15.0.7"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/5484f21a270ecd4251766e6e3bf2062ed4af2f5c1c743d270221eca30d1238b60d78b47dbe90564c6ef5d350beeb025d4d8c50411d015f92f37cf8bbc6113186
   languageName: node
   linkType: hard
 
@@ -5056,9 +5080,11 @@ __metadata:
   dependencies:
     "@types/react": "npm:~19.1.0"
     expo: "npm:~54.0.25"
+    expo-av: "npm:^16.0.7"
     expo-camera: "npm:~17.0.9"
     expo-device: "npm:~8.0.9"
     expo-file-system: "npm:^19.0.19"
+    expo-haptics: "npm:^15.0.7"
     expo-keep-awake: "npm:~15.0.7"
     expo-location: "npm:~19.0.7"
     expo-secure-store: "npm:~15.0.7"

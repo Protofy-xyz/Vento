@@ -41,10 +41,10 @@ export default {
 
     const extraMenuActions = [
       {
-        text: "Manage firmware",
+        text: "Upload definition file",
         icon: UploadCloud,
         action: (element) => { flashDevice(element) },
-        isVisible: (element) => true
+        isVisible: (element) => element.data.deviceDefinition
       },
       {
         text: "Edit config file",
@@ -58,7 +58,7 @@ export default {
         action: async (element) => {
           await uploadConfigFile(element)
         },
-        isVisible: (element) => element.isInitialized() && element.getConfigFile()
+        isVisible: (element) => element.getConfigFile()
       },
       {
         text: "View logs",
@@ -150,7 +150,26 @@ export default {
         columns={DataTable2.columns(
           DataTable2.column("name", row => row.name, "name"),
           DataTable2.column("device definition", row => row.deviceDefinition, "deviceDefinition"),
-          DataTable2.column("config", row => row.config, false, (row) => <ButtonSimple onPress={(e) => { flashDevice(DevicesModel.load(row)) }}>Upload</ButtonSimple>)
+          DataTable2.column("config", row => row.config, false, (row) => {
+            const device = DevicesModel.load(row);
+            const hasDefinition = Boolean(device.data.deviceDefinition);
+
+            const buttonLabel = hasDefinition ? "Upload definition" : "Upload config";
+
+            return (
+              <ButtonSimple
+                onPress={async () => {
+                  if (!hasDefinition) {
+                    await uploadConfigFile(device);
+                    return;
+                  }
+                  flashDevice(device);
+                }}
+              >
+                {buttonLabel}
+              </ButtonSimple>
+            );
+          })
         )}
         customFields={{
           deviceDefinition: {

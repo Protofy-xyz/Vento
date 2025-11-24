@@ -1,4 +1,5 @@
-import { Client, Message } from 'paho-mqtt';
+import 'react-native-url-polyfill/auto';
+import mqtt, { MqttClient } from 'mqtt';
 
 export interface MQTTConnectOptions {
   hostUrl: string;
@@ -16,104 +17,133 @@ export interface MQTTConnectOptions {
 }
 
 export class MQTTManager {
-  private client: Client | null = null;
+  private client: MqttClient | null = null;
+  private deviceName: string = '';
 
   async connect(opts: MQTTConnectOptions) {
-    const clientId = `${opts.deviceName}-${Date.now()}`;
-    const { url, useSSL } = normalizeBrokerUrl(opts.hostUrl);
-    this.client = new Client(url, `vento-mobile-${Date.now()}`);
+    this.deviceName = opts.deviceName;
+    const clientId = opts.deviceName;
+    const brokerUrl = buildMqttUrl(opts.hostUrl);
+    
+    console.log('[mqtt] connecting to:', brokerUrl);
+    console.log('[mqtt] clientId:', clientId);
+    console.log('[mqtt] username:', opts.username);
+    
+    return new Promise<void>((resolve, reject) => {
+      this.client = mqtt.connect(brokerUrl, {
+        clientId,
+        username: opts.username,
+        password: opts.password,
+        clean: true,
+        keepalive: 60,
+        reconnectPeriod: 5000,
+        connectTimeout: 10000,
+      });
 
-    await new Promise<void>((resolve, reject) => {
-      this.client!.onConnectionLost = (responseObject) => {
-        if (responseObject.errorCode !== 0) {
-          console.warn('MQTT connection lost', responseObject.errorMessage);
-        }
-      };
+      this.client.on('connect', () => {
+        console.log('[mqtt] ✅ connected successfully');
+        
+        const topic = `devices/${opts.deviceName}/+/actions/#`;
+        console.log('[mqtt] subscribing to:', topic);
+        
+        this.client!.subscribe(topic, { qos: 1 }, (err) => {
+          if (err) {
+            console.error('[mqtt] ❌ subscribe error:', err);
+            reject(err);
+          } else {
+            console.log('[mqtt] ✅ subscribed to:', topic);
+            resolve();
+          }
+        });
+      });
 
-      this.client!.onMessageArrived = (message) => {
-        const topic = message.destinationName;
+      this.client.on('error', (err) => {
+        console.error('[mqtt] ❌ connection error:', err);
+        reject(err);
+      });
+
+      this.client.on('close', () => {
+        console.warn('[mqtt] connection closed');
+      });
+
+      this.client.on('message', (topic, message) => {
+        const payload = message.toString();
+        console.log('[mqtt] ✅ MESSAGE ARRIVED:', topic, 'payload:', payload);
+        
         const parsed = parseActionTopic(topic);
         if (!parsed) {
+          console.log('[mqtt] ignored topic', topic);
           return;
         }
+        
+        console.log('[mqtt] dispatching action', parsed.subsystem, parsed.action);
         opts.onMessage({
           subsystem: parsed.subsystem,
           action: parsed.action,
           requestId: parsed.requestId,
-          payload: message.payloadString,
+          payload,
           topic,
           reply: async (body: any) => {
             if (!parsed.requestId || !this.client) return;
             const replyTopic = `${topic}/reply`;
-            const msg = new Message(JSON.stringify(body));
-            msg.destinationName = replyTopic;
-            this.client.send(msg);
+            console.log('[mqtt] sending reply to:', replyTopic);
+            this.client.publish(replyTopic, JSON.stringify(body), { qos: 1 });
           },
         });
-      };
-
-      this.client!.connect({
-        useSSL,
-        userName: opts.username,
-        password: opts.password,
-        onSuccess: () => {
-          const actionsTopic = `devices/${opts.deviceName}/+/actions/#`;
-          this.client!.subscribe(actionsTopic);
-          resolve();
-        },
-        onFailure: (err) => {
-          reject(new Error(err.errorMessage));
-        },
       });
     });
   }
 
   publish(deviceName: string, endpoint: string, payload: any) {
-    if (!this.client) {
-      throw new Error('MQTT not connected');
+    if (!this.client || !this.client.connected) {
+      console.warn('[mqtt] cannot publish, not connected');
+      return;
     }
-    const message = new Message(JSON.stringify(payload));
-    message.destinationName = `devices/${deviceName}${endpoint}`;
-    this.client.send(message);
+    const topic = `devices/${deviceName}${endpoint}`;
+    this.client.publish(topic, JSON.stringify(payload), { qos: 1 });
   }
 
   disconnect() {
-    if (this.client?.isConnected()) {
-      this.client.disconnect();
+    if (this.client) {
+      this.client.end();
+      this.client = null;
     }
-    this.client = null;
   }
 }
 
 function parseActionTopic(topic: string) {
   const parts = topic.split('/').filter(Boolean);
+  console.log('[mqtt] parse parts', parts);
   if (parts.length < 5) return null;
   const [root, device, subsystem, actionsKeyword, action, ...rest] = parts;
   if (root !== 'devices' || actionsKeyword !== 'actions') {
     return null;
   }
+  if (rest.length === 0 || rest[rest.length - 1] === 'reply') {
+    console.log('[mqtt] skip reply', topic);
+    return null;
+  }
+  const normalizedAction = action.replace(/^system_/, '');
   const requestId = rest[0];
+  console.log('[mqtt] parsed action', { subsystem, action, normalizedAction, requestId });
   return {
     subsystem,
-    action,
+    action: normalizedAction,
     requestId,
   };
 }
 
-function normalizeBrokerUrl(hostUrl: string): { url: string; useSSL: boolean } {
+function buildMqttUrl(hostUrl: string): string {
   try {
     const url = new URL(hostUrl);
-    if (url.protocol === 'ws:' || url.protocol === 'wss:') {
-      return { url: url.toString(), useSSL: url.protocol === 'wss:' };
-    }
     const useSSL = url.protocol === 'https:';
-    const port = url.port ? `:${url.port}` : '';
-    return {
-      url: `${useSSL ? 'wss' : 'ws'}://${url.hostname}${port}/websocket`,
-      useSSL,
-    };
+    const host = url.hostname;
+    const port = url.port || (useSSL ? '443' : '80');
+    
+    // Use WebSocket transport (mqtt.js will handle the protocol)
+    return `${useSSL ? 'wss' : 'ws'}://${host}:${port}/websocket`;
   } catch {
-    return { url: 'ws://localhost:8000/websocket', useSSL: false };
+    return 'ws://localhost:8000/websocket';
   }
 }
 

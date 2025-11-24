@@ -73,6 +73,7 @@ export function useAgent(): AgentControls {
         const stored = (await loadStoredConfig()) ?? {};
         const deviceName = stored.deviceName ?? generateDeviceName();
         const subsystems = buildSubsystems();
+        actionHandlers.current = collectActionHandlers(subsystems);
         const payload = buildDevicePayload(deviceName, subsystems);
 
         appendLog('Ensuring device exists');
@@ -97,6 +98,7 @@ export function useAgent(): AgentControls {
               appendLog(`Unhandled action ${key}`);
               return;
             }
+            appendLog(`Action received ${key} ${payload}`);
             handler(payload, async (body) => {
               if (!requestId) return;
               await reply(body);
@@ -108,8 +110,6 @@ export function useAgent(): AgentControls {
         appendLog('Publishing boot monitors');
         await publishBootMonitors(deviceName, subsystems, mqtt);
         startIntervals(deviceName, subsystems, mqtt, intervalsRef);
-        actionHandlers.current = collectActionHandlers(subsystems);
-
         await activateKeepAwakeAsync('vento-mobile');
         setState({
           status: 'connected',
@@ -171,6 +171,10 @@ function collectActionHandlers(subsystems: SubsystemDefinition[]) {
   for (const subsystem of subsystems) {
     for (const action of subsystem.actions) {
       map.set(`${subsystem.name}:${action.descriptor.name}`, action.handler);
+      const legacyName = action.descriptor.name.startsWith('system_')
+        ? action.descriptor.name.replace(/^system_/, '')
+        : `system_${action.descriptor.name}`;
+      map.set(`${subsystem.name}:${legacyName}`, action.handler);
     }
   }
   return map;
@@ -214,9 +218,8 @@ function buildMQTTUrl(host: string) {
     if (url.protocol === 'ws:' || url.protocol === 'wss:') {
       return url.toString();
     }
-    const useSecure = url.protocol === 'https:';
-    const port = url.port ? `:${url.port}` : '';
-    return `${useSecure ? 'wss' : 'ws'}://${url.hostname}${port}/websocket`;
+    const scheme = url.protocol === 'https:' ? 'wss' : 'ws';
+    return `${scheme}://${url.hostname}:${url.port || 8000}/websocket`;
   } catch {
     return 'ws://localhost:8000/websocket';
   }

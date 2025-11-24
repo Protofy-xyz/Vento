@@ -74,7 +74,7 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
     actions: [
       {
         descriptor: {
-          name: 'torch_toggle',
+          name: 'torch',
           label: 'Flashlight',
           description: 'Turns the flashlight on/off',
           endpoint: TORCH_ENDPOINT,

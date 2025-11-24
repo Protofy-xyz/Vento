@@ -21,6 +21,7 @@ export function TorchBridge() {
       return;
     }
     registerTorchController(async (state: TorchState) => {
+      console.log('[torch] request', state);
       setTorchState(state);
     });
     return () => registerTorchController(null);

@@ -27,7 +27,22 @@ const ensureProjectInstanceId = async (envPath: string) => {
     }
 };
 
+const shouldSendTelemetry = async (telemetryPath: string) => {
+    try {
+        if (!fs.existsSync(telemetryPath)) {
+            return true;
+        }
+        const raw = await fs.promises.readFile(telemetryPath, 'utf8');
+        const normalized = raw.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+        return normalized !== 'false';
+    } catch (err) {
+        console.warn('[env] Could not read cloud telemetry setting:', (err as any)?.message || err);
+        return true;
+    }
+};
+
 const envPath = path.resolve(process.cwd(), '../../.env');
+const telemetryPath = path.resolve(process.cwd(), '../../data/settings/cloud.telemetry');
 
 export default async (app, context) => {
     await ensureProjectInstanceId(envPath);
@@ -36,6 +51,9 @@ export default async (app, context) => {
         croneTime: '0 */20 * * * *',
         name: 'cloud-telemetry',
         callback: async () => {
+            if (!await shouldSendTelemetry(telemetryPath)) {
+                return;
+            }
             await API.post(infraUrls.cloud.telemetry, {
                 path: "/vento/alive",
                 from: process.env.PROJECT_INSTANCE_ID,

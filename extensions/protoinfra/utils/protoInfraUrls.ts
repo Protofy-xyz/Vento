@@ -7,5 +7,7 @@ export default {
     "esphome":
     {
         "mqtt": "mqtt://bo-compile.protofy.xyz:8883",
+        "url": "https://compile.protofy.xyz",
+        "wss": "wss://compile.protofy.xyz"
     }
 }

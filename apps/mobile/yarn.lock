@@ -3152,6 +3152,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-camera@npm:~17.0.9":
+  version: 17.0.9
+  resolution: "expo-camera@npm:17.0.9"
+  dependencies:
+    invariant: "npm:^2.2.4"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+    react-native-web: "*"
+  peerDependenciesMeta:
+    react-native-web:
+      optional: true
+  checksum: 10/c9a160cc397a830dc2418510dc24d54a3e64f5d196e564c24feffb6e03d9d7f8b8dd7cadeb8f89183f657835531d2254347513d0cb5027fa4648c06196f17024
+  languageName: node
+  linkType: hard
+
 "expo-constants@npm:~18.0.10":
   version: 18.0.10
   resolution: "expo-constants@npm:18.0.10"
@@ -3209,6 +3226,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-location@npm:~19.0.7":
+  version: 19.0.7
+  resolution: "expo-location@npm:19.0.7"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/c2fb1ab36040134a11b47c9e4f9a7c8ac881d082a773ffc0ea60121f705d229bd2c32ec2eab2409f7648d0dde7c26432010427324ebe318e997b576447f23278
+  languageName: node
+  linkType: hard
+
 "expo-modules-autolinking@npm:3.0.22":
   version: 3.0.22
   resolution: "expo-modules-autolinking@npm:3.0.22"
@@ -3242,6 +3268,18 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10/7ca69178cd0f0b93626d69747eb87e4598bcbb328d26c0194988df9f287f3c6bf0bacfa86a602ddcb850780cf708f1780319b409735855d6d6c1881350174416
+  languageName: node
+  linkType: hard
+
+"expo-sensors@npm:~15.0.7":
+  version: 15.0.7
+  resolution: "expo-sensors@npm:15.0.7"
+  dependencies:
+    invariant: "npm:^2.2.4"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10/8a4ed932d5aaf8cf4c06064b36dd1ca6dfe651a346a23a45a29598087495c967c52fa8423ac5f17e20af6df98b2842139acb0214790b2abb16e546f53a86277d
   languageName: node
   linkType: hard
 
@@ -4916,9 +4954,12 @@ __metadata:
   dependencies:
     "@types/react": "npm:~19.1.0"
     expo: "npm:~54.0.25"
+    expo-camera: "npm:~17.0.9"
     expo-device: "npm:~8.0.9"
     expo-keep-awake: "npm:~15.0.7"
+    expo-location: "npm:~19.0.7"
     expo-secure-store: "npm:~15.0.7"
+    expo-sensors: "npm:~15.0.7"
     expo-status-bar: "npm:~3.0.8"
     paho-mqtt: "npm:^1.1.0"
     react: "npm:19.1.0"

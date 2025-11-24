@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { useAgent } from './src/hooks/useAgent';
+import { TorchBridge } from './src/components/TorchBridge';
 
 export default function App() {
   const { state, connect, disconnect } = useAgent();
@@ -63,24 +64,27 @@ export default function App() {
           {state.error && <Text style={styles.error}>{state.error}</Text>}
         </View>
       ) : (
-        <View style={styles.dashboard}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.label}>Device</Text>
-              <Text style={styles.value}>{state.deviceName}</Text>
+        <>
+          <View style={styles.dashboard}>
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.label}>Device</Text>
+                <Text style={styles.value}>{state.deviceName}</Text>
+              </View>
+              <Button title="Disconnect" onPress={disconnect} />
             </View>
-            <Button title="Disconnect" onPress={disconnect} />
+            <Text style={styles.label}>Logs</Text>
+            <ScrollView style={styles.logContainer}>
+              {state.logs.length === 0 && <Text style={styles.muted}>Waiting for events...</Text>}
+              {state.logs.map((log, idx) => (
+                <Text key={`${log}-${idx}`} style={styles.log}>
+                  {log}
+                </Text>
+              ))}
+            </ScrollView>
           </View>
-          <Text style={styles.label}>Logs</Text>
-          <ScrollView style={styles.logContainer}>
-            {state.logs.length === 0 && <Text style={styles.muted}>Waiting for events...</Text>}
-            {state.logs.map((log, idx) => (
-              <Text key={`${log}-${idx}`} style={styles.log}>
-                {log}
-              </Text>
-            ))}
-          </ScrollView>
-        </View>
+          <TorchBridge />
+        </>
       )}
       {isConnecting && (
         <View style={styles.overlay}>

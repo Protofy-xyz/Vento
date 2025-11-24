@@ -91,16 +91,16 @@ func (s *Set) runMonitor(ctx context.Context, mqtt *vento.MQTTClient, subsystem 
 }
 
 // HandleAction dispatches the payload to the matching action handler.
-func (s *Set) HandleAction(subsystem, action string, payload []byte) bool {
-	handler, ok := s.actionHandlers[actionKey(subsystem, action)]
+func (s *Set) HandleAction(msg vento.ActionEnvelope) bool {
+	handler, ok := s.actionHandlers[actionKey(msg.Subsystem, msg.Action)]
 	if !ok {
 		return false
 	}
 	if handler.Handler == nil {
 		return true
 	}
-	if err := handler.Handler(payload); err != nil {
-		log.Printf("[subsystem:%s action:%s] handler error: %v", subsystem, action, err)
+	if err := handler.Handler(msg); err != nil {
+		log.Printf("[subsystem:%s action:%s] handler error: %v", msg.Subsystem, msg.Action, err)
 	}
 	return true
 }

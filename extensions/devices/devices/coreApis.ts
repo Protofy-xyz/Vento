@@ -12,6 +12,7 @@ import { gridSizes as GRID } from 'protolib/lib/gridConfig';
 import { compileMessagesTopic } from "@extensions/esphome/utils";
 import { connect as mqttConnect, IClientOptions } from 'mqtt';
 import { protoInfraUrls } from "@extensions/protoinfra/utils/protoInfraUrls";
+import { randomUUID } from 'crypto';
 
 const PER_PARAM_ROWS = 1; // tweak as needed (extra grid rows per visible param)
 const PADDING_ICON = 6; // extra padding for icon
@@ -813,6 +814,65 @@ const logger = getLogger()
 export default (app, context) => {
     const devicesPath = '../../data/devices/'
     const { topicSub, topicPub, mqtt } = context;
+
+    const parseMaybeJSON = (value: string) => {
+        if (typeof value !== 'string') {
+            return value;
+        }
+        try {
+            return JSON.parse(value);
+        } catch {
+            return value;
+        }
+    };
+
+    const createReplyWaiter = (topic: string, timeoutMs: number) => {
+        let readyResolve: (() => void) | undefined;
+        const ready = new Promise<void>((resolve) => {
+            readyResolve = resolve;
+        });
+
+        const wait = new Promise<string>((resolve, reject) => {
+            let settled = false;
+            let listening = false;
+
+            const cleanup = () => {
+                if (settled) return;
+                settled = true;
+                if (listening) {
+                    mqtt?.removeListener?.('message', onMessage as any);
+                    mqtt?.unsubscribe?.(topic, () => undefined);
+                }
+                clearTimeout(timer);
+            };
+
+            const onMessage = (messageTopic: string, payload: Buffer) => {
+                if (messageTopic !== topic) {
+                    return;
+                }
+                cleanup();
+                resolve(payload?.toString?.() ?? String(payload));
+            };
+
+            const timer = setTimeout(() => {
+                cleanup();
+                reject(new Error(`Timeout waiting for reply on ${topic}`));
+            }, timeoutMs);
+
+            mqtt?.subscribe(topic, { qos: 1 }, (err) => {
+                if (err) {
+                    cleanup();
+                    reject(err);
+                    return;
+                }
+                listening = true;
+                mqtt?.on?.('message', onMessage as any);
+                readyResolve?.();
+            });
+        });
+
+        return { ready, wait };
+    };
     DevicesAutoAPI(app, context)
     // Device topics: devices/[deviceName]/[endpoint], en caso de no tener endpoint: devices/[deviceName]
     /* examples
@@ -870,7 +930,8 @@ export default (app, context) => {
             return
         }
         console.log("action params: ",req.params)
-        const value = req.params.value ?? req.query.value
+        const valueParam = req.params.value ?? req.query.value ?? (req.body && typeof req.body === 'object' ? (req.body as any).value : undefined)
+        const value = Array.isArray(valueParam) ? valueParam[0] : valueParam
         const db = getDB('devices')
         const deviceInfo = DevicesModel.load(JSON.parse(await db.get(req.params.device)), session)
         const subsystem = deviceInfo.getSubsystem(req.params.subsystem)
@@ -885,8 +946,46 @@ export default (app, context) => {
             return
         }
 
-        //console.log("action value: ",value == undefined ? action.data.payload?.type == "json" ? JSON.stringify(action.getValue()) : action.getValue() : value)
-        topicPub(mqtt, action.getEndpoint(), value == undefined ? action.data.payload?.type == "json" ? JSON.stringify(action.getValue()) : action.getValue() : value)
+        const payloadValue = value == undefined ? action.data.payload?.type == "json" ? JSON.stringify(action.getValue()) : action.getValue() : value
+        const mode = action.getMode?.()
+
+        if(mode === 'request-reply') {
+            const baseEndpoint = action.getEndpoint().replace(/\/+$/, '')
+            const requestId = randomUUID().replace(/-/g, '')
+            const requestTopic = `${baseEndpoint}/${requestId}`
+            const replyTopic = `${requestTopic}/reply`
+            const timeoutMs = action.getReplyTimeoutMs?.() ?? action.data.replyTimeoutMs ?? 5000
+            const { ready, wait } = createReplyWaiter(replyTopic, timeoutMs)
+            try {
+                await ready
+                topicPub(mqtt, requestTopic, payloadValue ?? '')
+                const replyMessage = await wait
+                res.send({
+                    subsystem: req.params.subsystem,
+                    action: req.params.action,
+                    device: req.params.device,
+                    mode,
+                    requestId,
+                    replyTopic,
+                    result: 'reply',
+                    reply: parseMaybeJSON(replyMessage)
+                })
+            } catch (err: any) {
+                const status = err?.message?.toLowerCase?.().includes('timeout') ? 504 : 500
+                res.status(status).send({
+                    subsystem: req.params.subsystem,
+                    action: req.params.action,
+                    device: req.params.device,
+                    mode,
+                    requestId,
+                    replyTopic,
+                    error: err?.message ?? 'Failed waiting for reply'
+                })
+            }
+            return
+        }
+
+        topicPub(mqtt, action.getEndpoint(), payloadValue ?? '')
         
         res.send({
             subsystem: req.params.subsystem,

@@ -11,8 +11,46 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
+// ActionEnvelope carries metadata about an action invocation.
+type ActionEnvelope struct {
+	Subsystem string
+	Action    string
+	Payload   []byte
+	Topic     string
+	RequestID string
+
+	reply func([]byte) error
+}
+
+// Reply sends a raw payload back to the reply topic.
+func (e ActionEnvelope) Reply(payload []byte) error {
+	if e.reply == nil {
+		return fmt.Errorf("reply channel not available")
+	}
+	return e.reply(payload)
+}
+
+// ReplyString replies using a string payload.
+func (e ActionEnvelope) ReplyString(payload string) error {
+	return e.Reply([]byte(payload))
+}
+
+// ReplyJSON marshals v to JSON and replies with it.
+func (e ActionEnvelope) ReplyJSON(v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return e.Reply(data)
+}
+
+// CanReply indicates whether a reply topic was provided.
+func (e ActionEnvelope) CanReply() bool {
+	return e.reply != nil
+}
+
 // ActionHandler handles action messages.
-type ActionHandler func(subsystem, action string, payload []byte)
+type ActionHandler func(ActionEnvelope)
 
 // MQTTClient wraps the MQTT client helper.
 type MQTTClient struct {
@@ -34,10 +72,26 @@ func ConnectMQTT(ctx context.Context, baseURL *url.URL, deviceName, username, to
 	actionsTopic := fmt.Sprintf("devices/%s/+/actions/#", deviceName)
 	opts.OnConnect = func(c mqtt.Client) {
 		if token := c.Subscribe(actionsTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
-			subsystem, action := extractSubsystemAction(msg.Topic())
-			if handler != nil && subsystem != "" && action != "" {
-				handler(subsystem, action, msg.Payload())
+			subsystem, action, requestID := extractSubsystemAction(msg.Topic())
+			if handler == nil || subsystem == "" || action == "" {
+				return
 			}
+			env := ActionEnvelope{
+				Subsystem: subsystem,
+				Action:    action,
+				Payload:   msg.Payload(),
+				Topic:     msg.Topic(),
+				RequestID: requestID,
+			}
+			if requestID != "" {
+				replyTopic := msg.Topic() + "/reply"
+				env.reply = func(payload []byte) error {
+					token := c.Publish(replyTopic, 1, false, payload)
+					token.Wait()
+					return token.Error()
+				}
+			}
+			handler(env)
 		}); token.Wait() && token.Error() != nil {
 			// log? best-effort
 		}
@@ -106,18 +160,25 @@ func (m *MQTTClient) Close() {
 	m.client.Disconnect(250)
 }
 
-func extractSubsystemAction(topic string) (string, string) {
+func extractSubsystemAction(topic string) (string, string, string) {
 	parts := mqttTopicParts(topic)
 	if len(parts) < 5 {
-		return "", ""
+		return "", "", ""
 	}
 	// topic format: devices/<device>/<subsystem>/actions/<action>
 	if parts[0] != "devices" {
-		return "", ""
+		return "", "", ""
+	}
+	if parts[3] != "actions" {
+		return "", "", ""
 	}
 	subsystem := parts[2]
-	action := parts[len(parts)-1]
-	return subsystem, action
+	action := parts[4]
+	requestID := ""
+	if len(parts) > 5 {
+		requestID = parts[5]
+	}
+	return subsystem, action, requestID
 }
 
 func mqttTopicParts(topic string) []string {

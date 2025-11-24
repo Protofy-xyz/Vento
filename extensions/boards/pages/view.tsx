@@ -252,16 +252,10 @@ const FloatingArea = ({ tabVisible, setTabVisible, board, automationInfo, boardR
       "label": "Settings",
       "icon": Settings,
       "content": <BoardSettingsEditor
-        settings={board.settings}
-        users={board.users}
-        onSave={(sttngs, users) => {
-          boardRef.current.settings = sttngs
-          if (users && users.length) {
-            boardRef.current.users = users
-          } else {
-            delete boardRef.current.users
-          }
-          onEditBoard()
+        board={board}
+        onSave={(updatedBoard) => {
+          boardRef.current = updatedBoard;
+          onEditBoard();
         }}
       />
     }
@@ -1199,7 +1193,7 @@ export const BoardView = ({ workspace, pageState, initialItems, itemData, pageSe
       status: 'loaded',
       data: boardInfo
     })
-  }, { path: 'boards/update/'+params.board })
+  }, { path: 'boards/update/' + params.board })
 
   return (
     <BoardViewLoader

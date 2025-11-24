@@ -21,6 +21,7 @@ export function MultiSelectList({
   const [selections, setSelections] = useState<string[]>(defaultSelections);
 
   const updateSelections = (e, cName) => {
+    e?.stopPropagation?.()
     const target = choices[choices.indexOf(cName)]
     if (selections.includes(target)) {
       const newSelections = selections.filter(slc => slc !== target)

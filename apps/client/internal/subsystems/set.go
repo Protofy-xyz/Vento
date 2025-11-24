@@ -22,7 +22,7 @@ type Set struct {
 func NewSet(cfg *config.Config) *Set {
 	return &Set{
 		templates: []Template{
-			NewSystemMemoryTemplate(cfg.MonitorInterval()),
+			NewSystemInfoTemplate(),
 		},
 	}
 }

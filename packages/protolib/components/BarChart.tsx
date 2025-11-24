@@ -19,7 +19,7 @@ export const BarChart: React.FC<BarChartProps> = ({
     dataKey,
     nameKey,
     colors,
-    tooltipFormatter = (value) => `${value} MB`,
+    tooltipFormatter = (value) => `${value}`,
     isAnimationActive = false,
     aspect = 1
 }) => {

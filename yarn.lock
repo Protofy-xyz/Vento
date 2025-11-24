@@ -3989,6 +3989,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@extensions/cloud@workspace:extensions/cloud":
+  version: 0.0.0-use.local
+  resolution: "@extensions/cloud@workspace:extensions/cloud"
+  languageName: unknown
+  linkType: soft
+
 "@extensions/dashboard@workspace:extensions/dashboard":
   version: 0.0.0-use.local
   resolution: "@extensions/dashboard@workspace:extensions/dashboard"

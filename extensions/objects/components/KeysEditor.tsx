@@ -49,7 +49,7 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     const [showModifiers, setShowModifiers] = useState("")
     const modifiersOptions = ["search", "static", "secret", "display", "textArea"]
     const allModifiers = ModifiersNames.options.map((o: any) => o.value) ?? []
-    const types = ["string", "number", "boolean", "array", "union"] // , "relation"
+    const types = ["string", "number", "boolean", "array", "union", "relation"]
 
     const hasModifier = (k: string, v: string) => data?.[k]?.modifiers?.some((m: any) => m.name === v) ?? false
 

@@ -24,6 +24,7 @@ interface AgentState {
   logs: string[];
   host?: string;
   username?: string;
+  token?: string;
 }
 
 interface AgentControls {
@@ -117,6 +118,7 @@ export function useAgent(): AgentControls {
           logs: [],
           host,
           username,
+          token,
         });
       } catch (err) {
         appendLog(`Error: ${formatError(err)}`);

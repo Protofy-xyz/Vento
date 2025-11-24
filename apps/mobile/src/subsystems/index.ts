@@ -1,9 +1,10 @@
 import { buildSystemSubsystem } from './system';
 import { buildSensorsSubsystem } from './sensors';
+import { buildCameraSubsystem } from './camera';
 import type { DevicePayload, SubsystemDefinition } from './types';
 
 export function buildSubsystems(): SubsystemDefinition[] {
-  return [buildSystemSubsystem(), buildSensorsSubsystem()];
+  return [buildSystemSubsystem(), buildSensorsSubsystem(), buildCameraSubsystem()];
 }
 
 export function buildDevicePayload(deviceName: string, subsystems: SubsystemDefinition[]): DevicePayload {

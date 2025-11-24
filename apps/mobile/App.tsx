@@ -13,6 +13,7 @@ import {
 
 import { useAgent } from './src/hooks/useAgent';
 import { TorchBridge } from './src/components/TorchBridge';
+import { CameraBridge } from './src/components/CameraBridge';
 
 export default function App() {
   const { state, connect, disconnect } = useAgent();
@@ -84,6 +85,7 @@ export default function App() {
             </ScrollView>
           </View>
           <TorchBridge />
+          {state.host && state.token && <CameraBridge ventoHost={state.host} token={state.token} />}
         </>
       )}
       {isConnecting && (

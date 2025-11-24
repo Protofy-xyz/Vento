@@ -12,6 +12,13 @@ import { Workflow, LayoutDashboard, Presentation } from "@tamagui/lucide-icons";
 import { InteractiveIcon } from 'protolib/components/InteractiveIcon'
 import { shouldShowInArea } from 'protolib/helpers/Visibility';
 
+  const Chip = ({ name }: { name: string }) => (
+    <XStack key={name} ai="center" br="$10" px="$3" py="$1.5" bg="$bgContent"
+       mr="$2" mb="$2" maxWidth={220} overflow="hidden">
+      <Text numberOfLines={1} ellipsizeMode="tail">{name}</Text>
+    </XStack>
+  );
+
 export default ({ element, width, onDelete, ...props }: any) => {
     const board = new BoardModel(element);
     const [editSettingsDialog, seteditSettingsDialog] = useState(false);
@@ -19,6 +26,7 @@ export default ({ element, width, onDelete, ...props }: any) => {
     const [selectedBoard, setSelectedBoard] = useState<any>(null);
     const [description, setDescription] = useState('');
     const [templateName, setTemplateName] = useState(selectedBoard?.data.name);
+    const [displayName, setDisplayName] = useState(board?.get("displayName") ?? '');
 
     const initialHidden = !shouldShowInArea(element, 'agents');
     const [hidden, setHidden] = useState<boolean>(initialHidden);
@@ -101,13 +109,16 @@ export default ({ element, width, onDelete, ...props }: any) => {
                                 text: "Settings",
                                 icon: Cog,
                                 action: (element) => {
+                                    const data = element.data ?? element;
                                     seteditSettingsDialog(true);
-                                    setSelectedBoard(element);
-                                    const isHidden = !shouldShowInArea(
-                                        element.data ?? element,
-                                        'agents'
-                                    );
+                                    setSelectedBoard({ data });
+                                    const isHidden = !shouldShowInArea(data, 'agents');
                                     setHidden(isHidden);
+                                    setDisplayName(
+                                        data.displayName ??
+                                        data.name ??
+                                        ''
+                                    );
                                 },
                                 isVisible: () => true
                             },
@@ -146,7 +157,7 @@ export default ({ element, width, onDelete, ...props }: any) => {
                 </Tinted>
             </XStack>
             <YStack gap="$2">
-                <Text fow="600">Values</Text>
+                <Text fow="600">Content</Text>
                 {
                     board?.get("cards")?.length
                         ? <XStack gap="$2" f={1} mah={"$9"} flexWrap="wrap" overflow="scroll">
@@ -154,14 +165,7 @@ export default ({ element, width, onDelete, ...props }: any) => {
                                 <Tinted key={card.name}>
                                     <Tooltip>
                                         <Tooltip.Trigger>
-                                            <YStack
-                                                h={"$3"}
-                                                w={"$3"}
-                                                br={card.type == "action" ? "$10" : "$2"}
-                                                jc={"center"}
-                                                ai={"center"}
-                                                bc={card.color ?? "$color6"}
-                                            >
+                                            <YStack h={"$3"} w={"$3"} br={card.type == "action" ? "$10" : "$2"} jc={"center"} ai={"center"} bc={card.color ?? "$color6"} >
                                                 <img
                                                     src={getIconUrl(card.icon)}
                                                     width={20}
@@ -182,22 +186,17 @@ export default ({ element, width, onDelete, ...props }: any) => {
                 }
             </YStack>
             <YStack gap="$2" >
-                <Text fow="600">Rules</Text>
-                {
-                    board.get("rules")?.length
-                        ?
-                        <YStack gap="$3" mah={300} overflow="scroll">
-                            {board.get("rules")?.map((rule: any, index: number) => (
-                                <XStack key={rule} gap={"$2"}  >
-                                    <YStack display='flex' w="20px" >
-                                        <Text > {index + 1 + "."}</Text>
-                                    </YStack>
-                                    <Text>{rule}</Text>
-                                </XStack>)
-                            )}
-                        </YStack>
-                        : <Text color={"$color9"}>No rules added yet</Text>
-                }
+                <Text fow="600">Tags</Text>
+                <XStack flexWrap="wrap">
+                    {board?.get("tags")?.length
+                        ? board.get("tags")?.map((tag: string, index: number) => (
+                            <Tinted key={index}>
+                                <Chip name={tag} />
+                            </Tinted>
+                        ))
+                        : <Text color={"$color9"}>No tags</Text>
+                    }
+                </XStack>
             </YStack>
 
             <Dialog key={selectedBoard?.id} open={createTemplateDialog} onOpenChange={setCreateTemplateDialog}>
@@ -271,14 +270,9 @@ export default ({ element, width, onDelete, ...props }: any) => {
                             <Input
                                 br={"8px"}
                                 className='DialogPopup'
-                                value={selectedBoard?.data.displayName}
+                                value={displayName}
                                 onChange={(e) => {
-                                    setSelectedBoard({
-                                        data: {
-                                            ...selectedBoard.data,
-                                            displayName: e.target.value
-                                        }
-                                    })
+                                    setDisplayName(e.target.value);
                                 }}
                             />
 
@@ -295,11 +289,9 @@ export default ({ element, width, onDelete, ...props }: any) => {
                                     checked={hidden}
                                     onChange={(next) => {
                                         setHidden(next);
-
                                         setSelectedBoard(prev => {
                                             if (!prev) return prev;
                                             const updatedVisibility = next ? [] : undefined;
-
                                             return {
                                                 data: {
                                                     ...prev.data,
@@ -312,15 +304,27 @@ export default ({ element, width, onDelete, ...props }: any) => {
                             </XStack>
 
                             <YStack flex={1} className='DialogPopup' />
-                            <Button className='DialogPopup' onPress={async () => {
+                            <Button
+                                className='DialogPopup'
+                                onPress={async () => {
                                     try {
-                                    await API.post(`/api/core/v1/boards/${selectedBoard?.data?.name}`, selectedBoard.data)
+                                        if (!selectedBoard?.data) return;
+                                        const payload = {
+                                            ...selectedBoard.data,
+                                            displayName: displayName || selectedBoard.data.displayName || selectedBoard.data.name,
+                                        };
+                                        await API.post(
+                                            `/api/core/v1/boards/${selectedBoard.data.name}`,
+                                            payload
+                                        );
                                         setSelectedBoard(null);
                                         seteditSettingsDialog(false);
                                     } catch (e) {
-                                        console.log('e: ', e)
+                                        console.log('e: ', e);
                                     }
-                            }}>Save
+                                }}
+                            >
+                                Save
                             </Button>
                         </YStack>
                         <Dialog.Close />

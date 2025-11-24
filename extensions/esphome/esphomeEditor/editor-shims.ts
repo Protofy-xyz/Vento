@@ -1,6 +1,7 @@
 import type * as Monaco from "monaco-editor";
 import { ESPHomeSchema } from "./esphome-schema";
 import { c } from "tar";
+import protoInfraUrls from "@extensions/protoinfra/utils/protoInfraUrls";
 
 type MonacoAPI = typeof import("monaco-editor");
 
@@ -65,7 +66,7 @@ let schema_version = "2025.5.0";
 const fetchSchemaVersion = async () => {
   try {
     const response = await fetch(
-      "https://compile.protofy.xyz/api/v1/esphome/version",
+      protoInfraUrls.esphome.url + "/api/v1/esphome/version",
     );
     if (response.ok) {
       const data = await response.json();

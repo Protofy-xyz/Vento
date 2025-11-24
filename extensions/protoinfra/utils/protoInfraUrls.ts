@@ -9,5 +9,8 @@ export default {
         "mqtt": "mqtt://bo-compile.protofy.xyz:8883",
         "url": "https://compile.protofy.xyz",
         "wss": "wss://compile.protofy.xyz"
+    },
+    "cloud": {
+        "telemetry": "https://cloud.vento.build/api/v1/telemetryEvent",
     }
 }

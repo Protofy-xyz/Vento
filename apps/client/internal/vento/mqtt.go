@@ -72,8 +72,8 @@ func ConnectMQTT(ctx context.Context, baseURL *url.URL, deviceName, username, to
 	actionsTopic := fmt.Sprintf("devices/%s/+/actions/#", deviceName)
 	opts.OnConnect = func(c mqtt.Client) {
 		if token := c.Subscribe(actionsTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
-			subsystem, action, requestID := extractSubsystemAction(msg.Topic())
-			if handler == nil || subsystem == "" || action == "" {
+			subsystem, action, requestID, isReply := extractSubsystemAction(msg.Topic())
+			if handler == nil || subsystem == "" || action == "" || isReply {
 				return
 			}
 			env := ActionEnvelope{
@@ -160,25 +160,30 @@ func (m *MQTTClient) Close() {
 	m.client.Disconnect(250)
 }
 
-func extractSubsystemAction(topic string) (string, string, string) {
+func extractSubsystemAction(topic string) (subsystem string, action string, requestID string, isReply bool) {
 	parts := mqttTopicParts(topic)
 	if len(parts) < 5 {
-		return "", "", ""
+		return "", "", "", false
 	}
 	// topic format: devices/<device>/<subsystem>/actions/<action>
 	if parts[0] != "devices" {
-		return "", "", ""
+		return "", "", "", false
 	}
 	if parts[3] != "actions" {
-		return "", "", ""
+		return "", "", "", false
 	}
-	subsystem := parts[2]
-	action := parts[4]
-	requestID := ""
-	if len(parts) > 5 {
+	subsystem = parts[2]
+	action = parts[4]
+
+	// replies follow .../<action>/<requestId>/reply
+	if len(parts) >= 6 && parts[len(parts)-1] == "reply" {
+		return "", "", "", true
+	}
+
+	if len(parts) >= 6 {
 		requestID = parts[5]
 	}
-	return subsystem, action, requestID
+	return subsystem, action, requestID, false
 }
 
 func mqttTopicParts(topic string) []string {

@@ -190,11 +190,6 @@ export default {
                 onDelete={async () => {
                   await API.get(`${sourceUrl}/${element.name}/delete`);
                 }}
-                onPress={(e) => {
-                  const dialogContent = e.target.className.includes('DialogPopup');
-                  if (dialogContent) return;
-                  router.push(`/boards/view?board=${element.name}`)
-                }}
                 element={element}
                 width={width}
               />

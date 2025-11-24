@@ -50,6 +50,11 @@ type ActionPayload struct {
 const (
 	PrintActionEndpoint   = "/system/actions/print"
 	ExecuteActionEndpoint = "/system/actions/execute"
+	ListDirActionEndpoint = "/system/actions/list_dir"
+	ReadFileActionEndpoint = "/system/actions/read_file"
+	WriteFileActionEndpoint = "/system/actions/write_file"
+	DeleteFileActionEndpoint = "/system/actions/delete_file"
+	MkdirActionEndpoint = "/system/actions/mkdir"
 	MemoryTotalEndpoint   = "/system/monitors/memory_total"
 	MemoryUsageEndpoint   = "/system/monitors/memory_used"
 	SystemSubsystemName   = "system"

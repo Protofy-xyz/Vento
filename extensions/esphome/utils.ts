@@ -9,6 +9,8 @@ import { fromMonacoPosition, setSchemaVersion } from "./esphomeEditor/editor-shi
 import { ESPHomeDocuments } from "./esphomeEditor/esphome-document";
 import { HoverHandler } from "./esphomeEditor/hover-handler";
 import { TextBuffer } from "./esphomeEditor/utils/text-buffer";
+import protoInfraUrls  from "@extensions/protoinfra/utils/protoInfraUrls";
+
 const debounce = (func: Function, wait: number) => {
     let timeout: number | null;
     return function () {
@@ -258,24 +260,24 @@ export const flash = async (cb: (data: any) => void, deviceName: string, compile
 
 
 
-const onlineCompiler = "compile.protofy.xyz";
+const onlineCompiler = protoInfraUrls.esphome.url;
 export const downloadDeviceFirmwareEndpoint = (targetDevice, compileSessionId) => {
-    return (`https://${onlineCompiler}/api/v1/device/download/${targetDevice}?compileSessionId=${compileSessionId}`)
+    return (`${onlineCompiler}/api/v1/device/download/${targetDevice}?compileSessionId=${compileSessionId}`)
 };
 export const downloadDeviceElfEndpoint = (targetDevice, compileSessionId) => {
-    return (`https://${onlineCompiler}/api/v1/device/downloadElf/${targetDevice}?compileSessionId=${compileSessionId}`)
+    return (`${onlineCompiler}/api/v1/device/downloadElf/${targetDevice}?compileSessionId=${compileSessionId}`)
 };
 
 export const onlineCompilerSecureWebSocketUrl = () => {
-    return (`wss://${onlineCompiler}/websocket`)
+    return (`${protoInfraUrls.esphome.wss}/websocket`)
 };
 
 export const postYamlApiEndpoint = (targetDevice) => {
-    return (`https://${onlineCompiler}/api/v1/device/edit/${targetDevice}`);
+    return (`${onlineCompiler}/api/v1/device/edit/${targetDevice}`);
 };
 
 export const compileActionUrl = (targetDevice, compileSessionId) => {
-    return (`https://${onlineCompiler}/api/v1/device/compile/${targetDevice}?compileSessionId=${compileSessionId}`)
+    return (`${onlineCompiler}/api/v1/device/compile/${targetDevice}?compileSessionId=${compileSessionId}`)
 };
 
 export const compileMessagesTopic = (compileSessionId) => {
@@ -1013,7 +1015,7 @@ export const loadEsphomeHelpers = (monaco) => {
 };
 
 // ---- ESPhome Monaco validation over websocket ----
-const ESPHOME_ACE_WS_URL = "wss://compile.protofy.xyz/esphome/ace";
+const ESPHOME_ACE_WS_URL = protoInfraUrls.esphome.wss+"/esphome/ace";
 export const ESPHOME_VALIDATION_EVENT = "esphome-validation-status";
 const WS_OPEN = 1;
 const WS_CLOSED = 3;

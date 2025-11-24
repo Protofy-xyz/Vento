@@ -160,7 +160,7 @@ export default ({ element, width, onDelete, ...props }: any) => {
                 <Text fow="600">Content</Text>
                 {
                     board?.get("cards")?.length
-                        ? <XStack gap="$2" f={1} mah={"$9"} flexWrap="wrap" overflow="scroll">
+                        ? <XStack gap="$2" f={1} mah={"$9"} flexWrap="wrap" overflow="auto">
                             {board.get("cards")?.filter(i => i).map((card: any, index: number) => (
                                 <Tinted key={card.name}>
                                     <Tooltip>

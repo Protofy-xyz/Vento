@@ -4,6 +4,12 @@ import { buildCameraSubsystem } from './camera';
 import { buildHapticsSubsystem } from './haptics';
 import { buildScreenSubsystem } from './screen';
 import { buildAudioSubsystem } from './audio';
+import { buildBatterySubsystem } from './battery';
+import { buildNetworkSubsystem } from './network';
+import { buildBrightnessSubsystem } from './brightness';
+import { buildSpeechSubsystem } from './speech';
+import { buildClipboardSubsystem } from './clipboard';
+import { buildLinkingSubsystem } from './linking';
 import type { DevicePayload, SubsystemDefinition } from './types';
 
 export function buildSubsystems(): SubsystemDefinition[] {
@@ -14,6 +20,12 @@ export function buildSubsystems(): SubsystemDefinition[] {
     buildHapticsSubsystem(),
     buildScreenSubsystem(),
     buildAudioSubsystem(),
+    buildBatterySubsystem(),
+    buildNetworkSubsystem(),
+    buildBrightnessSubsystem(),
+    buildSpeechSubsystem(),
+    buildClipboardSubsystem(),
+    buildLinkingSubsystem(),
   ];
 }
 

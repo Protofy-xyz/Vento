@@ -1744,6 +1744,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@react-native-community/netinfo@npm:^11.4.1":
+  version: 11.4.1
+  resolution: "@react-native-community/netinfo@npm:11.4.1"
+  peerDependencies:
+    react-native: ">=0.59"
+  checksum: 10/47f0d61072ca04a545784daaa44a5b1927eb788a3521dce5462184855733485c3b58c52d2a9b790b5c784e806fb342c83bc14e348cc7e55263b63d31e1862f9d
+  languageName: node
+  linkType: hard
+
 "@react-native/assets-registry@npm:0.81.5":
   version: 0.81.5
   resolution: "@react-native/assets-registry@npm:0.81.5"
@@ -3245,6 +3254,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-battery@npm:^10.0.7":
+  version: 10.0.7
+  resolution: "expo-battery@npm:10.0.7"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+  checksum: 10/961b83991e697e5101d76dc04f819b76e5e9be6ea36f599f25abbb95e910952e72397f40083a484a3c13bac07c16a5f80c1a54baa4be9ccc71a31baac073f48a
+  languageName: node
+  linkType: hard
+
+"expo-brightness@npm:^14.0.7":
+  version: 14.0.7
+  resolution: "expo-brightness@npm:14.0.7"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10/8aacfec1481310cecc0c741cbc72bde5729f858e0946979217b23130fbcdb851ac0b940b77615a24b9055449f95f038ca16224689ed34c438b20f0eb2525531d
+  languageName: node
+  linkType: hard
+
 "expo-camera@npm:~17.0.9":
   version: 17.0.9
   resolution: "expo-camera@npm:17.0.9"
@@ -3259,6 +3288,17 @@ __metadata:
     react-native-web:
       optional: true
   checksum: 10/c9a160cc397a830dc2418510dc24d54a3e64f5d196e564c24feffb6e03d9d7f8b8dd7cadeb8f89183f657835531d2254347513d0cb5027fa4648c06196f17024
+  languageName: node
+  linkType: hard
+
+"expo-clipboard@npm:^8.0.7":
+  version: 8.0.7
+  resolution: "expo-clipboard@npm:8.0.7"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+  checksum: 10/9927cfb5c51f6a6dd490f1753d56981bcdd64722ed04ec9abf4b469139a23f3337e8e41008faafaa7c5a72abdb83e0fd9c5a2f6e0f18af342bd2c4ef6a871dd6
   languageName: node
   linkType: hard
 
@@ -3328,6 +3368,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-linking@npm:^8.0.9":
+  version: 8.0.9
+  resolution: "expo-linking@npm:8.0.9"
+  dependencies:
+    expo-constants: "npm:~18.0.10"
+    invariant: "npm:^2.2.4"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/d895499e7046ee1a246161cbcd5734b8b1ab2a14a6fd36a5533999c41287904b20c750af947dce97498310abc4e0afaafa7bd55b44f399464c866e753d5903d2
+  languageName: node
+  linkType: hard
+
 "expo-location@npm:~19.0.7":
   version: 19.0.7
   resolution: "expo-location@npm:19.0.7"
@@ -3364,6 +3417,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-network@npm:^8.0.7":
+  version: 8.0.7
+  resolution: "expo-network@npm:8.0.7"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+  checksum: 10/cb01ca367586cb90fbfd5251b53098fafb883d5878dc1be245544b8416e7c60fd48f487fa64343c2984f0764ab3f0f9c14aec6ea5b06871f0ae9a7b7dec0689a
+  languageName: node
+  linkType: hard
+
 "expo-secure-store@npm:~15.0.7":
   version: 15.0.7
   resolution: "expo-secure-store@npm:15.0.7"
@@ -3389,6 +3452,15 @@ __metadata:
   version: 1.0.4
   resolution: "expo-server@npm:1.0.4"
   checksum: 10/7a84bf9ae8a944b70749f2286d667797ca65a0752b4ceea6f324a989a65dac890aa4e18efbf593a265c7451e45664099f37a472d9b9ea7197bb1a163f5bdb47c
+  languageName: node
+  linkType: hard
+
+"expo-speech@npm:^14.0.7":
+  version: 14.0.7
+  resolution: "expo-speech@npm:14.0.7"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/32aee2351c91ea0c9e1ab9075e2d3841ae79c943370215dda042a6ddf19631649bc019aa4876fd4d756257b00dcfb8e1acd07c8b4d0b7c90f1ac84d9f51cd4d8
   languageName: node
   linkType: hard
 
@@ -5078,17 +5150,24 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "mobile@workspace:."
   dependencies:
+    "@react-native-community/netinfo": "npm:^11.4.1"
     "@types/react": "npm:~19.1.0"
     expo: "npm:~54.0.25"
     expo-av: "npm:^16.0.7"
+    expo-battery: "npm:^10.0.7"
+    expo-brightness: "npm:^14.0.7"
     expo-camera: "npm:~17.0.9"
+    expo-clipboard: "npm:^8.0.7"
     expo-device: "npm:~8.0.9"
     expo-file-system: "npm:^19.0.19"
     expo-haptics: "npm:^15.0.7"
     expo-keep-awake: "npm:~15.0.7"
+    expo-linking: "npm:^8.0.9"
     expo-location: "npm:~19.0.7"
+    expo-network: "npm:^8.0.7"
     expo-secure-store: "npm:~15.0.7"
     expo-sensors: "npm:~15.0.7"
+    expo-speech: "npm:^14.0.7"
     expo-status-bar: "npm:~3.0.8"
     mqtt: "npm:^5.14.1"
     paho-mqtt: "npm:^1.1.0"

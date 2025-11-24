@@ -706,8 +706,8 @@ const registerActions = async () => {
 
                 }
                 const rulesCode = isJsonSchema
-                    ? `const value = { value: JSON.stringify(userParams) };\nreturn execute_action('${url}', value)`
-                    : `return execute_action('${url}', userParams)`;
+                    ? `const value = { value: JSON.stringify(userParams) };\nreturn (await execute_action('${url}', value))?.reply`
+                    : `return (await execute_action('${url}', userParams))?.reply`;
                 const getParams = (params) => {
                     let actionParams = {}
                     for (const key in params) {
@@ -741,7 +741,7 @@ const registerActions = async () => {
 
                         return {
                             width: cardWidth,
-                            height: cardHeight,
+                            height: cardHeight * (action.mode === 'request-reply' ? 2 : 1),
                             icon: iconFromAction,
                             name: deviceInfo.data.name + ' ' + subsystem.name + ' ' + action.name,
                             description: action.description ?? '',
@@ -750,7 +750,7 @@ const registerActions = async () => {
                             configParams: params,
                             type: 'action',
                             ...(colorFromAction ? { color: colorFromAction } : {}),
-                            displayResponse: false
+                            displayResponse: action.mode === 'request-reply'
                         };
                     })(),
                     emitEvent: true

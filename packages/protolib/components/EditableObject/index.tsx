@@ -129,10 +129,11 @@ export const DeleteButton = ({ mode, onPress }) => (
 )
 
 export const EditableObject = ({ externalErrorHandling, error, setError, data, setData, autoWidth = false, columnMargin = 30, columnWidth = 350, extraMenuActions, disableToggleMode, name, initialData, loadingTop, spinnerSize, loadingText, title, sourceUrl = null, onSave = (x, y) =>{}, mode = 'view', model, icons = {}, extraFields = {}, numColumns = 1, objectId, onDelete = () => { }, deleteable = () => { return true }, customFields = {}, URLTransform = (url) => url, disableAutoChangeMode = false, ...props }: EditableObjectProps & StackProps) => {
-    const [originalData, setOriginalData] = useState(initialData ?? getPendingResult('pending'))
+    const initialPendingData = initialData ?? (mode === 'add' ? { data: {} } : getPendingResult('pending'))
+    const [originalData, setOriginalData] = useState(initialPendingData)
     const [currentMode, setCurrentMode] = useState(mode)
     const [prevCurrentMode, setPrevCurrentMode] = useState('')
-    const [_data, _setData] = useState(originalData)
+    const [_data, _setData] = useState(initialPendingData)
     let hideButton = data && setData
     if (!data || !setData) {
         data = _data

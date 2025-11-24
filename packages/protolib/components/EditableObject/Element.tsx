@@ -90,14 +90,12 @@ export const getElement = ({ ele, icon, i, x, data, setData, mode, customFields 
     if (elementType == 'ZodUnion' && mode != 'preview') {
         // default values
         let options = elementDef.displayOptions ? elementDef.displayOptions : elementDef.options.map(o => o._def.value)
-        let _rawOptions = elementDef.options.map(o => o._def.value)
 
         // depends on
         if (ele._def.dependsOn && data
             && data[ele._def.dependsOn]
             && (typeof ele._def.generateOptions === 'function')) {
             options = ele._def.generateOptions(data)
-            _rawOptions = [...options]
         }
 
         const dependsOn = ele._def.dependsOn
@@ -109,7 +107,7 @@ export const getElement = ({ ele, icon, i, x, data, setData, mode, customFields 
                     if (dependsOnValue) {
                         if (dependsOnValue == data[dependsOn]) {
                             //@ts-ignore
-                            return <SelectList f={1} data={data} title={ele.name} elements={options} value={options[_rawOptions.indexOf(getFormData(ele.name))]} setValue={(v) => setFormData(ele.name, _rawOptions[options.indexOf(v)])} />
+                            return <SelectList f={1} data={data} title={ele.name} elements={options} value={getFormData(ele.name)} setValue={(v) => setFormData(ele.name, v)} />
                         } else {
                             return <Input
                                 focusStyle={{ outlineWidth: 1 }}
@@ -120,7 +118,7 @@ export const getElement = ({ ele, icon, i, x, data, setData, mode, customFields 
                         }
                     } else {
                         //@ts-ignore
-                        return <SelectList f={1} data={data} title={ele.name} elements={options} value={options[_rawOptions.indexOf(getFormData(ele.name))]} setValue={(v) => setFormData(ele.name, _rawOptions[options.indexOf(v)])} />
+                        return <SelectList f={1} data={data} title={ele.name} elements={options} value={getFormData(ele.name)} setValue={(v) => setFormData(ele.name, v)} />
                     }
                 } else {
                     return <Input
@@ -142,8 +140,8 @@ export const getElement = ({ ele, icon, i, x, data, setData, mode, customFields 
                     data={data}
                     title={ele.name}
                     elements={options}
-                    value={options[_rawOptions.indexOf(getFormData(ele.name))]}
-                    setValue={(v) => setFormData(ele.name, _rawOptions[options.indexOf(v)])}
+                    value={getFormData(ele.name)}
+                    setValue={(v) => setFormData(ele.name, v)}
                 />
             }
         }

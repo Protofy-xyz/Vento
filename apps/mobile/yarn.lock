@@ -3165,6 +3165,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-device@npm:~8.0.9":
+  version: 8.0.9
+  resolution: "expo-device@npm:8.0.9"
+  dependencies:
+    ua-parser-js: "npm:^0.7.33"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/5b7850c21a0e70eaf48002461c0552ff6790ed2c427438388addc3495e8d2edb05479f5991c6132893d3867ef524140defc66d86d656e2fdc07c39bf3bbbc6c0
+  languageName: node
+  linkType: hard
+
 "expo-file-system@npm:~19.0.19":
   version: 19.0.19
   resolution: "expo-file-system@npm:19.0.19"
@@ -3222,6 +3233,15 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/e2bef4ea23d753fe21dd3bb0fd756a875fe497a58b6ed792b9ea98b8ae5413dab7e94fb82d7f2c873307d0c267d32d9fd05aeb5ff231e77ad95aea29416445a6
+  languageName: node
+  linkType: hard
+
+"expo-secure-store@npm:~15.0.7":
+  version: 15.0.7
+  resolution: "expo-secure-store@npm:15.0.7"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/7ca69178cd0f0b93626d69747eb87e4598bcbb328d26c0194988df9f287f3c6bf0bacfa86a602ddcb850780cf708f1780319b409735855d6d6c1881350174416
   languageName: node
   linkType: hard
 
@@ -4896,7 +4916,11 @@ __metadata:
   dependencies:
     "@types/react": "npm:~19.1.0"
     expo: "npm:~54.0.25"
+    expo-device: "npm:~8.0.9"
+    expo-keep-awake: "npm:~15.0.7"
+    expo-secure-store: "npm:~15.0.7"
     expo-status-bar: "npm:~3.0.8"
+    paho-mqtt: "npm:^1.1.0"
     react: "npm:19.1.0"
     react-native: "npm:0.81.5"
     typescript: "npm:~5.9.2"
@@ -5200,6 +5224,13 @@ __metadata:
   version: 1.0.1
   resolution: "package-json-from-dist@npm:1.0.1"
   checksum: 10/58ee9538f2f762988433da00e26acc788036914d57c71c246bf0be1b60cdbd77dd60b6a3e1a30465f0b248aeb80079e0b34cb6050b1dfa18c06953bb1cbc7602
+  languageName: node
+  linkType: hard
+
+"paho-mqtt@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "paho-mqtt@npm:1.1.0"
+  checksum: 10/2bacb69b85a351809c17d292dd232d7b1d008141883186a610d579b38ee4b12496b2da933c1011b64d3fe849aa9d42e40a7de631bf76055fcdb10a013b51a618
   languageName: node
   linkType: hard
 
@@ -6305,6 +6336,15 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 10/5d416ad4f2ea564f515a3f919e901edbfa4b497cc17dd325c5726046c3eef7ed22d1f59c787267d478311f6f0a265ff790f8a6c7e9df3ea3471458f5ec81e8b7
+  languageName: node
+  linkType: hard
+
+"ua-parser-js@npm:^0.7.33":
+  version: 0.7.41
+  resolution: "ua-parser-js@npm:0.7.41"
+  bin:
+    ua-parser-js: script/cli.js
+  checksum: 10/e41306332d8ace098d51a644a3ba95522ddfc04243727a3c0419efcdf486c8f868c3af8e6a56f6aa86bdc26e6b893abb0b2bde0c9e1a1625a183dfdf839cac82
   languageName: node
   linkType: hard
 

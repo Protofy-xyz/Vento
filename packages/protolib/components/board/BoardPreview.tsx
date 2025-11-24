@@ -7,7 +7,7 @@ import { getIconUrl } from '../IconSelect';
 import { ItemMenu } from '../ItemMenu';
 import { useState } from 'react';
 import { API } from 'protobase';
-import { Toggle } from '../Toggle';
+import { BoardSettingsEditor } from '@extensions/boards/components/BoardSettingsEditor';
 import { Workflow, LayoutDashboard, Presentation } from "@tamagui/lucide-icons";
 import { InteractiveIcon } from 'protolib/components/InteractiveIcon'
 import { shouldShowInArea } from 'protolib/helpers/Visibility';
@@ -277,149 +277,31 @@ export default ({ element, width, onDelete, ...props }: any) => {
                     </Dialog.Content>
                 </Dialog.Portal>
             </Dialog>
-
-
             <Dialog open={editSettingsDialog} onOpenChange={seteditSettingsDialog}>
-                <Dialog.Portal className='DialogPopup'>
-                    <Dialog.Overlay className='DialogPopup' />
+                <Dialog.Portal className="DialogPopup">
+                    <Dialog.Overlay className="DialogPopup" />
                     <Dialog.Content
                         overflow="auto"
                         p="$8"
-                        width={420}
-                        maxHeight="80vh"
-                        className='DialogPopup'
+                        width={700}
+                        maxHeight="85vh"
+                        className="DialogPopup"
                     >
-                        <Tinted>
-                            <YStack gap="$4">
-                                <Text fos="$8" fow="600" mb="$3" className='DialogPopup'>Settings</Text>
-                                <XStack ai={"center"} className='DialogPopup'>
-                                    <Label ml={"$2"} h={"$3.5"} size={"$5"} className='DialogPopup'> <Type color={"$color8"} mr="$2" />Display Name</Label>
-                                </XStack>
-                                <Input
-                                    br={"8px"}
-                                    className='DialogPopup'
-                                    value={displayName}
-                                    onChange={(e) => {
-                                        setDisplayName(e.target.value);
-                                    }}
-                                />
+                        <Text fos="$8" fow="600" mb="$3" className='DialogPopup'>Settings</Text>
+                        <BoardSettingsEditor
+                            board={selectedBoard?.data ?? selectedBoard}
+                            onSave={async (updatedBoard) => {
+                                await API.post(`/api/core/v1/boards/${updatedBoard.name}`, updatedBoard)
+                                setSelectedBoard(null)
+                                seteditSettingsDialog(false)
+                            }}
+                        />
 
-                                <XStack
-                                    ai="center"
-                                    gap="$2"
-                                    mt="$4"
-                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                                    onMouseDown={(e) => { e.stopPropagation(); }}
-                                    onPointerDown={(e) => { e.stopPropagation(); }}
-                                >
-                                    <Label h={"$3.5"} size={"$5"}>Hide board</Label>
-                                    <Toggle
-                                        checked={hidden}
-                                        onChange={(next) => {
-                                            setHidden(next);
-                                            setSelectedBoard(prev => {
-                                                if (!prev) return prev;
-                                                const updatedVisibility = next ? [] : undefined;
-                                                return {
-                                                    data: {
-                                                        ...prev.data,
-                                                        visibility: updatedVisibility,
-                                                    },
-                                                };
-                                            });
-                                        }}
-                                    />
-                                </XStack>
-                                <YStack mt="$4" gap="$2" className='DialogPopup'>
-                                    <Label ml="$2" h="$3.5" size="$5" className='DialogPopup'>
-                                        Tags
-                                    </Label>
-
-                                    <XStack flexWrap="wrap">
-                                        {tags.length ? (
-                                            tags.map((tag) => (
-                                                <XStack
-                                                    key={tag}
-                                                    ai="center"
-                                                    br="$10"
-                                                    px="$3"
-                                                    py="$1.5"
-                                                    gap="$2"
-                                                    bg="$bgContent"
-                                                    hoverStyle={{ bg: "$color4" }}
-                                                    mr="$2"
-                                                    mb="$2"
-                                                    maxWidth={220}
-                                                    overflow="hidden"
-                                                >
-                                                    <Text numberOfLines={1} ellipsizeMode="tail">
-                                                        {tag}
-                                                    </Text>
-                                                    <Button
-                                                        size="$1"
-                                                        circular
-                                                        bg="$color6"
-                                                        hoverStyle={{ bg: "$color6" }}
-                                                        icon={X}
-                                                        scaleIcon={0.8}
-                                                        onPress={() => handleRemoveTag(tag)}
-                                                        aria-label={`Remove ${tag}`}
-                                                    />
-                                                </XStack>
-                                            ))
-                                        ) : (
-                                            <Text color="$color9">No tags</Text>
-                                        )}
-                                    </XStack>
-
-                                    <XStack mt="$2" gap="$2" ai="center">
-                                        <Input
-                                            br="8px"
-                                            className='DialogPopup'
-                                            f={1}
-                                            value={newTag}
-                                            placeholder="Add tag"
-                                            onChange={(e) => setNewTag(e.target.value)}
-                                        />
-                                        <Button
-                                            size="$2"
-                                            className='DialogPopup'
-                                            onPress={handleAddTag}
-                                        >
-                                            Add
-                                        </Button>
-                                    </XStack>
-                                </YStack>
-
-                                <Button
-                                    className='DialogPopup'
-                                    onPress={async () => {
-                                        try {
-                                            if (!selectedBoard?.data) return;
-                                            const payload = {
-                                                ...selectedBoard.data,
-                                                displayName: displayName || selectedBoard.data.displayName || selectedBoard.data.name,
-                                                tags,
-                                            };
-                                            await API.post(
-                                                `/api/core/v1/boards/${selectedBoard.data.name}`,
-                                                payload
-                                            );
-                                            setSelectedBoard(null);
-                                            seteditSettingsDialog(false);
-                                        } catch (e) {
-                                            console.log('e: ', e);
-                                        }
-                                    }}
-                                >
-                                    Save
-                                </Button>
-                            </YStack>
-                        </Tinted>
                         <Dialog.Close />
                     </Dialog.Content>
                 </Dialog.Portal>
             </Dialog>
+
         </YStack>
     )
 }

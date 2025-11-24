@@ -11,6 +11,7 @@ import { removeActions } from "@extensions/actions/coreContext/removeActions";
 import { gridSizes as GRID } from 'protolib/lib/gridConfig';
 import { compileMessagesTopic } from "@extensions/esphome/utils";
 import { connect as mqttConnect, IClientOptions } from 'mqtt';
+import { protoInfraUrls } from "@extensions/protoinfra/utils/protoInfraUrls";
 
 const PER_PARAM_ROWS = 1; // tweak as needed (extra grid rows per visible param)
 const PADDING_ICON = 6; // extra padding for icon
@@ -1024,7 +1025,7 @@ export default (app, context) => {
             }
         }
     }
-    const compileBrokerUrl = 'mqtt://bo-compile.protofy.xyz:8883';
+    const compileBrokerUrl = protoInfraUrls.esphome.mqtt
     const COMPILE_DEFAULT_RECONNECT_PERIOD_MS = 5000;
     const COMPILE_BACKOFF_RECONNECT_PERIOD_MS = 5 * 60 * 1000;
     const MAX_COMPILE_RECONNECT_ATTEMPTS = 12;

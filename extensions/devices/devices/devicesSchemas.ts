@@ -122,6 +122,16 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
   getConfigFile(){
     if(this.data?.currentSdk == "esphome"){
       return this.getConfigDir() + "/config.yaml"
+    }else{
+      throw new Error("Unsupported SDK for config file")
+    }
+  }
+
+  async getManifestUrl(compileSessionId){
+    if(this.data.currentSdk == "esphome") {
+      return "http://localhost:8000/api/v1/esphome/" + this.data.name + "/" + compileSessionId + "/manifest"
+    }else{
+      throw new Error("Unsupported SDK for manifest URL")
     }
   }
 
@@ -237,9 +247,7 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
     API.get('/api/core/v1/devices/registerActions');
   }
   
-  async getManifestUrl(compileSessionId){
-    return "http://localhost:8000/api/v1/esphome/" + this.data.name + "/" + compileSessionId + "/manifest"
-  }
+
   async getCore(){
     const response = await API.get('/api/core/v1/deviceDefinitions/' + this.data.deviceDefinition);
     if (response.isError) {

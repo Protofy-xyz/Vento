@@ -4,9 +4,9 @@ import { ContainerLarge } from 'protolib/components/Container';
 import { Tinted } from 'protolib/components/Tinted';
 import { Chip } from 'protolib/components/Chip';
 import { Megaphone, MegaphoneOff, ChevronDown, Check } from "@tamagui/lucide-icons"
-import { useMqttState, useSubscription } from 'protolib/lib/mqtt';
+import { useSubscription } from 'protolib/lib/mqtt';
 import { useFetch } from 'protolib/lib/useFetch'
-import { DeviceSubsystemMonitor, getPeripheralTopic } from '@extensions/devices/devices/devicesSchemas';
+import { DeviceSubsystemMonitor } from '@extensions/devices/devices/devicesSchemas';
 
 const Monitor = ({ deviceName, monitorData, subsystem }) => {
     const monitor = new DeviceSubsystemMonitor(deviceName, subsystem.name, monitorData)
@@ -86,26 +86,79 @@ const Monitor = ({ deviceName, monitorData, subsystem }) => {
     );
 }
 
-const Action = ({ deviceName, action }) => {
-    const { client } = useMqttState();
+const Action = ({ deviceName, subsystemName, action }) => {
+    const toast = useToastController();
+    const [isRunning, setIsRunning] = useState(false);
+    const [reply, setReply] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    const buttonAction = (action, value?) => {
-        const sendValue = value !== undefined ? value : action.payload.value;
+    const sendActionRequest = async (payload?: string) => {
+        setIsRunning(true);
+        setReply(null);
+        setError(null);
+        const query = payload !== undefined ? `?value=${encodeURIComponent(payload)}` : '';
+        const url = `/api/core/v1/devices/${deviceName}/subsystems/${subsystemName}/actions/${action.name}${query}`;
+        try {
+            const resp = await fetch(url);
+            let data: any = null;
+            try {
+                data = await resp.json();
+            } catch (e) { }
+            if (!resp.ok) {
+                throw new Error(data?.error || `Action failed (${resp.status})`);
+            }
+            if (data?.reply !== undefined) {
+                setReply(typeof data.reply === 'string' ? data.reply : JSON.stringify(data.reply, null, 2));
+            } else {
+                toast.show(`[${action.label ?? action.name}] command sent`, { duration: 2000 });
+            }
+        } catch (err: any) {
+            setError(err?.message ?? 'Action failed');
+        } finally {
+            setIsRunning(false);
+        }
+    };
 
-        let payloadToSend;
+    const buttonAction = async (action, value?) => {
+        const sendValue = value !== undefined ? value : action.payload?.value;
+
+        let payloadToSend: string | undefined;
 
         if (typeof sendValue === "object" && sendValue !== null) {
             payloadToSend = JSON.stringify(sendValue);
         } else if (typeof sendValue === "string") {
             payloadToSend = sendValue;
-        } else {
+        } else if (sendValue !== undefined) {
             payloadToSend = String(sendValue);
         }
 
-        if (action.connectionType === "mqtt") {
-            console.log("MQTT Dev:", action.payload);
-            client.publish(getPeripheralTopic(deviceName, action.endpoint), payloadToSend);
+        await sendActionRequest(payloadToSend);
+    };
+
+    const renderStatus = () => {
+        if (isRunning) {
+            return (
+                <XStack gap="$2" alignItems="center" mt="$2">
+                    <Spinner size="small" color="$color10" />
+                    <Text size="$2">Waiting for response...</Text>
+                </XStack>
+            );
         }
+        if (reply !== null) {
+            return (
+                <Paragraph mt="$2" size="$2" color="$color10">
+                    Response: {reply}
+                </Paragraph>
+            );
+        }
+        if (error) {
+            return (
+                <Paragraph mt="$2" size="$2" color="$red10">
+                    {error}
+                </Paragraph>
+            );
+        }
+        return null;
     };
 
     // ---- json-schema helpers (minimal) ----
@@ -154,35 +207,46 @@ const Action = ({ deviceName, action }) => {
 
     switch (type) {
         case "button":
-            return <Button
-                key={action.name} // Make sure to provide a unique key for each Button
-                onPress={() => { buttonAction(action) }}
-                color="$color10"
-                title={"Description: " + action.description}
-                {...action.props}
-            >
-                {action.label ?? action.name}
-            </Button>
+            return (
+                <YStack gap="$2" minWidth={140}>
+                    <Button
+                        key={action.name}
+                        onPress={() => { buttonAction(action); }}
+                        color="$color10"
+                        title={"Description: " + action.description}
+                        disabled={isRunning}
+                        {...action.props}
+                    >
+                        {action.label ?? action.name}
+                    </Button>
+                    {renderStatus()}
+                </YStack>
+            )
         case "input":
-            return <XStack gap="$3" width={'100%'} alignItems="center">
-                <Text whiteSpace="nowrap" textOverflow="ellipsis" overflow="hidden" maxWidth="150px">{action.label ?? action.name}</Text>
-                <Input
-                    value={value}
-                    onChange={async (e) => setValue(e.target.value)}
-                    width={80}
-                    placeholder="value"
-                    // mr={8}
-                    flex={1}
-                />
-                <Button
-                    key={action.name} // Make sure to provide a unique key for each Button
-                    onPress={() => { buttonAction(action, value) }}
-                    color="$color10"
-                    title={"Description: " + action.description}
-                >
-                    Send
-                </Button>
-            </XStack>
+            return (
+                <YStack gap="$2" width="100%">
+                    <XStack gap="$3" width={'100%'} alignItems="center">
+                        <Text whiteSpace="nowrap" textOverflow="ellipsis" overflow="hidden" maxWidth="150px">{action.label ?? action.name}</Text>
+                        <Input
+                            value={value}
+                            onChange={async (e) => setValue(e.target.value)}
+                            width={80}
+                            placeholder="value"
+                            flex={1}
+                        />
+                        <Button
+                            key={action.name}
+                            onPress={() => { buttonAction(action, value) }}
+                            color="$color10"
+                            title={"Description: " + action.description}
+                            disabled={isRunning}
+                        >
+                            Send
+                        </Button>
+                    </XStack>
+                    {renderStatus()}
+                </YStack>
+            )
         case "select":
             const payloadOptions = Array.isArray(action.payload) ? action.payload : [];
             const [selectedOption, setSelectedOption] = useState(payloadOptions[0]?.value ?? "");
@@ -190,44 +254,50 @@ const Action = ({ deviceName, action }) => {
 
             console.log("🤖 ~ Action ~ selectedOption:", selectedOption)
             
-            return <XStack gap="$3" width={'100%'} alignItems="center">
-            <Text whiteSpace="nowrap" textOverflow="ellipsis" overflow="hidden" maxWidth="150px">{action.label ?? action.name}</Text>
-            <Select value={selectedOption} onValueChange={setSelectedOption} disablePreventBodyScroll>
-                <Select.Trigger
-                    iconAfter={ChevronDown}
-                    width={180}
-                    maxWidth={220}
-                    flexShrink={0}
-                >
-                    <Select.Value placeholder="Select an option" numberOfLines={1} />
-                </Select.Trigger>
-                <Select.Content zIndex={9999999999}>
-                    <Select.Viewport>
-                        <Select.Group>
-                            {action.payload.map((item, i) => (
-                                <Select.Item key={i} value={item.value}>
-                                    <Select.ItemText>{item.label}</Select.ItemText>
-                                    <Select.ItemIndicator marginLeft="auto">
-                                        <Check size={16} />
-                                    </Select.ItemIndicator>
-                                </Select.Item>
-                            ))}
-                        </Select.Group>
-                    </Select.Viewport>
-                </Select.Content>
-            </Select>
-            <Button
-                key={action.name} // Make sure to provide a unique key for each Button
-                onPress={() => { 
-                    const selectedPayload = payloadOptions.find(option => option.value === selectedOption);
-                    buttonAction(action, selectedPayload ? selectedPayload.value : selectedOption);
-                }}
-                color="$color10"
-                title={"Description: " + action.description}
-            >
-                Send
-            </Button>
-        </XStack>
+            return (
+                <YStack gap="$2" width="100%">
+                    <XStack gap="$3" width={'100%'} alignItems="center">
+                        <Text whiteSpace="nowrap" textOverflow="ellipsis" overflow="hidden" maxWidth="150px">{action.label ?? action.name}</Text>
+                        <Select value={selectedOption} onValueChange={setSelectedOption} disablePreventBodyScroll>
+                            <Select.Trigger
+                                iconAfter={ChevronDown}
+                                width={180}
+                                maxWidth={220}
+                                flexShrink={0}
+                            >
+                                <Select.Value placeholder="Select an option" numberOfLines={1} />
+                            </Select.Trigger>
+                            <Select.Content zIndex={9999999999}>
+                                <Select.Viewport>
+                                    <Select.Group>
+                                        {action.payload.map((item, i) => (
+                                            <Select.Item key={i} value={item.value}>
+                                                <Select.ItemText>{item.label}</Select.ItemText>
+                                                <Select.ItemIndicator marginLeft="auto">
+                                                    <Check size={16} />
+                                                </Select.ItemIndicator>
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Group>
+                                </Select.Viewport>
+                            </Select.Content>
+                        </Select>
+                        <Button
+                            key={action.name}
+                            onPress={() => { 
+                                const selectedPayload = payloadOptions.find(option => option.value === selectedOption);
+                                buttonAction(action, selectedPayload ? selectedPayload.value : selectedOption);
+                            }}
+                            color="$color10"
+                            title={"Description: " + action.description}
+                            disabled={isRunning}
+                        >
+                            Send
+                        </Button>
+                    </XStack>
+                    {renderStatus()}
+                </YStack>
+            )
         case "slider": {
             const {
                 min_value = 0,
@@ -277,59 +347,63 @@ const Action = ({ deviceName, action }) => {
             };
 
             return (
-                <XStack gap="$3" alignItems="center" width="100%">
-                    <Text
-                        whiteSpace="nowrap"
-                        textOverflow="ellipsis"
-                        overflow="hidden"
-                        maxWidth="150px"
-                        minWidth="120px"
-                    >
-                        {action.label ?? action.name}
-                    </Text>
+                <YStack gap="$2" width="100%">
+                    <XStack gap="$3" alignItems="center" width="100%">
+                        <Text
+                            whiteSpace="nowrap"
+                            textOverflow="ellipsis"
+                            overflow="hidden"
+                            maxWidth="150px"
+                            minWidth="120px"
+                        >
+                            {action.label ?? action.name}
+                        </Text>
 
-                    <Text size="$2">{min_value}{unit}</Text>
+                        <Text size="$2">{min_value}{unit}</Text>
 
-                    <YStack flex={1} minWidth={200}>
-                        <input
-                            ref={trackRef}
-                            type="range"
-                            min={min_value}
-                            max={max_value}
-                            step={step}
-                            value={isNaN(sliderValue) ? initial_value : sliderValue}
-                            onChange={(e) => handleSliderChange(Number(e.target.value))}
-                            style={{
-                                width: '100%',
-                                height: '4px',
-                                borderRadius: '4px',
-                                background: 'var(--color4)',
-                                accentColor: 'var(--color10)',
-                                appearance: 'none',
-                                cursor: 'pointer'
-                            }}
+                        <YStack flex={1} minWidth={200}>
+                            <input
+                                ref={trackRef}
+                                type="range"
+                                min={min_value}
+                                max={max_value}
+                                step={step}
+                                value={isNaN(sliderValue) ? initial_value : sliderValue}
+                                onChange={(e) => handleSliderChange(Number(e.target.value))}
+                                style={{
+                                    width: '100%',
+                                    height: '4px',
+                                    borderRadius: '4px',
+                                    background: 'var(--color4)',
+                                    accentColor: 'var(--color10)',
+                                    appearance: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            />
+                        </YStack>
+
+                        <Text size="$2">{max_value}{unit}</Text>
+
+                        <Input
+                            value={isNaN(sliderValue) ? "" : sliderValue.toString()}
+                            onChange={handleInputChange}
+                            onBlur={handleInputBlur}
+                            width="$8"
+                            textAlign="center"
+                            inputMode="numeric"
                         />
-                    </YStack>
-
-                    <Text size="$2">{max_value}{unit}</Text>
-
-                    <Input
-                        value={isNaN(sliderValue) ? "" : sliderValue.toString()}
-                        onChange={handleInputChange}
-                        onBlur={handleInputBlur}
-                        width="$8"
-                        textAlign="center"
-                        inputMode="numeric"
-                    />
-                    <Button
-                        key={action.name} // Make sure to provide a unique key for each Button
-                        onPress={() => { buttonAction(action, sliderValue) }}
-                        color="$color10"
-                        title={"Description: " + action.description}
-                    >
-                        Send
-                    </Button>
-                </XStack>
+                        <Button
+                            key={action.name}
+                            onPress={() => { buttonAction(action, sliderValue) }}
+                            color="$color10"
+                            title={"Description: " + action.description}
+                            disabled={isRunning}
+                        >
+                            Send
+                        </Button>
+                    </XStack>
+                    {renderStatus()}
+                </YStack>
             );
         }
         default: {
@@ -507,9 +581,11 @@ const Action = ({ deviceName, action }) => {
                             title={"Description: " + action.description}
                             alignSelf="center"
                             width="100%"
+                            disabled={isRunning}
                         >
                             Send
                         </Button>
+                        {renderStatus()}
                     </XStack>
                 </YStack>
             );
@@ -523,7 +599,7 @@ const subsystem = ({ subsystem, deviceName }) => {
 
     // Map the actions to buttons and return them as JSX
     const actionButtons = subsystem.actions?.map((action, key) => {
-        return <Action key={key} deviceName={deviceName} action={action} />
+        return <Action key={key} deviceName={deviceName} subsystemName={subsystem.name} action={action} />
     });
 
     const monitorLabels = subsystem.monitors?.map((monitorData, key) => {
@@ -578,7 +654,7 @@ export const Subsystems = ({ subsystems, deviceName }) => <YStack maxHeight={750
                             subsystem.actions?.length > 0 && <>
                                 <XStack flexWrap="wrap" gap="$3">
                                     {
-                                        subsystem.actions.map((action) => <Action key={key} deviceName={deviceName} action={action} />)
+                                        subsystem.actions.map((action) => <Action key={key} deviceName={deviceName} subsystemName={subsystem.name} action={action} />)
                                     }
                                 </XStack>
                             </>

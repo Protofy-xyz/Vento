@@ -36,6 +36,8 @@ type Action struct {
 	ConnectionType string         `json:"connectionType"`
 	Payload        ActionPayload  `json:"payload"`
 	CardProps      map[string]any `json:"cardProps,omitempty"`
+	Mode           string         `json:"mode,omitempty"`
+	ReplyTimeoutMs int            `json:"replyTimeoutMs,omitempty"`
 }
 
 // ActionPayload describes the expected payload contract for an action.
@@ -46,12 +48,18 @@ type ActionPayload struct {
 }
 
 const (
-	PrintActionEndpoint  = "/system/actions/print"
-	MemoryTotalEndpoint  = "/system/monitors/memory_total"
-	MemoryUsageEndpoint  = "/system/monitors/memory_used"
-	SystemSubsystemName  = "system"
-	SystemSubsystemType  = "virtual"
-	PrinterSubsystemName = "stdout"
+	PrintActionEndpoint   = "/system/actions/print"
+	ExecuteActionEndpoint = "/system/actions/execute"
+	ListDirActionEndpoint = "/system/actions/list_dir"
+	ReadFileActionEndpoint = "/system/actions/read_file"
+	WriteFileActionEndpoint = "/system/actions/write_file"
+	DeleteFileActionEndpoint = "/system/actions/delete_file"
+	MkdirActionEndpoint = "/system/actions/mkdir"
+	MemoryTotalEndpoint   = "/system/monitors/memory_total"
+	MemoryUsageEndpoint   = "/system/monitors/memory_used"
+	SystemSubsystemName   = "system"
+	SystemSubsystemType   = "virtual"
+	PrinterSubsystemName  = "stdout"
 )
 
 // BuildDevicePayload builds the device payload using the provided subsystem definitions.

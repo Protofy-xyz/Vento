@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const { Readable } = require('stream');
 const { spawnSync, fork } = require('child_process');
+const os = require('os');
+const dotenv = require('dotenv');
+const { v4: uuid } = require('uuid');
 
 const isDev = process.argv.includes('--ui-dev');
 const PROJECTS_DIR = path.join(app.getPath('userData'), 'vento-projects');
@@ -119,8 +122,92 @@ const respond = ({ statusCode = 200, data = Buffer.from(""), mimeType = "text/pl
   return new Response(data, { status: statusCode, headers })
 }
 
+const rootPath = path.resolve(__dirname, '..');
+
+function readEnvValue(rootPath, key) {
+  try {
+    const envPath = path.join(rootPath, '.env');
+    if (!fs.existsSync(envPath)) return undefined;
+    const raw = fs.readFileSync(envPath, 'utf8');
+    const line = raw.split(/\r?\n/).find(l => l.startsWith(`${key}=`));
+    if (!line) return undefined;
+    return line.slice(key.length + 1).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+function getPackageInfo(rootPath) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(rootPath, 'package.json'), 'utf8'));
+    return {
+      version: pkg.version || undefined,
+      releaseVersion: (pkg.release || pkg.version || '').toString() || undefined,
+    };
+  } catch {
+    return { version: undefined, releaseVersion: undefined };
+  }
+}
+
+const ensureLauncherInstanceId = async (envPath) => {
+  try {
+    const rawEnv = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+    const parsed = rawEnv ? dotenv.parse(rawEnv) : {};
+    const existing = parsed.LAUNCHER_INSTANCE_ID || process.env.LAUNCHER_INSTANCE_ID;
+    if (existing) {
+      process.env.LAUNCHER_INSTANCE_ID = existing;
+      return existing;
+    }
+    const id = uuid();
+    const needsEol = rawEnv.length > 0 && !rawEnv.endsWith('\n') && !rawEnv.endsWith('\r\n');
+    const prefix = needsEol ? os.EOL : '';
+    fs.appendFileSync(envPath, `${prefix}LAUNCHER_INSTANCE_ID=${id}${os.EOL}`);
+    process.env.LAUNCHER_INSTANCE_ID = id;
+    return id;
+  } catch (err) {
+    console.warn('[env] Could not ensure LAUNCHER_INSTANCE_ID:', err?.message || err);
+    return process.env.LAUNCHER_INSTANCE_ID || '';
+  }
+};
+
+
+async function sendLaunchTelemetry(rootPath = "") {
+  if (typeof fetch !== 'function') return;
+  try {
+    const { version, releaseVersion } = getPackageInfo(rootPath);
+    await ensureLauncherInstanceId(path.join(rootPath, '.env'));
+    const from = process.env.LAUNCHER_INSTANCE_ID || readEnvValue(rootPath, 'LAUNCHER_INSTANCE_ID');
+    const telemetryUrl = 'https://cloud.vento.build/api/v1/telemetryEvent'
+    const payload = {
+      path: '/launcher/start',
+      from,
+      payload: {
+        version,
+        releaseVersion,
+        platform: os.platform(),
+        arch: os.arch(),
+        electron: process.versions?.electron,
+        chrome: process.versions?.chrome,
+        node: process.versions?.node,
+      },
+    };
+    await fetch(telemetryUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.warn('[telemetry] Launcher start telemetry failed:', err?.message || err);
+  }
+}
 
 app.whenReady().then(async () => {
+  try {
+    await sendLaunchTelemetry();
+
+  } catch (e) {
+    console.warn('Failed to send launch telemetry', e);
+  }
   protocol.handle('app', async (request) => {
     const url = new URL(request.url);
     const pathname = url.pathname;

@@ -17,7 +17,12 @@ import { useAgent } from './src/hooks/useAgent';
 import { TorchBridge } from './src/components/TorchBridge';
 import { CameraBridge } from './src/components/CameraBridge';
 import { CameraPreview } from './src/components/CameraPreview';
-import { registerScreenColorCallback } from './src/subsystems/screen';
+import {
+  registerScreenColorCallback,
+  registerScreenTextCallback,
+  registerScreenTextColorCallback,
+  registerScreenTextSizeCallback,
+} from './src/subsystems/screen';
 
 type ScreenMode = 'blank' | 'camera' | 'logs';
 
@@ -28,13 +33,24 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [screenMode, setScreenMode] = useState<ScreenMode>('blank');
   const [overrideColor, setOverrideColor] = useState<string | null>(null);
+  const [overrideText, setOverrideText] = useState<string | null>(null);
+  const [overrideTextColor, setOverrideTextColor] = useState<string | null>(null);
+  const [overrideTextSize, setOverrideTextSize] = useState<number | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Register screen color callback
+  // Register screen callbacks
   useEffect(() => {
     registerScreenColorCallback(setOverrideColor);
-    return () => registerScreenColorCallback(null);
+    registerScreenTextCallback(setOverrideText);
+    registerScreenTextColorCallback(setOverrideTextColor);
+    registerScreenTextSizeCallback(setOverrideTextSize);
+    return () => {
+      registerScreenColorCallback(null);
+      registerScreenTextCallback(null);
+      registerScreenTextColorCallback(null);
+      registerScreenTextSizeCallback(null);
+    };
   }, []);
 
   useEffect(() => {
@@ -122,7 +138,17 @@ export default function App() {
       {/* Blank mode - just the background */}
       {screenMode === 'blank' && (
         <Pressable style={styles.blankScreen} onPress={() => setScreenMode('logs')}>
-          <Text style={[styles.blankHint, { color: mutedColor }]}>Tap to show controls</Text>
+          <Text
+            style={[
+              styles.blankHint,
+              {
+                color: overrideTextColor ?? mutedColor,
+                fontSize: overrideTextSize ?? 14,
+              },
+            ]}
+          >
+            {overrideText ?? 'Tap to show controls'}
+          </Text>
         </Pressable>
       )}
 

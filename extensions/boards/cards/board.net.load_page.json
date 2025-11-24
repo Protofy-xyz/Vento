@@ -1,0 +1,41 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 10,
+    "icon": "globe",
+    "type": "action",
+    "name": "Load Web Page",
+    "displayResponse": true,
+    "displayIcon": false,
+    "params": {
+      "url": "http endpoint to call",
+      "method": "method for the call: get or post",
+      "body": "when using post, the body for the request"
+    },
+    "configParams": {
+      "url": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "any"
+      },
+      "method": {
+        "visible": false,
+        "defaultValue": "get",
+        "type": "string"
+      },
+      "body": {
+        "visible": false,
+        "defaultValue": "",
+        "type": "string"
+      }
+    },
+    "description": "Actions can perform tasks, automate processes, and enhance user interactions. It can also trigger other action-type cards on the board.\n\n  #### Key Features\n  - Run actions from rules.\n  - Chain/trigger other action cards.\n  - Parameterized execution.\n  - Customize parameters.\n  - Customize the card view (UI/render).",
+    "rulesCode": "return await context.apis.fetch(params.method ?? 'get', params.url, params.body)",
+    "html": "//@card/react\n\nfunction Widget(card) {\n  const value = card.value;\n\n  const content = <YStack f={1} ai=\"center\" jc=\"center\" width=\"100%\">\n      {card.icon && card.displayIcon !== false && (\n          <Icon name={card.icon} size={48} color={card.color}/>\n      )}\n      {card.displayResponse !== false && (\n          <CardValue mode={card.markdownDisplay ? 'markdown' : card.htmlDisplay ? 'html' : 'normal'} value={value ?? \"N/A\"} />\n      )}\n  </YStack>\n\n  return (\n      <Tinted>\n        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n          <ActionCard data={card}>\n            {card.displayButton !== false ? <ParamsForm data={card}>{content}</ParamsForm> : card.displayResponse !== false && content}\n          </ActionCard>\n        </ProtoThemeProvider>\n      </Tinted>\n  );\n}\n"
+  },
+  "name": "load_page",
+  "id": "board.net.load_page",
+  "group": "board",
+  "tag": "net",
+  "templateName": "Loads a Web Page"
+}

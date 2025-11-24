@@ -1,0 +1,111 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 25,
+    "icon": "globe",
+    "name": "agent_input",
+    "description": "A job queue with a list of pending jobs and a current job",
+    "type": "action",
+    "editorOptions": {},
+    "displayResponse": true,
+    "graphOrder": 1000,
+    "params": {
+      "item": "",
+      "action": "action to perform in the queue: push, pop, clear",
+      "response": ""
+    },
+    "configParams": {
+      "item": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "string"
+      },
+      "action": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "string"
+      },
+      "response": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "string"
+      }
+    },
+    "presets": {
+      "reply": {
+        "description": "Sends a reply to the current job and makes the next item (if any) the current job. The reply should be specified in the response param",
+        "configParams": {
+          "action": {
+            "visible": false,
+            "defaultValue": "reply"
+          },
+          "item": {
+            "visible": false
+          },
+          "response": {
+            "visible": true
+          }
+        }
+      },
+      "skip": {
+        "description": "Skips the current job. Do not use unless you know what you are doing.",
+        "configParams": {
+          "action": {
+            "defaultValue": "skip"
+          }
+        }
+      },
+      "reset": {
+        "description": "resets the queue state to empty and skip curret job",
+        "configParams": {
+          "action": {
+            "defaultValue": "clear"
+          }
+        }
+      },
+      "remove": {
+        "description": "remove the element with the given index from the job queue",
+        "configParams": {
+          "action": {
+            "defaultValue": "remove"
+          },
+          "item": {
+            "visible": true,
+            "defaultValue": 0,
+            "type": "number"
+          }
+        }
+      },
+      "push": {
+        "params": {
+          "item": "item to push"
+        },
+        "description": "Adds a new job",
+        "configParams": {
+          "action": {
+            "defaultValue": "push"
+          },
+          "item": {
+            "visible": true,
+            "defaultValue": "",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "enableAgentInputMode": true,
+    "tokens": {},
+    "displayButton": false,
+    "manualAPIResponse": true,
+    "rulesCode": "if (params.action == \"reset\") {\n  return { items: [], current: undefined };\n} else if (params.action == \"skip\") {\n  return {\n    items: (Array.isArray(board[name]?.items) ? board[name].items : []).slice(\n      1\n    ),\n    current: board[name].items[0],\n  };\n} else if (params.action == \"remove\") {\n  const queue = Array.isArray(board[name]?.items) ? board[name].items : [];\n  const index = parseInt(params.index, 10);\n  return {\n    items: queue.slice(0, index).concat(queue.slice(index + 1)),\n    current: board[name]?.current,\n  };\n} else if (params.action == \"clear\") {\n  return { items: [], current: board[name].current };\n} else if (params.action == \"reply\") {\n  //reply to current job\n  const job = board[name].current;\n  if (!job) {\n    throw \"Unable to send reply: There is not current job to reply to\";\n  }\n  const res = context.boards.getVar(\"job_\" + job.id, true);\n  if (!res) {\n    throw \"Unable to send reply: Empty res object in current job.\";\n  }\n  res.send(params.response);\n  return {\n    items: (Array.isArray(board[name]?.items) ? board[name].items : []).slice(\n      1\n    ),\n    current: board[name].items[0],\n  };\n} else {\n  const genUID = (l = 16) => {\n    const t = Date.now().toString(36);\n    const r =\n      Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);\n    let out = \"\";\n    for (let i = 0; i < l; i++)\n      out += (i % 2 ? t : r)[i % (i % 2 ? t.length : r.length)];\n    return out;\n  };\n  const uid = genUID(16);\n  context.boards.setVar(\"job_\" + uid, res);\n  const item = {\n    id: uid,\n    time: new Date().toISOString(),\n    ua: req.get(\"User-Agent\"),\n    params: req.query,\n    path: params.path,\n  };\n\n  if (board[name]?.current) {\n    return {\n      items: (Array.isArray(board[name]?.items)\n        ? board[name].items\n        : []\n      ).concat([item]),\n      current: board[name]?.current,\n    };\n  }\n  return {\n    items: Array.isArray(board[name]?.items) ? board[name].items : [],\n    current: item,\n  };\n}\n",
+    "html": "//@card/react\nfunction Widget(props) {\n  return (\n    <ViewList\n      onReply={(item, response) => execute_action(props.name, {action: 'reply', response: response})}\n      enableReply={true}\n      enableManualPop={true}\n      current={props?.value?.current}\n      emptyMessageProps={{\n        fontSize: \"$6\",\n        fontWeight: \"600\"\n      }}\n      emptyDescription={<YStack>\n        <Paragraph color=\"$color10\" mt={\"$2\"} fontSize={\"$4\"}>\n          <a style={{}} target=\"_new\" href={'/api/agents/v1/'+window?.board?.name+'/'+props?.name}>{'Open agent link'}</a>\n        </Paragraph>\n      </YStack>  \n      }\n      // emptyMode=\"wait\"\n      emptyMessage=\"Empty agent job queue\"\n      disableManualPush={true}\n      items={props?.value?.items} \n      onPop={(items) => execute_action(props.name, {action: 'skip'})}\n      onClear={(items) => execute_action(props.name, {action: 'reset'})}\n      onPush={(item) => execute_action(props.name, {action: 'push', item})}\n      onDeleteItem={(item, index) => execute_action(props.name, {action: 'remove', index})} \n    />\n  );\n}\n",
+    "value": {
+      "items": []
+    }
+  },
+  "name": "input",
+  "id": "board.agents.input",
+  "group": "board",
+  "tag": "agents",
+  "templateName": "Agent Input to receive agent calls"
+}

@@ -1,0 +1,21 @@
+{
+  "defaults": {
+    "width": 2,
+    "height": 8,
+    "name": "Bar Chart",
+    "icon": "chart-column",
+    "description": "Displays a bar chart using Recharts",
+    "type": "value",
+    "html": "\n\nreactCard(`\n  function Widget(props) {\n    const aspect = useCardAspectRatio('${data.domId}')\n    return (\n      <View className=\"no-drag\">\n        <BarChart\n          colors={chartColors}\n          title={\"players score\"}\n          id={\"barchart\"}\n          data={props.value}\n          dataKey={props.params.dataKey}\n          nameKey={props.params.nameKey}\n          isAnimationActive={false}\n          aspect={aspect}\n        />\n      </View>\n    );\n  }\n`, data.domId, data)\n        \n        ",
+    "params": {
+      "nameKey": "name",
+      "dataKey": "value"
+    },
+    "rulesCode": "return [{\r\n    \"name\": \"john\",\r\n    \"value\": 33\r\n}, {\r\n    \"name\": \"mike\",\r\n    \"value\": 20\r\n}, {\r\n    \"name\": \"susan\",\r\n    \"value\": 10\r\n}, {\r\n    \"name\": \"ton\",\r\n    \"value\": 30\r\n}]"
+  },
+  "name": "bar",
+  "id": "charts.rechart.bar",
+  "group": "charts",
+  "tag": "rechart",
+  "templateName": "Bar Chart"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "client",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "compile": "node ./scripts/compile.js"
+  },
+  "devDependencies": {
+    "shx": "^0.4.0"
+  }
+}

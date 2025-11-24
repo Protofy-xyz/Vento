@@ -1,0 +1,81 @@
+{
+  "defaults": {
+    "name": "queue",
+    "icon": "file-stack",
+    "width": 2,
+    "height": 12,
+    "description": "Interactive queue of items",
+    "type": "action",
+    "editorOptions": {},
+    "html": "//@card/react\nfunction Widget(props) {\n  return (\n          <ViewList \n            items={props.value} \n            onClear={(items) => execute_action(props.name, {action: 'clear'})}\n            onPush={(item) => execute_action(props.name, {action: 'push', item})}\n            onDeleteItem={(item, index) => execute_action(props.name, {action: 'remove', index})} \n          />\n  );\n}\n",
+    "displayResponse": true,
+    "rulesCode": "if (params.action == 'reset') {\r\n    return [];\r\n} else if (params.action == 'pop') {\r\n    return (Array.isArray(board?.[name]) ? board?.[name] : []).slice(1);\r\n} else if (params.action == 'remove') {\r\n    const queue = Array.isArray(board?.[name]) ? board[name] : [];\r\n    const index = parseInt(params.index, 10);\r\n    return queue.slice(0, index).concat(queue.slice(index + 1));\r\n} else if(params.action == 'clear') {\r\n    return []\r\n} else {\r\n    return (Array.isArray(board?.[name]) ? board?.[name] : []).concat([params.item]);\r\n}",
+    "params": {
+      "item": "",
+      "action": "action to perform in the queue: push, pop, clear"
+    },
+    "configParams": {
+      "item": {
+        "visible": true,
+        "defaultValue": ""
+      },
+      "action": {
+        "visible": true,
+        "defaultValue": ""
+      }
+    },
+    "presets": {
+      "pop": {
+        "description": "removes the oldest element from the queue",
+        "configParams": {
+          "action": {
+            "defaultValue": "pop"
+          }
+        }
+      },
+      "reset": {
+        "description": "resets the queue state to empty",
+        "configParams": {
+          "action": {
+            "defaultValue": "clear"
+          }
+        }
+      },
+      "remove": {
+        "description": "remove the element with the given index from the queue",
+        "configParams": {
+          "action": {
+            "defaultValue": "remove"
+          },
+          "item": {
+            "visible": true,
+            "defaultValue": 0,
+            "type": "number"
+          }
+        }
+      },
+      "push": {
+        "params": {
+          "item": "item to push"
+        },
+        "description": "adds an element to the queue",
+        "configParams": {
+          "action": {
+            "defaultValue": "push"
+          },
+          "item": {
+            "visible": true,
+            "defaultValue": "",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "displayButton": false
+  },
+  "name": "interactive",
+  "id": "memory.queue.interactive",
+  "group": "memory",
+  "tag": "queue",
+  "templateName": "Queue of items"
+}

@@ -1,0 +1,17 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 8,
+    "name": "YouTube Video",
+    "icon": "youtube",
+    "description": "Embed a YouTube video from a URL",
+    "type": "value",
+    "html": "\n// data contains: data.value, data.icon and data.color\nreturn card({\n  content: youtubeEmbed({ url: `${data.value}` }),\n  padding: '3px'\n});\n",
+    "editorOptions": {}
+  },
+  "name": "board_youtube",
+  "id": "board.youtube.board_youtube",
+  "group": "board",
+  "tag": "youtube",
+  "templateName": "Display a YouTube video"
+}

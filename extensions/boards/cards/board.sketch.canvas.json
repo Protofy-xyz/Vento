@@ -1,0 +1,17 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 10,
+    "name": "sketch",
+    "freeze": true,
+    "icon": "pencil",
+    "description": "Draw something",
+    "type": "value",
+    "html": "//reactCard\r\nreturn sketch(data)"
+  },
+  "name": "canvas",
+  "id": "board.sketch.canvas",
+  "group": "board",
+  "tag": "sketch",
+  "templateName": "Sketch canvas"
+}

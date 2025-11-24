@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 10,
+    "name": "Radial Bar Chart",
+    "icon": "radar",
+    "description": "Displays a radial bar chart using Recharts",
+    "type": "value",
+    "html": "\n\n\nreactCard(`\n  function Widget(props) {\n    const aspect = useCardAspectRatio('${data.domId}')\n    return (\n      <View className=\"no-drag\">\n        <RadialBarChart\n          colors={chartColors}\n          title={\"Progress per category\"}\n          id={\"radialbarchart\"}\n          data={props.value}\n          dataKey={props.params.dataKey}\n          nameKey={props.params.nameKey}\n          isAnimationActive={false}\n          startAngle={props.params.startAngle}\n          endAngle={props.params.endAngle}\n          displayLegend={props.params.displayLegend}\n          aspect={aspect}\n        />\n      </View>\n    );\n  }\n`, data.domId, data)\n    \n    \n    ",
+    "params": {
+      "nameKey": "name",
+      "dataKey": "value",
+      "displayLegend": "true",
+      "displayTooltip": "true",
+      "startAngle": "90",
+      "endAngle": "-270",
+      "aspect": "1.7",
+      "innerRadius": "50%",
+      "outerRadius": "100%"
+    },
+    "rulesCode": "return [{\r\n    \"name\": \"john\",\r\n    \"value\": 33\r\n}, {\r\n    \"name\": \"mike\",\r\n    \"value\": 20\r\n}, {\r\n    \"name\": \"susan\",\r\n    \"value\": 10\r\n}, {\r\n    \"name\": \"ton\",\r\n    \"value\": 30\r\n}]"
+  },
+  "name": "radialbar",
+  "id": "charts.rechart.radialbar",
+  "group": "charts",
+  "tag": "rechart",
+  "templateName": "Radial Bar Chart"
+}

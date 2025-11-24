@@ -36,74 +36,6 @@ export default (app, context) => {
         })
     }
 
-    const registerCards = async (context) => {
-        addCard({
-            group: 'imageops',
-            tag: "transform",
-            id: 'imageops_crop',
-            templateName: "crop image",
-            name: "crop",
-            defaults: {
-                width: 2,
-                height: 17,
-                name: "crop_image",
-                icon: "crop",
-                color: "#FFC300",
-                description: "crop an image",
-                rulesCode: `return execute_action("/api/v1/imageops/crop", userParams);`,
-                params: {
-                    image: "path to the image",
-                    x: "x coordinate (0-1)",
-                    y: "y coordinate (0-1)",
-                    width: "width (0-1)",
-                    height: "height (0-1)",
-                    saveTo: "path to save the cropped image",
-                    rotation: "rotation in degrees (0-360, default 0)"
-                },
-                configParams: {
-                    image: {
-                        visible: true,
-                        defaultValue: "",
-                        type: "path"
-                    },
-                    x: {
-                        visible: true,
-                        defaultValue: "0",
-                        type: "number"
-                    },
-                    y: {
-                        visible: true,
-                        defaultValue: "0",
-                        type: "number"
-                    },
-                    width: {
-                        visible: true,
-                        defaultValue: "1",
-                        type: "number"
-                    },
-                    height: {
-                        visible: true,
-                        defaultValue: "1",
-                        type: "number"
-                    },
-                    saveTo: {
-                        visible: true,
-                        defaultValue: "",
-                        type: "path"
-                    },
-                    rotation: {
-                        visible: true,
-                        defaultValue: "0",
-                        type: "number"
-                    }
-                }, 
-                type: 'action'
-            },
-            emitEvent: true,
-            token: await getServiceToken()
-        })
-    }
-
     app.get("/api/v1/imageops/crop", handler(async (req, res, session) => {
         if (!session || !session.user?.admin) {
             res.status(401).send({ error: "Unauthorized" });
@@ -156,7 +88,5 @@ export default (app, context) => {
     }));
 
     registerActions(context);
-    registerCards(context);
-
 }
 

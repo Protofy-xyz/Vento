@@ -1,0 +1,23 @@
+{
+  "defaults": {
+    "width": 2,
+    "height": 6,
+    "icon": "square-dashed",
+    "type": "value",
+    "name": "blank",
+    "displayResponse": true,
+    "displayIcon": false,
+    "displayTitle": false,
+    "autoResponsive": false,
+    "params": {},
+    "configParams": {},
+    "description": "Blank card for layout purposes.",
+    "rulesCode": "",
+    "html": "//@card/react\n\nfunction Widget(card) {\n  return (\n      <Tinted>\n        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n            <YStack f={1} height=\"100%\" ai=\"center\" jc=\"center\" width=\"100%\">\n           \n            </YStack>\n        </ProtoThemeProvider>\n      </Tinted>\n  );\n}\n\n"
+  },
+  "name": "blank",
+  "id": "board.blank.blank",
+  "group": "board",
+  "tag": "blank",
+  "templateName": "Blank Card"
+}

@@ -3,5 +3,14 @@ export default {
     {   
         "mqtt": "mqtt://bo-whatsapp.protofy.xyz:1883",
         "api": "http://bo-whatsapp.protofy.xyz:8000/api/v1/whatsapp"
+    },
+    "esphome":
+    {
+        "mqtt": "mqtt://bo-compile.protofy.xyz:8883",
+        "url": "https://compile.protofy.xyz",
+        "wss": "wss://compile.protofy.xyz"
+    },
+    "cloud": {
+        "telemetry": "https://cloud.vento.build/api/v1/telemetryEvent",
     }
 }

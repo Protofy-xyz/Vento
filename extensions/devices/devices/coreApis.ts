@@ -11,6 +11,7 @@ import { removeActions } from "@extensions/actions/coreContext/removeActions";
 import { gridSizes as GRID } from 'protolib/lib/gridConfig';
 import { compileMessagesTopic } from "@extensions/esphome/utils";
 import { connect as mqttConnect, IClientOptions } from 'mqtt';
+import { protoInfraUrls } from "@extensions/protoinfra/utils/protoInfraUrls";
 
 const PER_PARAM_ROWS = 1; // tweak as needed (extra grid rows per visible param)
 const PADDING_ICON = 6; // extra padding for icon
@@ -179,12 +180,6 @@ function Widget(card) {
         `${kind}_${s.replace(/[^a-z0-9_]+/gi, '_').toLowerCase()}`;
 
     try {
-        const treeResp = await API.get(`/api/core/v1/cards?token=${token}`);
-        const allDevicesTree = treeResp?.data?.devices || {};
-        const devicesTree = deviceName
-            ? (allDevicesTree?.[deviceName] ? { [deviceName]: allDevicesTree[deviceName] } : {})
-            : allDevicesTree;
-
         const cards: any[] = [];
         type Sized = { i: string; w: number; h: number; id: string; device: string; subsystem: string; };
         const buckets = {
@@ -198,11 +193,34 @@ function Widget(card) {
             return buckets[bp].get(key)!;
         };
 
-        for (const deviceName of Object.keys(devicesTree)) {
-            const deviceCards = devicesTree[deviceName] || {};
-            for (const id of Object.keys(deviceCards)) {
-                if (id === 'devices_table') continue;
-                const src = deviceCards[id] || {};
+        const treeResp = await API.get(`/api/core/v1/cards?token=${token}`);
+        const cardsArray = Array.isArray(treeResp?.data?.items) ? treeResp.data.items : [];
+        console.log('🤖 ~ generateDeviceBoard ~ cardsArray:', cardsArray)
+        const deviceCardsArray = cardsArray.filter((card: any) => card?.group === 'devices');
+        console.log('🤖 ~ generateDeviceBoard ~ deviceCardsArray:', deviceCardsArray)
+
+        const devicesMap = new Map<string, any[]>();
+        for (const card of deviceCardsArray) {
+            const tag = card?.tag || 'unknown';
+            if (!devicesMap.has(tag)) {
+                devicesMap.set(tag, []);
+            }
+            devicesMap.get(tag)!.push(card);
+        }
+
+        console.log('🤖 ~ generateDeviceBoard ~ devicesMap:', devicesMap)
+
+        const deviceEntries = deviceName
+            ? (devicesMap.has(deviceName) ? [[deviceName, devicesMap.get(deviceName)!]] : [])
+            : Array.from(devicesMap.entries());
+
+        console.log('🤖 ~ generateDeviceBoard ~ deviceEntries:', deviceEntries)
+
+        for (const [deviceName, deviceCards] of deviceEntries) {
+            for (const cardEntry of deviceCards) {
+                const id = cardEntry?.name ?? cardEntry?.id ?? cardEntry?.key;
+                if (!id || id === 'devices_table') continue;
+                const src = cardEntry || {};
                 const d = src.defaults || {};
 
                 const type: 'value' | 'action' = (d.type === 'action') ? 'action' : 'value';
@@ -475,9 +493,27 @@ const getDB = (path, req, session) => {
             // if folder does not exist, create it
             await promisesFs.mkdir(dataDir(getRoot(req)) + key, { recursive: true })
             try{
+                const defaultYamlContent = `esphome:
+  platformio_options:
+    board_build.flash_mode: dio
+    board_build.arduino.memory_type: opi_opi
+    board_upload.maximum_ram_size: 524288
+    build_flags:
+      - '-DBOARD_HAS_PSRAM'
+      - '-DARDUINO_USB_CDC_ON_BOOT=1'
+      - '-mfix-esp32-psram-cache-issue'
+  name: ${key}
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16Mb
+  framework:
+    type: arduino
+logger: {}
+`
                 await promisesFs.writeFile(filePath, value)
                 if (!fs.existsSync(ymlPath)) {
-                    await promisesFs.writeFile(ymlPath, "# Auto-generated config file")
+                    await promisesFs.writeFile(ymlPath, defaultYamlContent)
                 }
             }catch(error){
                 console.error("Error creating file: " + filePath, error)
@@ -1007,7 +1043,7 @@ export default (app, context) => {
             }
         }
     }
-    const compileBrokerUrl = 'mqtt://bo-compile.protofy.xyz:8883';
+    const compileBrokerUrl = protoInfraUrls.esphome.mqtt
     const COMPILE_DEFAULT_RECONNECT_PERIOD_MS = 5000;
     const COMPILE_BACKOFF_RECONNECT_PERIOD_MS = 5 * 60 * 1000;
     const MAX_COMPILE_RECONNECT_ATTEMPTS = 12;
@@ -1077,22 +1113,4 @@ export default (app, context) => {
         compileClient.end(true, () => logger.info('compile MQTT client closed (SIGTERM)'));
     });
 
-
-    addCard({
-        group: 'devices',
-        tag: "table",
-        id: 'devices_table',
-        templateName: "Interactive devices table",
-        name: "devices_table",
-        defaults: {
-            width: 5, 
-            height: 12,
-            name: "Devices Table",
-            icon: "router",
-            description: "Interactive devices table",
-            type: 'value',
-            html: "\n//data contains: data.value, data.icon and data.color\nreturn card({\n    content: iframe({src:'/workspace/devices?mode=embed'}), mode: 'slim'\n});\n",
-        },
-        emitEvent: true
-    })
 }

@@ -1,0 +1,59 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 16,
+    "type": "action",
+    "icon": "camera",
+    "name": "camera",
+    "description": "# 🧠 How the Card Works\n\nThis card returns an object with 2 properties:\n\n- **imageUrl** → snapshot/still JPG url\n- **streamPath** → live MJPEG stream with cache-busting \n\nThe UI simply renders an _<img>_ using **_streamPath_**.  \n- If the camera endpoint is **MJPEG**, the card shows a live stream.  \n- If not, you’ll see a static image or an error.\n\n> **Note:** Many cameras provide **RTSP** or **H.264** streams only. This card expects **MJPEG over HTTP(S)**.  \n> For non-MJPEG cameras, expose an MJPEG endpoint (e.g., via substream re-encoding or a proxy).\n\n---\n\n# 🔧 Inputs\n\n### cameraAddr\n- **What:** Camera host or IP.  \n- **Examples:** `192.168.1.120`, `cam.local`, `my-cam.company.lan`\n\n---\n\n### cameraPort\n- **What:** HTTP(S) port of the camera/server.  \n- **Examples:**  \n  - `80` → Dahua default web  \n  - `8080` → IP Webcam app  \n  - `443` → HTTPS proxy\n\n---\n\n### streamPath\n- **What:** Path to MJPEG live stream.  \n- **Default:** `/video`  \n- **Examples:**  \n  - **Dahua (MJPEG substream):** `/cgi-bin/mjpg/video.cgi?channel=1&subtype=1` (requires the chosen stream to be set to MJPEG on the camera).  \n  - **IP Webcam (Android app):** `/video`\n\n---\n\n### stillPath\n- **What:** Path to a still JPEG snapshot.  \n- **Default:** `/photo.jpg`  \n- **Examples:**  \n  - **Dahua snapshot:** `/cgi-bin/snapshot.cgi?channel=1` (channel param optional on some models/NVRs).  \n  - **IP Webcam snapshot:** `/photo.jpg`\n\n---\n\n### cameraProtocol\n- **What:** `http://` or `https://`.  \n- **Tip:** If your camera doesn’t support HTTPS, you can place a reverse proxy (e.g., Nginx) in front of it for TLS.\n\n---\n\n\n# 🚀 Quick Start (Demo)\n\n### A) Dahua (Local MJPEG)\n\n1. In the Dahua web UI, set **Sub Stream** encoding to **MJPEG** for the channel you’ll use.  \n2. Fill the card params like:\n\n```json\n{\n  \"cameraAddr\": \"192.168.1.120\",\n  \"cameraPort\": \"80\",\n  \"cameraProtocol\": \"http://\",\n  \"streamPath\": \"/cgi-bin/mjpg/video.cgi?channel=1&subtype=1\",\n  \"stillPath\": \"/cgi-bin/snapshot.cgi?channel=1\"\n}\n```\n3. Click Open camera. You should see a live stream.\n4. If you see a still image or error, verify the substream encoding is MJPEG and the endpoint is reachable.\n\n\n### B) IP Webcam (Android)\n\nInstall IP Webcam on Android and start the server (it shows your device IP and port).\n\nUse:\n```json\n{\n  \"cameraAddr\": \"192.168.1.50\",\n  \"cameraPort\": \"8080\",\n  \"cameraProtocol\": \"http://\",\n  \"streamPath\": \"/video\",\n  \"stillPath\": \"/photo.jpg\"\n}\n```\n\nClick Open camera. You should see a live stream.\n\n\n# ✅ Best Practices for Demos\n\n- Prefer LAN connections to keep latency low and avoid CORS.\n- For Dahua, use Sub Stream set to MJPEG for mjpg/video.cgi. Main streams are often H.264/H.265 and won’t work in this card.\n- Use the built-in cache-busting (?k=<random>) to avoid stale frames.\n- If you need RTSP/H.264, re-expose it as MJPEG via an edge proxy (e.g., ffmpeg + web server) and point streamPath to that MJPEG endpoint.\n",
+    "displayResponse": true,
+    "displayButton": true,
+    "buttonLabel": "Open camera",
+    "html": "//@card/react\n\n\n\nfunction Widget(card) {\n  const value = card.value;\n  const [loading, setLoading] = React.useState(true);\n  const [error, setError] = React.useState(false);\n  const [streamPath, setStreamPath] = React.useState(value?.streamPath?? \"\")\n\n  React.useEffect(() => {\n    console.log(\"card widget: ReactUseEffect\")\n    setStreamPath(value?.streamPath ?? \"\");\n    setLoading(true);\n    setError(false);\n  }, [value?.streamPath]);\n\n  console.log(\"card widget: \", card);\n\n  const content = (\n    <YStack f={1} mt={\"20px\"} ai=\"center\" jc=\"center\" width=\"100%\">\n      {loading && !error && <p>Searching for camera...</p>}\n      {error && <p style={{ color: \"red\" }}>Error getting camera stream</p>}\n      <img\n        style={{\n          width: \"100%\",\n          display: loading || error ? \"none\" : \"block\",\n        }}\n        src={streamPath}\n        onLoad={() => setLoading(false)}\n        onError={() => {\n          setLoading(false);\n          setError(true);\n        }}\n        alt=\"Camera stream\"\n      />\n    </YStack>\n  );\n\n  return (\n    <Tinted>\n      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n        <ActionCard data={card}>\n          {card.displayButton !== false ? (\n            <ParamsForm data={card}>{content}</ParamsForm>\n          ) : (\n            card.displayResponse !== false && content\n          )}\n        </ActionCard>\n      </ProtoThemeProvider>\n    </Tinted>\n  );\n}",
+    "rulesCode": "return {\n  imageUrl: `${params.cameraProtocol}${params.cameraAddr}:${params.cameraPort}${params.stillPath}`,\n  streamPath: `${params.cameraProtocol}${params.cameraAddr}:${\n    params.cameraPort\n  }${params.streamPath}?k=${\n    Math.floor(Math.random() * (9999 - 1000 + 1)) + 1000\n  }`,\n};\n",
+    "params": {
+      "cameraAddr": "Ip camera address",
+      "cameraPort": "Ip camera port",
+      "streamPath": "/video",
+      "stillPath": "/photo.jpg",
+      "cameraProtocol": "http://"
+    },
+    "configParams": {
+      "cameraAddr": {
+        "visible": true,
+        "description": "IP Camera address",
+        "defaultValue": "192.168.10.131",
+        "type": "string"
+      },
+      "cameraPort": {
+        "visible": true,
+        "description": "IP Camera port",
+        "defaultValue": "8080",
+        "type": "string"
+      },
+      "streamPath": {
+        "visible": false,
+        "description": "Path to the video stream",
+        "defaultValue": "/video",
+        "type": "string"
+      },
+      "stillPath": {
+        "visible": false,
+        "description": "Path to get a still image",
+        "defaultValue": "/photo.jpg",
+        "type": "string"
+      },
+      "cameraProtocol": {
+        "visible": false,
+        "description": "Camera protocol",
+        "defaultValue": "http://",
+        "type": "string"
+      }
+    }
+  },
+  "name": "vision_camera",
+  "id": "vision.inputs.vision_camera",
+  "group": "vision",
+  "tag": "inputs",
+  "templateName": "IP Camera"
+}

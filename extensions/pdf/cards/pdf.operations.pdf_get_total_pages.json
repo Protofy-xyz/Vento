@@ -1,0 +1,27 @@
+{
+  "defaults": {
+    "width": 2,
+    "height": 8,
+    "type": "action",
+    "icon": "file-stack",
+    "name": "pdf pages",
+    "description": "Get the total number of pages in a PDF file.",
+    "params": {
+      "path": "pdf file path"
+    },
+    "configParams": {
+      "path": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "path"
+      }
+    },
+    "rulesCode": "return await execute_action(\"/api/v1/pdf/getTotalPages\", userParams)",
+    "displayResponse": true
+  },
+  "name": "pdf_get_total_pages",
+  "id": "pdf.operations.pdf_get_total_pages",
+  "group": "pdf",
+  "tag": "operations",
+  "templateName": "Get total pages of a PDF file"
+}

@@ -1,0 +1,9 @@
+{
+  "host": "http://localhost:8000",
+  "username": "admin",
+  "token": "",
+  "device_name": "",
+  "monitor_interval_seconds": 30
+}
+
+

@@ -1,0 +1,27 @@
+{
+  "defaults": {
+    "type": "action",
+    "icon": "message-square-text",
+    "name": "card reset",
+    "description": "Reset the value of a card in the board",
+    "params": {
+      "name": "Name of the card to reset"
+    },
+    "configParams": {
+      "name": {
+        "visible": true,
+        "defaultValue": "",
+        "type": "string"
+      }
+    },
+    "rulesCode": "return await execute_action(\"/api/core/v1/board/cardreset\", userParams)",
+    "displayResponse": true,
+    "buttonLabel": "Reset card",
+    "displayIcon": false
+  },
+  "name": "board_reset",
+  "id": "board.card.board_reset",
+  "group": "board",
+  "tag": "card",
+  "templateName": "Reset card value"
+}

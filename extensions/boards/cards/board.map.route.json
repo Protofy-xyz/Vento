@@ -1,0 +1,17 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 10,
+    "name": "Display route",
+    "icon": "table-properties",
+    "description": "Display a route on a map",
+    "type": "value",
+    "html": "const html = `<!doctype html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\"/>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/>\n<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css\"/>\n<style>\n  html,body,#map{height:100%;margin:0}\n</style>\n</head>\n<body>\n<div id=\"map\"></div>\n\n<script src=\"https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js\"></script>\n<script>\n  (function(){\n    var center = [41.3947846,2.1939663];\n    var zoom = 14;\n    var routeCoords = ${JSON.stringify(data.value)}\n\n    var map = L.map('map').setView(center, zoom);\n    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {\n      maxZoom: 19,\n      attribution: '&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors'\n    }).addTo(map);\n\n   \n    if (routeCoords && routeCoords.length > 0) {\n      if(routeCoords.length>1){\n        var line = L.polyline(routeCoords, { weight: 5, opacity: 0.9 }).addTo(map);\n      }\n      if (routeCoords.length > 0) {\n        L.marker(routeCoords[0]).addTo(map).bindPopup('Start');\n        \n        if(routeCoords.length>0){\n          map.fitBounds(line.getBounds(), { padding: [20,20] });\n          L.marker(routeCoords[routeCoords.length - 1]).addTo(map).bindPopup('End');\n        }\n      }\n    }\n  })();\n</script>\n</body>\n</html>`;\n\nreturn iframeCard(html, data.domId)",
+    "rulesCode": "return [[41.3947846,2.1939663],[41.403644, 2.174444]]"
+  },
+  "name": "route",
+  "id": "board.map.route",
+  "group": "board",
+  "tag": "map",
+  "templateName": "Display a route on a map"
+}

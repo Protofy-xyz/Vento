@@ -179,12 +179,6 @@ function Widget(card) {
         `${kind}_${s.replace(/[^a-z0-9_]+/gi, '_').toLowerCase()}`;
 
     try {
-        const treeResp = await API.get(`/api/core/v1/cards?token=${token}`);
-        const allDevicesTree = treeResp?.data?.devices || {};
-        const devicesTree = deviceName
-            ? (allDevicesTree?.[deviceName] ? { [deviceName]: allDevicesTree[deviceName] } : {})
-            : allDevicesTree;
-
         const cards: any[] = [];
         type Sized = { i: string; w: number; h: number; id: string; device: string; subsystem: string; };
         const buckets = {
@@ -198,11 +192,34 @@ function Widget(card) {
             return buckets[bp].get(key)!;
         };
 
-        for (const deviceName of Object.keys(devicesTree)) {
-            const deviceCards = devicesTree[deviceName] || {};
-            for (const id of Object.keys(deviceCards)) {
-                if (id === 'devices_table') continue;
-                const src = deviceCards[id] || {};
+        const treeResp = await API.get(`/api/core/v1/cards?token=${token}`);
+        const cardsArray = Array.isArray(treeResp?.data?.items) ? treeResp.data.items : [];
+        console.log('🤖 ~ generateDeviceBoard ~ cardsArray:', cardsArray)
+        const deviceCardsArray = cardsArray.filter((card: any) => card?.group === 'devices');
+        console.log('🤖 ~ generateDeviceBoard ~ deviceCardsArray:', deviceCardsArray)
+
+        const devicesMap = new Map<string, any[]>();
+        for (const card of deviceCardsArray) {
+            const tag = card?.tag || 'unknown';
+            if (!devicesMap.has(tag)) {
+                devicesMap.set(tag, []);
+            }
+            devicesMap.get(tag)!.push(card);
+        }
+
+        console.log('🤖 ~ generateDeviceBoard ~ devicesMap:', devicesMap)
+
+        const deviceEntries = deviceName
+            ? (devicesMap.has(deviceName) ? [[deviceName, devicesMap.get(deviceName)!]] : [])
+            : Array.from(devicesMap.entries());
+
+        console.log('🤖 ~ generateDeviceBoard ~ deviceEntries:', deviceEntries)
+
+        for (const [deviceName, deviceCards] of deviceEntries) {
+            for (const cardEntry of deviceCards) {
+                const id = cardEntry?.name ?? cardEntry?.id ?? cardEntry?.key;
+                if (!id || id === 'devices_table') continue;
+                const src = cardEntry || {};
                 const d = src.defaults || {};
 
                 const type: 'value' | 'action' = (d.type === 'action') ? 'action' : 'value';

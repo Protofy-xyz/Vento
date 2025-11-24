@@ -32,7 +32,7 @@ type MonitorConfig struct {
 // ActionConfig wires a Vento action definition with its handler.
 type ActionConfig struct {
 	Action  vento.Action
-	Handler func(payload []byte) error
+	Handler func(msg vento.ActionEnvelope) error
 }
 
 func (d Definition) subsystem() vento.Subsystem {

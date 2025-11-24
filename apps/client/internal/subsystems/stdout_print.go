@@ -41,14 +41,14 @@ func (t *StdoutPrintTemplate) Build(string) Definition {
 	}
 }
 
-func (t *StdoutPrintTemplate) handlePrint(payload []byte) error {
-	trimmed := strings.TrimSpace(string(payload))
+func (t *StdoutPrintTemplate) handlePrint(msg vento.ActionEnvelope) error {
+	trimmed := strings.TrimSpace(string(msg.Payload))
 	if trimmed == "" {
 		fmt.Println("[action:print] <empty>")
 		return nil
 	}
 	var asJSON any
-	if json.Unmarshal(payload, &asJSON) == nil {
+	if json.Unmarshal(msg.Payload, &asJSON) == nil {
 		if formatted, err := json.MarshalIndent(asJSON, "", "  "); err == nil {
 			fmt.Printf("[action:print] %s\n", formatted)
 			return nil

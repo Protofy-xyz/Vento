@@ -33,6 +33,14 @@ export class DeviceSubsystemAction {
   getValue() {
     return this.data.payload.value
   }
+
+  getMode() {
+    return this.data.mode
+  }
+
+  getReplyTimeoutMs() {
+    return this.data.replyTimeoutMs
+  }
 }
 
 export class DeviceSubsystemMonitor{
@@ -122,9 +130,8 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
   getConfigFile(){
     if(this.data?.currentSdk == "esphome"){
       return this.getConfigDir() + "/config.yaml"
-    }else{
-      throw new Error("Unsupported SDK for config file")
     }
+    return null
   }
 
   async getManifestUrl(compileSessionId){

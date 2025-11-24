@@ -111,9 +111,9 @@ func (a *Agent) ensureDevice(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) handleAction(subsystem, action string, payload []byte) {
-	if handled := a.subs.HandleAction(subsystem, action, payload); handled {
+func (a *Agent) handleAction(msg vento.ActionEnvelope) {
+	if handled := a.subs.HandleAction(msg); handled {
 		return
 	}
-	log.Printf("unhandled action[%s/%s]: %s", subsystem, action, string(payload))
+	log.Printf("unhandled action[%s/%s]: %s", msg.Subsystem, msg.Action, string(msg.Payload))
 }

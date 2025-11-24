@@ -3,7 +3,10 @@ package subsystems
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -136,6 +139,24 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 				},
 				Handler: handlePrintAction,
 			},
+			{
+				Action: vento.Action{
+					Name:           "execute",
+					Label:          "Execute command",
+					Description:    "Run a shell command on the host and return its output",
+					Endpoint:       vento.ExecuteActionEndpoint,
+					ConnectionType: "mqtt",
+					Payload: vento.ActionPayload{
+						Type: "string",
+					},
+					CardProps: map[string]any{
+						"icon":  "code",
+						"color": "$red10",
+					},
+					Mode: "request-reply",
+				},
+				Handler: handleExecuteAction,
+			},
 		},
 	}
 }
@@ -172,7 +193,8 @@ func (t *SystemInfoTemplate) publishOSVersion(ctx context.Context, mqtt *vento.M
 	return mqtt.Publish("/system/monitors/os_version", fmt.Sprintf("%s %s", info.Platform, info.PlatformVersion))
 }
 
-func handlePrintAction(payload []byte) error {
+func handlePrintAction(msg vento.ActionEnvelope) error {
+	payload := msg.Payload
 	trimmed := strings.TrimSpace(string(payload))
 	if trimmed == "" {
 		fmt.Println("[action:print] <empty>")
@@ -203,4 +225,61 @@ func (t *SystemInfoTemplate) publishUsedMemory(ctx context.Context, mqtt *vento.
 		return err
 	}
 	return mqtt.Publish(vento.MemoryUsageEndpoint, fmt.Sprintf("%d", stats.Used))
+}
+
+func handleExecuteAction(msg vento.ActionEnvelope) error {
+	command := strings.TrimSpace(string(msg.Payload))
+	if command == "" {
+		if msg.CanReply() {
+			return msg.ReplyJSON(map[string]any{
+				"error": "empty command",
+			})
+		}
+		return errors.New("empty command")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	shell, args := commandArgs(command)
+	cmd := exec.CommandContext(ctx, shell, args...)
+	output, err := cmd.CombinedOutput()
+
+	response := map[string]any{
+		"command": command,
+		"output":  string(output),
+	}
+
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else if ctx.Err() != nil {
+			exitCode = -1
+		} else {
+			exitCode = 1
+		}
+		response["error"] = err.Error()
+	}
+	if ctx.Err() != nil {
+		response["timeout"] = true
+		if ctx.Err() != context.Canceled {
+			response["error"] = ctx.Err().Error()
+		}
+	}
+	response["exitCode"] = exitCode
+
+	if msg.CanReply() {
+		if err := msg.ReplyJSON(response); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func commandArgs(command string) (string, []string) {
+	if runtime.GOOS == "windows" {
+		return "cmd", []string{"/C", command}
+	}
+	return "sh", []string{"-c", command}
 }

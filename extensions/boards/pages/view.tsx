@@ -253,8 +253,14 @@ const FloatingArea = ({ tabVisible, setTabVisible, board, automationInfo, boardR
       "icon": Settings,
       "content": <BoardSettingsEditor
         settings={board.settings}
-        onSave={sttngs => {
+        users={board.users}
+        onSave={(sttngs, users) => {
           boardRef.current.settings = sttngs
+          if (users && users.length) {
+            boardRef.current.users = users
+          } else {
+            delete boardRef.current.users
+          }
           onEditBoard()
         }}
       />

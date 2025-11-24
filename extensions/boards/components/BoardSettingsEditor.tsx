@@ -1,9 +1,11 @@
 import { YStack, Text, Input, XStack, Button, Spinner, Checkbox } from "@my/ui"
 import { SelectList } from "protolib/components/SelectList"
 import { Tinted } from "protolib/components/Tinted"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Check } from "@tamagui/lucide-icons"
+import { API } from "protobase"
 import { useThemeSetting } from '@tamagui/next-theme'
+import { MultiSelectList } from "protolib/components/MultiSelectList"
 
 const columnWidth = 170
 
@@ -21,12 +23,42 @@ const ColInput = ({ ...props }) => <Input
     {...props}
 />
 
-export const BoardSettingsEditor = ({ settings, onSave }) => {
+export const BoardSettingsEditor = ({ settings, users = [], onSave }) => {
 
     const [currentSettings, setCurrentSettings] = useState(settings)
+    const [currentUsers, setCurrentUsers] = useState(users || [])
+    const [availableUsers, setAvailableUsers] = useState([])
+    const [loadingUsers, setLoadingUsers] = useState(true)
     const [loading, setLoading] = useState(false)
 
     const BG_COLOR = "$bgPanel"
+
+    useEffect(() => {
+        let cancelled = false
+        const loadUsers = async () => {
+            setLoadingUsers(true)
+            try {
+                const response = await API.get('/api/core/v1/groups')
+                const groups = response?.data?.items ?? response?.data ?? []
+                const groupNames = Array.isArray(groups) ? groups.map((g: any) => g?.name ?? g).filter(Boolean) : []
+                if (!cancelled) {
+                    setAvailableUsers(groupNames)
+                }
+            } catch (_e) {
+                if (!cancelled) {
+                    setAvailableUsers([])
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoadingUsers(false)
+                }
+            }
+        }
+        loadUsers()
+        return () => {
+            cancelled = true
+        }
+    }, [])
 
     const clearSettings = (stt) => {
         const cleaned = { ...stt }
@@ -55,7 +87,8 @@ export const BoardSettingsEditor = ({ settings, onSave }) => {
     const onSaveSettigns = async () => {
         setLoading(true)
         let cleanedSettings = clearSettings(currentSettings)
-        await onSave(cleanedSettings)
+        const cleanedUsers = currentUsers?.length ? currentUsers : undefined
+        await onSave(cleanedSettings, cleanedUsers)
         setLoading(false)
     }
 
@@ -172,6 +205,27 @@ export const BoardSettingsEditor = ({ settings, onSave }) => {
                         elements={[{ value: "default", caption: "default" }, { value: "vertical", caption: "vertical" }, { value: "horizontal", caption: "horizontal" }]}
                         setValue={(value) => setCurrentSettings({ ...currentSettings, compactType: value })}
                     />
+                </YStack>
+            </XStack>
+            <XStack alignItems="flex-start">
+                <ColumnTitle>Visible to users</ColumnTitle>
+                <YStack gap="$2" f={1}>
+                    {loadingUsers && <Spinner size="small" />}
+                    {!loadingUsers && (
+                        <>
+                            <MultiSelectList
+                                choices={availableUsers}
+                                defaultSelections={currentUsers}
+                                onSetSelections={(selections) => setCurrentUsers(selections)}
+                            />
+                            <Text color="$gray9" fow="300">
+                                Whitelist: only selected users can see this board. Leave empty to allow everyone.
+                            </Text>
+                            {(!availableUsers || availableUsers.length === 0) && (
+                                <Text color="$gray9">No groups available</Text>
+                            )}
+                        </>
+                    )}
                 </YStack>
             </XStack>
         </YStack>

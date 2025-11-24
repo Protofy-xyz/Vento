@@ -12,12 +12,12 @@ import { Workflow, LayoutDashboard, Presentation } from "@tamagui/lucide-icons";
 import { InteractiveIcon } from 'protolib/components/InteractiveIcon'
 import { shouldShowInArea } from 'protolib/helpers/Visibility';
 
-  const Chip = ({ name }: { name: string }) => (
+const Chip = ({ name }: { name: string }) => (
     <XStack key={name} ai="center" br="$10" px="$3" py="$1.5" bg="$bgContent"
-       mr="$2" mb="$2" maxWidth={220} overflow="hidden">
-      <Text numberOfLines={1} ellipsizeMode="tail">{name}</Text>
+        mr="$2" mb="$2" maxWidth={220} overflow="hidden">
+        <Text numberOfLines={1} ellipsizeMode="tail">{name}</Text>
     </XStack>
-  );
+);
 
 export default ({ element, width, onDelete, ...props }: any) => {
     const board = new BoardModel(element);
@@ -49,7 +49,7 @@ export default ({ element, width, onDelete, ...props }: any) => {
 
     return (
         <YStack
-            cursor="pointer"
+            cursor="default"
             bg="$bgPanel"
             elevation={4}
             br="$4"

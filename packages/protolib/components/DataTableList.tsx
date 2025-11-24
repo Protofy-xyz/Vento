@@ -6,6 +6,8 @@ import { ItemMenu } from "./ItemMenu";
 import { usePageParams } from '../next'
 import { InteractiveIcon } from "./InteractiveIcon";
 import { Chip } from "./Chip";
+import { API } from "protobase"
+import { useEffect, useState } from "react";
 
 export const getFieldPreview = (key, row, def, plain?) => {
     if (def?.color) {
@@ -54,11 +56,48 @@ export const DataTableList = ({
     state = {} as DataTableListState,
     setSelected = (item) => { },
     onSelectItem = (item) => { },
-    onEditItem = (item)=> { }, 
+    onEditItem = (item) => { },
     disableRowIcon = false,
     disableItemSelection = false
 }) => {
     const { push, mergePush } = usePageParams(state)
+    const [rows, setRows] = useState([])
+
+    useEffect(() => {
+        const loadRows = async () => {
+            const rawItems = items?.data?.items ?? []
+
+            const resolvedRows = await Promise.all(
+                rawItems.map(async (row) => {
+                    const values: any = {}
+
+                    for (const key of Object.keys(row)) {
+                        const value = row[key]
+
+                        if (typeof value === "object" && value?.relationId) {
+                            try {
+                                const res = await API.get(`/api/v1/${value.model}/${value.relationId}`)
+                                const displayField = res.data?.[value.displayField]
+
+                                values[key] = displayField ?? value.relationId
+                            } catch (e) {
+                                values[key] = value.relationId
+                            }
+                        } else {
+                            values[key] = value
+                        }
+                    }
+
+                    return values
+                })
+            )
+
+            setRows(resolvedRows)
+        }
+
+        loadRows()
+    }, [items])
+
     const conditionalRowStyles = [
         {
             when: row => selected.some(item => item.id === model.load(row).getId()),
@@ -80,9 +119,16 @@ export const DataTableList = ({
                 .filter(key => {
                     const def = fields.shape[key]._def?.innerType?._def ?? fields.shape[key]._def
 
-                    if(def?.typeName === 'ZodArray') {
+                    if (def?.typeName === 'ZodArray') {
                         return validTypes.includes(def?.type?._def?.typeName)
                     }
+                    if (def?.typeName === 'ZodObject') {
+                        // handle relation objects
+                        if (def?.["relation"]) {
+                            return true
+                        }
+                    }
+
                     return validTypes.includes(def?.typeName)
                 }).map(key => {
                     const def = fields.shape[key]._def?.innerType?._def ?? fields.shape[key]._def
@@ -94,6 +140,7 @@ export const DataTableList = ({
                 })
         )
     )
+
     return <XStack pt="$1" flexWrap='wrap' f={1} bc="$bgPanel" br="$6" mt="$2" mb="$6" overflow="scroll" overflowX="hidden">
         <Tinted>
             <DataTable2.component
@@ -102,8 +149,8 @@ export const DataTableList = ({
                 conditionalRowStyles={conditionalRowStyles}
                 rowsPerPage={state.itemsPerPage ? state.itemsPerPage : 25}
                 handleSort={(column, orderDirection) => {
-                    mergePush({ orderBy: column.sortField, orderDirection })}
-                }
+                    mergePush({ orderBy: column.sortField, orderDirection })
+                }}
                 handlePerRowsChange={(itemsPerPage) => push('itemsPerPage', itemsPerPage)}
                 handlePageChange={(page) => push('page', parseInt(page, 10) - 1)}
                 //@ts-ignore
@@ -172,13 +219,13 @@ export const DataTableList = ({
                             onDelete={onDelete}
                             extraMenuActions={extraMenuActions} />
 
-                            {!disableRowIcon && <InteractiveIcon Icon={rowIcon} onPress={() => onEditItem(model.load(row))}></InteractiveIcon>}
+                        {!disableRowIcon && <InteractiveIcon Icon={rowIcon} onPress={() => onEditItem(model.load(row))}></InteractiveIcon>}
 
                     </XStack>
                     </Theme>, true, '115px'),
                 ...cols
                 ]}
-                rows={items?.data?.items}
+                rows={rows}
                 onRowPress={(rowData) => onSelectItem(model.load(rowData))}
             />
         </Tinted>

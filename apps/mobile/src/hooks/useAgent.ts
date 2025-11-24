@@ -210,13 +210,16 @@ function startIntervals(
 
 function buildMQTTUrl(host: string) {
   try {
-    const parsed = new URL(host);
-    const scheme = parsed.protocol === 'https:' ? 'wss' : 'ws';
-    const port = parsed.port ? Number(parsed.port) : parsed.protocol === 'https:' ? 443 : 80;
-    const mqttPort = port === 443 ? 8084 : 1883;
-    return `${scheme}://${parsed.hostname}:${mqttPort}/mqtt`;
+    const url = new URL(host);
+    if (url.protocol === 'ws:' || url.protocol === 'wss:') {
+      return url.toString();
+    }
+    const useSecure = url.protocol === 'https:';
+    const port = url.port ? `:${url.port}` : '';
+    return `${useSecure ? 'wss' : 'ws'}://${url.hostname}${port}/websocket`;
   } catch {
-    return 'ws://localhost:1883/mqtt';
+    return 'ws://localhost:8000/websocket';
   }
 }
+
 

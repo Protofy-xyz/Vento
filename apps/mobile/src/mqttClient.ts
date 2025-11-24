@@ -20,7 +20,8 @@ export class MQTTManager {
 
   async connect(opts: MQTTConnectOptions) {
     const clientId = `${opts.deviceName}-${Date.now()}`;
-    this.client = new Client(opts.hostUrl, clientId);
+    const { url, useSSL } = normalizeBrokerUrl(opts.hostUrl);
+    this.client = new Client(url, `vento-mobile-${Date.now()}`);
 
     await new Promise<void>((resolve, reject) => {
       this.client!.onConnectionLost = (responseObject) => {
@@ -52,7 +53,7 @@ export class MQTTManager {
       };
 
       this.client!.connect({
-        useSSL: opts.hostUrl.startsWith('wss://'),
+        useSSL,
         userName: opts.username,
         password: opts.password,
         onSuccess: () => {
@@ -97,5 +98,22 @@ function parseActionTopic(topic: string) {
     action,
     requestId,
   };
+}
+
+function normalizeBrokerUrl(hostUrl: string): { url: string; useSSL: boolean } {
+  try {
+    const url = new URL(hostUrl);
+    if (url.protocol === 'ws:' || url.protocol === 'wss:') {
+      return { url: url.toString(), useSSL: url.protocol === 'wss:' };
+    }
+    const useSSL = url.protocol === 'https:';
+    const port = url.port ? `:${url.port}` : '';
+    return {
+      url: `${useSSL ? 'wss' : 'ws'}://${url.hostname}${port}/websocket`,
+      useSSL,
+    };
+  } catch {
+    return { url: 'ws://localhost:8000/websocket', useSSL: false };
+  }
 }
 

@@ -1,6 +1,6 @@
 import { YStack, Text, XStack, Tooltip, Paragraph, Dialog, Label, Input, Button, TooltipSimple } from '@my/ui';
 import { Tinted } from '../Tinted';
-import { Sparkles, Cog, Type, LayoutTemplate, AlertTriangle } from "@tamagui/lucide-icons";
+import { Sparkles, Cog, Type, LayoutTemplate, AlertTriangle, X } from "@tamagui/lucide-icons";
 import { BoardModel } from '@extensions/boards/boardsSchemas';
 import { useRouter } from 'solito/navigation';
 import { getIconUrl } from '../IconSelect';
@@ -27,6 +27,8 @@ export default ({ element, width, onDelete, ...props }: any) => {
     const [description, setDescription] = useState('');
     const [templateName, setTemplateName] = useState(selectedBoard?.data.name);
     const [displayName, setDisplayName] = useState(board?.get("displayName") ?? '');
+    const [tags, setTags] = useState<string[]>(board.get("tags") ?? []);
+    const [newTag, setNewTag] = useState('');
 
     const initialHidden = !shouldShowInArea(element, 'agents');
     const [hidden, setHidden] = useState<boolean>(initialHidden);
@@ -45,6 +47,20 @@ export default ({ element, width, onDelete, ...props }: any) => {
 
         const boardName = board.get('name');
         router.push(`/boards/view?board=${boardName}#${key}`);
+    };
+    const handleRemoveTag = (tagToRemove: string) => {
+        setTags((prev) => prev.filter((t) => t !== tagToRemove));
+    };
+
+    const handleAddTag = () => {
+        const value = newTag.trim();
+        if (!value) return;
+        if (tags.includes(value)) {
+            setNewTag('');
+            return;
+        }
+        setTags((prev) => [...prev, value]);
+        setNewTag('');
     };
 
     return (
@@ -112,13 +128,18 @@ export default ({ element, width, onDelete, ...props }: any) => {
                                     const data = element.data ?? element;
                                     seteditSettingsDialog(true);
                                     setSelectedBoard({ data });
+
                                     const isHidden = !shouldShowInArea(data, 'agents');
                                     setHidden(isHidden);
+
                                     setDisplayName(
                                         data.displayName ??
                                         data.name ??
                                         ''
                                     );
+
+                                    setTags(data.tags ?? []);
+                                    setNewTag('');
                                 },
                                 isVisible: () => true
                             },
@@ -261,72 +282,140 @@ export default ({ element, width, onDelete, ...props }: any) => {
             <Dialog open={editSettingsDialog} onOpenChange={seteditSettingsDialog}>
                 <Dialog.Portal className='DialogPopup'>
                     <Dialog.Overlay className='DialogPopup' />
-                    <Dialog.Content overflow="hidden" p={"$8"} height={'400px'} width={"400px"} className='DialogPopup'>
-                        <YStack height="100%" justifyContent="space-between">
-                            <Text fos="$8" fow="600" mb="$3" className='DialogPopup'>Settings</Text>
-                            <XStack ai={"center"} className='DialogPopup'>
-                                <Label ml={"$2"} h={"$3.5"} size={"$5"} className='DialogPopup'> <Type color={"$color8"} mr="$2" />Display Name</Label>
-                            </XStack>
-                            <Input
-                                br={"8px"}
-                                className='DialogPopup'
-                                value={displayName}
-                                onChange={(e) => {
-                                    setDisplayName(e.target.value);
-                                }}
-                            />
-
-                            <XStack
-                                ai="center"
-                                gap="$2"
-                                mt="$4"
-                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                                onMouseDown={(e) => { e.stopPropagation(); }}
-                                onPointerDown={(e) => { e.stopPropagation(); }}
-                            >
-                                <Label h={"$3.5"} size={"$5"}>Hide board</Label>
-                                <Toggle
-                                    checked={hidden}
-                                    onChange={(next) => {
-                                        setHidden(next);
-                                        setSelectedBoard(prev => {
-                                            if (!prev) return prev;
-                                            const updatedVisibility = next ? [] : undefined;
-                                            return {
-                                                data: {
-                                                    ...prev.data,
-                                                    visibility: updatedVisibility,
-                                                },
-                                            };
-                                        });
+                    <Dialog.Content
+                        overflow="auto"
+                        p="$8"
+                        width={420}
+                        maxHeight="80vh"
+                        className='DialogPopup'
+                    >
+                        <Tinted>
+                            <YStack gap="$4">
+                                <Text fos="$8" fow="600" mb="$3" className='DialogPopup'>Settings</Text>
+                                <XStack ai={"center"} className='DialogPopup'>
+                                    <Label ml={"$2"} h={"$3.5"} size={"$5"} className='DialogPopup'> <Type color={"$color8"} mr="$2" />Display Name</Label>
+                                </XStack>
+                                <Input
+                                    br={"8px"}
+                                    className='DialogPopup'
+                                    value={displayName}
+                                    onChange={(e) => {
+                                        setDisplayName(e.target.value);
                                     }}
                                 />
-                            </XStack>
 
-                            <YStack flex={1} className='DialogPopup' />
-                            <Button
-                                className='DialogPopup'
-                                onPress={async () => {
-                                    try {
-                                        if (!selectedBoard?.data) return;
-                                        const payload = {
-                                            ...selectedBoard.data,
-                                            displayName: displayName || selectedBoard.data.displayName || selectedBoard.data.name,
-                                        };
-                                        await API.post(
-                                            `/api/core/v1/boards/${selectedBoard.data.name}`,
-                                            payload
-                                        );
-                                        setSelectedBoard(null);
-                                        seteditSettingsDialog(false);
-                                    } catch (e) {
-                                        console.log('e: ', e);
-                                    }
-                                }}
-                            >
-                                Save
-                            </Button>
-                        </YStack>
+                                <XStack
+                                    ai="center"
+                                    gap="$2"
+                                    mt="$4"
+                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                                    onMouseDown={(e) => { e.stopPropagation(); }}
+                                    onPointerDown={(e) => { e.stopPropagation(); }}
+                                >
+                                    <Label h={"$3.5"} size={"$5"}>Hide board</Label>
+                                    <Toggle
+                                        checked={hidden}
+                                        onChange={(next) => {
+                                            setHidden(next);
+                                            setSelectedBoard(prev => {
+                                                if (!prev) return prev;
+                                                const updatedVisibility = next ? [] : undefined;
+                                                return {
+                                                    data: {
+                                                        ...prev.data,
+                                                        visibility: updatedVisibility,
+                                                    },
+                                                };
+                                            });
+                                        }}
+                                    />
+                                </XStack>
+                                <YStack mt="$4" gap="$2" className='DialogPopup'>
+                                    <Label ml="$2" h="$3.5" size="$5" className='DialogPopup'>
+                                        Tags
+                                    </Label>
+
+                                    <XStack flexWrap="wrap">
+                                        {tags.length ? (
+                                            tags.map((tag) => (
+                                                <XStack
+                                                    key={tag}
+                                                    ai="center"
+                                                    br="$10"
+                                                    px="$3"
+                                                    py="$1.5"
+                                                    gap="$2"
+                                                    bg="$bgContent"
+                                                    hoverStyle={{ bg: "$color4" }}
+                                                    mr="$2"
+                                                    mb="$2"
+                                                    maxWidth={220}
+                                                    overflow="hidden"
+                                                >
+                                                    <Text numberOfLines={1} ellipsizeMode="tail">
+                                                        {tag}
+                                                    </Text>
+                                                    <Button
+                                                        size="$1"
+                                                        circular
+                                                        bg="$color6"
+                                                        hoverStyle={{ bg: "$color6" }}
+                                                        icon={X}
+                                                        scaleIcon={0.8}
+                                                        onPress={() => handleRemoveTag(tag)}
+                                                        aria-label={`Remove ${tag}`}
+                                                    />
+                                                </XStack>
+                                            ))
+                                        ) : (
+                                            <Text color="$color9">No tags</Text>
+                                        )}
+                                    </XStack>
+
+                                    <XStack mt="$2" gap="$2" ai="center">
+                                        <Input
+                                            br="8px"
+                                            className='DialogPopup'
+                                            f={1}
+                                            value={newTag}
+                                            placeholder="Add tag"
+                                            onChange={(e) => setNewTag(e.target.value)}
+                                        />
+                                        <Button
+                                            size="$2"
+                                            className='DialogPopup'
+                                            onPress={handleAddTag}
+                                        >
+                                            Add
+                                        </Button>
+                                    </XStack>
+                                </YStack>
+
+                                <Button
+                                    className='DialogPopup'
+                                    onPress={async () => {
+                                        try {
+                                            if (!selectedBoard?.data) return;
+                                            const payload = {
+                                                ...selectedBoard.data,
+                                                displayName: displayName || selectedBoard.data.displayName || selectedBoard.data.name,
+                                                tags,
+                                            };
+                                            await API.post(
+                                                `/api/core/v1/boards/${selectedBoard.data.name}`,
+                                                payload
+                                            );
+                                            setSelectedBoard(null);
+                                            seteditSettingsDialog(false);
+                                        } catch (e) {
+                                            console.log('e: ', e);
+                                        }
+                                    }}
+                                >
+                                    Save
+                                </Button>
+                            </YStack>
+                        </Tinted>
                         <Dialog.Close />
                     </Dialog.Content>
                 </Dialog.Portal>

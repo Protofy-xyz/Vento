@@ -118,14 +118,23 @@ const getDB = (path, req, session, context) => {
 
         async get(key) {
             const [group, tag, name] = key.split('.');
-            //read card from filesystem - use full id as filename like put() does
+            
+            // Check in extension folder first (group -> extensions/{group}s/cards/)
+            const extensionName = group.endsWith('s') ? group : group + 's';
+            const extensionCardPath = fspath.join(extensionsDir(getRoot()), extensionName, 'cards', key + '.json');
+            if(fsSync.existsSync(extensionCardPath)) {
+                const cardContent = fsSync.readFileSync(extensionCardPath, 'utf-8');
+                return cardContent;
+            }
+            
+            // Then check in dataDir
             const cardPath = fspath.join(dataDir(getRoot()), group, tag, key + '.json');
             if(fsSync.existsSync(cardPath)) {
                 const cardContent = await fs.readFile(cardPath, 'utf-8');
                 return cardContent;
-            } else {
-                throw new Error('Card not found');
             }
+            
+            throw new Error('Card not found');
         }
     };
 

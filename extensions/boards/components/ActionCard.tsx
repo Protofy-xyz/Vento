@@ -49,6 +49,9 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
 
   const [addTemplateDialog, setAddTemplateDialog] = useState(false)
   const [templateName, setTemplateName] = useState(data?.name ?? '')
+  const [templateGroup, setTemplateGroup] = useState('boards')
+  const [templateTag, setTemplateTag] = useState('copytemplates')
+  const [templateError, setTemplateError] = useState('')
 
   const openCreate = () => {
     setCreating(true)
@@ -282,6 +285,9 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                     Icon={Plus}
                     onPress={() => {
                       setTemplateName(data?.name ?? '')
+                      setTemplateGroup('boards')
+                      setTemplateTag('copytemplates')
+                      setTemplateError('')
                       setAddTemplateDialog(true)
                     }}
                   />
@@ -300,69 +306,116 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                 overflow="hidden"
                 p="$8"
                 width={420}
-                height="250px"
                 className="DialogPopup"
                 onClick={(e) => e.stopPropagation()}
               >
                 <YStack gap="$4">
                   <Text fos="$8" fow="600" className="DialogPopup">
-                    Add card to template
+                    Add card to palette
                   </Text>
 
-                  <Input
-                    br="$4"
-                    className="DialogPopup"
-                    value={templateName}
-                    onChangeText={setTemplateName}
-                    placeholder="Template name"
-                  />
+                  <YStack gap="$2">
+                    <Text fontSize="$2" color="$gray10">Group</Text>
+                    <Input
+                      br="$4"
+                      className="DialogPopup"
+                      value={templateGroup}
+                      onChangeText={setTemplateGroup}
+                      placeholder="Group (e.g. boards)"
+                    />
+                  </YStack>
+
+                  <YStack gap="$2">
+                    <Text fontSize="$2" color="$gray10">Tag</Text>
+                    <Input
+                      br="$4"
+                      className="DialogPopup"
+                      value={templateTag}
+                      onChangeText={setTemplateTag}
+                      placeholder="Tag (e.g. copytemplates)"
+                    />
+                  </YStack>
+
+                  <YStack gap="$2">
+                    <Text fontSize="$2" color="$gray10">Name</Text>
+                    <Input
+                      br="$4"
+                      className="DialogPopup"
+                      value={templateName}
+                      onChangeText={setTemplateName}
+                      placeholder="Template name"
+                    />
+                  </YStack>
+
+                  {templateError && (
+                    <Text color="$red10" fontSize="$3">
+                      {templateError}
+                    </Text>
+                  )}
 
                   <Button
                     className="DialogPopup"
                     onPress={async () => {
-                      try {
-                        // nombre base: el que ha escrito el usuario en el input
-                        const base = (templateName || 'card').trim();
-
-                        const group = "boards";
-                        const tag = "copytemplates";
-                        const fullId = `${group}.${tag}.${base}`;
-
-                        const payload = {
-                          defaults: {
-                            type: data?.type ?? "action",
-                            icon: data?.icon,
-                            rulesCode: data?.rulesCode,
-                            params: data?.params ?? {},
-                            configParams: data?.configParams ?? {},
-                            html: data?.html,
-                            description: data?.description ?? "",
-                            displayResponse: data?.displayResponse,
-                            // campos adicionales que faltaban
-                            width: data?.width,
-                            height: data?.height,
-                            presets: data?.presets,
-                            tokens: data?.tokens,
-                            displayButton: data?.displayButton,
-                            editorOptions: data?.editorOptions,
-                            name: base,
-                          },
-                          readme: data?.readme ?? undefined,
-                          name: base,
-                          id: fullId,
-                          group: group,
-                          tag: tag,
-                          templateName: base,
-                        };
-                        console.log('Creating card with payload:', payload);
-                        const result = await API.post("/api/core/v1/cards", payload);
-                        console.log('API result:', result);
-
-                        setAddTemplateDialog(false);
-                        setMenuOpened(false);
-                      } catch (err) {
-                        console.error('Error adding card template', err);
+                      setTemplateError('');
+                      const base = (templateName || 'card').trim();
+                      const group = (templateGroup || 'boards').trim();
+                      const tag = (templateTag || 'copytemplates').trim();
+                      
+                      if (!base) {
+                        setTemplateError('Please enter a template name');
+                        return;
                       }
+                      if (!group) {
+                        setTemplateError('Please enter a group');
+                        return;
+                      }
+                      if (!tag) {
+                        setTemplateError('Please enter a tag');
+                        return;
+                      }
+
+                      const fullId = `${group}.${tag}.${base}`;
+
+                      const payload = {
+                        defaults: {
+                          type: data?.type ?? "action",
+                          icon: data?.icon,
+                          rulesCode: data?.rulesCode,
+                          params: data?.params ?? {},
+                          configParams: data?.configParams ?? {},
+                          html: data?.html,
+                          description: data?.description ?? "",
+                          displayResponse: data?.displayResponse,
+                          width: data?.width,
+                          height: data?.height,
+                          presets: data?.presets,
+                          tokens: data?.tokens,
+                          displayButton: data?.displayButton,
+                          editorOptions: data?.editorOptions,
+                          name: base,
+                        },
+                        readme: data?.readme ?? undefined,
+                        name: base,
+                        id: fullId,
+                        group: group,
+                        tag: tag,
+                        templateName: base,
+                      };
+                      
+                      const result = await API.post("/api/core/v1/cards", payload);
+                      
+                      if (result?.isError || result?.error) {
+                        const errorMsg = result.error?.error || result.error || 'Unknown error';
+                        if (errorMsg === 'Already exists') {
+                          setTemplateError('A template with this name already exists');
+                        } else {
+                          setTemplateError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+                        }
+                        return;
+                      }
+
+                      setAddTemplateDialog(false);
+                      setMenuOpened(false);
                     }}
                   >
                     Create

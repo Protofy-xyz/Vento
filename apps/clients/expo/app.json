@@ -17,8 +17,11 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Used to report the device location to Vento",
         "NSCameraUsageDescription": "Used to control the flashlight",
-        "NSMicrophoneUsageDescription": "Used to measure ambient sound levels"
-      }
+        "NSMicrophoneUsageDescription": "Used to measure ambient sound levels",
+        "NSBluetoothAlwaysUsageDescription": "Used to scan and connect to Bluetooth devices",
+        "NSBluetoothPeripheralUsageDescription": "Used to communicate with Bluetooth peripherals"
+      },
+      "bundleIdentifier": "com.protofy.vento"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,11 +36,12 @@
         "CAMERA",
         "INTERNET",
         "RECORD_AUDIO",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-        "INTERNET",
-        "RECORD_AUDIO"
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_ADVERTISE",
+        "ACCESS_BACKGROUND_LOCATION"
       ],
       "package": "com.protofy.vento"
     },

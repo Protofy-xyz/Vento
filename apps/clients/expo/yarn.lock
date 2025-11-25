@@ -1722,6 +1722,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@notifee/react-native@npm:^9.1.8":
+  version: 9.1.8
+  resolution: "@notifee/react-native@npm:9.1.8"
+  peerDependencies:
+    react-native: "*"
+  checksum: 10/7c5237fba99906d8da02146afbfe8ff6de9f4047eecd806dea889bfd76b1cfe7ad3c181881bf2729aa348b83e035f4d02cfc3ac8eb8c4ba3a4415b445b439c38
+  languageName: node
+  linkType: hard
+
 "@npmcli/agent@npm:^4.0.0":
   version: 4.0.0
   resolution: "@npmcli/agent@npm:4.0.0"
@@ -6261,6 +6270,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-ble-plx@npm:^3.5.0":
+  version: 3.5.0
+  resolution: "react-native-ble-plx@npm:3.5.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/f807e82d45220eeb5ba3aacaf13fddd9e11395337b8b2b99fe468cc154fefdce501efefcb1421b6bcf0f0e602e82ce535ff8dc3b1d1e57aca85fd6507bc7ea2e
+  languageName: node
+  linkType: hard
+
 "react-native-is-edge-to-edge@npm:^1.2.1":
   version: 1.2.1
   resolution: "react-native-is-edge-to-edge@npm:1.2.1"
@@ -7360,6 +7379,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "vento@workspace:."
   dependencies:
+    "@notifee/react-native": "npm:^9.1.8"
     "@react-native-community/netinfo": "npm:^11.4.1"
     "@types/react": "npm:~19.1.0"
     expo: "npm:~54.0.25"
@@ -7388,6 +7408,7 @@ __metadata:
     paho-mqtt: "npm:^1.1.0"
     react: "npm:19.1.0"
     react-native: "npm:0.81.5"
+    react-native-ble-plx: "npm:^3.5.0"
     react-native-url-polyfill: "npm:^3.0.0"
     typescript: "npm:~5.9.2"
   languageName: unknown

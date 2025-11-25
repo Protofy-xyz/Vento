@@ -8,6 +8,11 @@ import { buildDevicePayload, buildSubsystems } from '../subsystems';
 import type { SubsystemDefinition, UnsubscribeFn } from '../subsystems/types';
 import { clearStoredConfig, loadStoredConfig, saveStoredConfig, type StoredConfig } from '../storage';
 import { formatError, generateDeviceName } from '../utils';
+import {
+  setDisconnectCallback,
+  startForegroundService,
+  stopForegroundService,
+} from '../services/foregroundService';
 
 type AgentStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
@@ -53,7 +58,7 @@ export function useAgent(): AgentControls {
     }));
   }, []);
 
-  const stopAgent = useCallback(() => {
+  const stopAgent = useCallback(async () => {
     // Clean up all subscriptions and intervals
     for (const cleanup of cleanupRef.current) {
       if (typeof cleanup === 'function') {
@@ -68,6 +73,9 @@ export function useAgent(): AgentControls {
     configRef.current = null;
     (globalThis as any).__ventoMqtt = null;
     deactivateKeepAwake('vento-mobile');
+    
+    // Stop foreground service
+    await stopForegroundService();
   }, []);
 
   const connect = useCallback(
@@ -148,6 +156,11 @@ export function useAgent(): AgentControls {
         appendLog(`Boot monitors done (${Date.now() - t5}ms)`);
         startMonitors(deviceName, subsystems, mqtt, cleanupRef);
         await activateKeepAwakeAsync('vento-mobile');
+        
+        // Start foreground service with persistent notification
+        await startForegroundService(host, deviceName);
+        appendLog('Foreground service started');
+        
         setState({
           status: 'connected',
           deviceName,
@@ -175,7 +188,16 @@ export function useAgent(): AgentControls {
     await clearStoredConfig();
   }, [stopAgent]);
 
+  // Store disconnect ref for notification callback
+  const disconnectRef = useRef(disconnect);
+  disconnectRef.current = disconnect;
+
   useEffect(() => {
+    // Register disconnect callback for foreground notification
+    setDisconnectCallback(() => {
+      disconnectRef.current();
+    });
+
     loadStoredConfig().then((cfg) => {
       if (cfg && cfg.host && cfg.username && cfg.token) {
         // Auto-connect with stored credentials
@@ -195,6 +217,7 @@ export function useAgent(): AgentControls {
       }
     });
     return () => {
+      setDisconnectCallback(null);
       stopAgent();
     };
   }, []);

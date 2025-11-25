@@ -11,7 +11,8 @@ import {
   XGroup,
   XStack,
   YStack,
-  Paragraph
+  Paragraph,
+  Text
 } from '@my/ui'
 import { ThemeToggle } from 'protolib/components/ThemeToggle'
 import { ColorToggleButton } from 'protolib/components/ColorToggleButton'
@@ -22,14 +23,14 @@ const sourceUrl = '/api/core/v1/settings'
 const tooltipDelay = { open: 500, close: 150 }
 
 const configPanels = [
-  { name: 'Users', href: '/workspace/users', icon: "users" },
-  { name: 'Keys', href: '/workspace/keys', icon: "key" },
-  { name: 'Events', href: '/workspace/events', icon: "activity" },
-  { name: 'Services', href: '/workspace/services', icon: "server" },
-  { name: 'Databases', href: '/workspace/databases', icon: "database" },
-  { name: 'Files', href: '/workspace/files?path=/', icon: "folder" },
-  { name: 'Settings', href: '/workspace/settings', icon: "cog" },
-  { name: 'Themes', href: '/workspace/themes', icon: "palette" }
+  { name: 'Users', href: '/workspace/users', icon: "users", description: "Manage system users" },
+  { name: 'Keys', href: '/workspace/keys', icon: "key", description: "Manage system keys" },
+  { name: 'Events', href: '/workspace/events', icon: "activity", description: "View system events" },
+  { name: 'Services', href: '/workspace/services', icon: "server", description: "View system services" },
+  { name: 'Databases', href: '/workspace/databases', icon: "database", description: "Manage databases" },
+  { name: 'Files', href: '/workspace/files?path=/', icon: "folder", description: "Manage system files" },
+  { name: 'Settings', href: '/workspace/settings', icon: "cog", description: "Configure system settings" },
+  { name: 'Themes', href: '/workspace/themes', icon: "palette", description: "Change or customize themes" }
 ]
 
 export default {
@@ -69,14 +70,16 @@ export default {
         <AdminPage title="Config" pageSession={pageSession}>
           <XStack
             f={1}
-            m="$4"
+            m="$6"
+            marginTop="$8"
             flexWrap="wrap"
-            gap="$6"          // separación horizontal
-            rowGap="$6"       // separación vertical entre filas (explícita)
+            gap="$4"          // separación horizontal
+            rowGap="$4"       // separación vertical entre filas (explícita)
             justifyContent="flex-start"
             alignItems="flex-start"
             alignContent="flex-start" // evita el “estirado” entre filas
           >
+            <Text paddingLeft="$4" width="100%" fontSize="$9" fontWeight="600" color="$color11">Config Panels</Text>
             {configPanels.map((panel, index) => (
               <a
                 key={index}
@@ -84,29 +87,39 @@ export default {
                 // que el anchor no crezca ni rompa el layout
                 style={{ textDecoration: 'none', display: 'inline-flex', flex: '0 0 auto' }}
               >
-                <YStack
+                <XStack
                   ai="center"
-                  jc="center"
+                  // jc="center"
                   br="$6"
-                  width={150}
-                  height={150}
-                  bg="$bgPanel"
+                  width={500}
+                  padding="$4"
+                  backgroundColor="var(--bgPanel)"
                   // NO crecer:
                   f={0}
                   flexShrink={0}
                   // usa gap interno para icono/texto si quieres
-                  gap="$2"
+                  gap="$4"
+                  animation="quick"
+                  hoverStyle={{
+                    opacity: 0.9,
+                    cursor: 'pointer',
+                  }}
                 >
                   <Icon
                     color="var(--color)"
                     name={panel.icon}
-                    size={40}
+                    size={34}
                     style={{ opacity: 0.8 }}
                   />
-                  <Paragraph size="$4" textAlign="center">
-                    {panel.name}
-                  </Paragraph>
-                </YStack>
+                  <YStack>
+                    <Text fontSize="$6" fontWeight="500">
+                      {panel.name}
+                    </Text>
+                    <Text fontSize="$6" color="$color9">
+                      {panel.description}
+                    </Text>
+                  </YStack>
+                </XStack>
               </a>
             ))}
           </XStack>

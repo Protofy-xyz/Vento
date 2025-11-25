@@ -49,6 +49,7 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
 
   const [addTemplateDialog, setAddTemplateDialog] = useState(false)
   const [templateName, setTemplateName] = useState(data?.name ?? '')
+  const [templateError, setTemplateError] = useState('')
 
   const openCreate = () => {
     setCreating(true)
@@ -282,6 +283,7 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                     Icon={Plus}
                     onPress={() => {
                       setTemplateName(data?.name ?? '')
+                      setTemplateError('')
                       setAddTemplateDialog(true)
                     }}
                   />
@@ -317,52 +319,67 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                     placeholder="Template name"
                   />
 
+                  {templateError && (
+                    <Text color="$red10" fontSize="$3">
+                      {templateError}
+                    </Text>
+                  )}
+
                   <Button
                     className="DialogPopup"
                     onPress={async () => {
-                      try {
-                        // nombre base: el que ha escrito el usuario en el input
-                        const base = (templateName || 'card').trim();
-
-                        const group = "boards";
-                        const tag = "copytemplates";
-                        const fullId = `${group}.${tag}.${base}`;
-
-                        const payload = {
-                          defaults: {
-                            type: data?.type ?? "action",
-                            icon: data?.icon,
-                            rulesCode: data?.rulesCode,
-                            params: data?.params ?? {},
-                            configParams: data?.configParams ?? {},
-                            html: data?.html,
-                            description: data?.description ?? "",
-                            displayResponse: data?.displayResponse,
-                            // campos adicionales que faltaban
-                            width: data?.width,
-                            height: data?.height,
-                            presets: data?.presets,
-                            tokens: data?.tokens,
-                            displayButton: data?.displayButton,
-                            editorOptions: data?.editorOptions,
-                            name: base,
-                          },
-                          readme: data?.readme ?? undefined,
-                          name: base,
-                          id: fullId,
-                          group: group,
-                          tag: tag,
-                          templateName: base,
-                        };
-                        console.log('Creating card with payload:', payload);
-                        const result = await API.post("/api/core/v1/cards", payload);
-                        console.log('API result:', result);
-
-                        setAddTemplateDialog(false);
-                        setMenuOpened(false);
-                      } catch (err) {
-                        console.error('Error adding card template', err);
+                      setTemplateError('');
+                      const base = (templateName || 'card').trim();
+                      
+                      if (!base) {
+                        setTemplateError('Please enter a template name');
+                        return;
                       }
+
+                      const group = "boards";
+                      const tag = "copytemplates";
+                      const fullId = `${group}.${tag}.${base}`;
+
+                      const payload = {
+                        defaults: {
+                          type: data?.type ?? "action",
+                          icon: data?.icon,
+                          rulesCode: data?.rulesCode,
+                          params: data?.params ?? {},
+                          configParams: data?.configParams ?? {},
+                          html: data?.html,
+                          description: data?.description ?? "",
+                          displayResponse: data?.displayResponse,
+                          width: data?.width,
+                          height: data?.height,
+                          presets: data?.presets,
+                          tokens: data?.tokens,
+                          displayButton: data?.displayButton,
+                          editorOptions: data?.editorOptions,
+                          name: base,
+                        },
+                        readme: data?.readme ?? undefined,
+                        name: base,
+                        id: fullId,
+                        group: group,
+                        tag: tag,
+                        templateName: base,
+                      };
+                      
+                      const result = await API.post("/api/core/v1/cards", payload);
+                      
+                      if (result?.isError || result?.error) {
+                        const errorMsg = result.error?.error || result.error || 'Unknown error';
+                        if (errorMsg === 'Already exists') {
+                          setTemplateError('A template with this name already exists');
+                        } else {
+                          setTemplateError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+                        }
+                        return;
+                      }
+
+                      setAddTemplateDialog(false);
+                      setMenuOpened(false);
                     }}
                   >
                     Create

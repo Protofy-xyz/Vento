@@ -11,6 +11,7 @@ import { buildSpeechSubsystem } from './speech';
 import { buildClipboardSubsystem } from './clipboard';
 import { buildLinkingSubsystem } from './linking';
 import { buildMicrophoneSubsystem } from './microphone';
+import { buildNotificationsSubsystem } from './notifications';
 import type { DevicePayload, SubsystemDefinition } from './types';
 
 export function buildSubsystems(): SubsystemDefinition[] {
@@ -28,6 +29,7 @@ export function buildSubsystems(): SubsystemDefinition[] {
     buildClipboardSubsystem(),
     buildLinkingSubsystem(),
     buildMicrophoneSubsystem(),
+    buildNotificationsSubsystem(),
   ];
 }
 

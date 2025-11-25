@@ -34,6 +34,13 @@ if (fs.existsSync(cinnyNodeModulesPath)) {
     console.log('apps/cinny/node_modules directory has been removed');
 }
 
+//remove apps/clients/expo/node_modules
+const expoNodeModulesPath = path.join(dirname, 'apps', 'clients', 'expo', 'node_modules');
+if (fs.existsSync(expoNodeModulesPath)) {
+    rimraf.sync(expoNodeModulesPath);
+    console.log('apps/clients/expo/node_modules directory has been removed');
+}
+
 //remove apps/adminpanel/.next
 const nextPath = path.join(dirname, 'apps', 'adminpanel', '.next');
 if (fs.existsSync(nextPath)) {

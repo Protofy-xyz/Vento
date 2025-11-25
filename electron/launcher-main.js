@@ -145,6 +145,7 @@ function stripOuterQuotes(value = '') {
 }
 
 const rootPath = path.resolve(__dirname, '..');
+const telemetryUrl = 'https://cloud.vento.build/api/v1/telemetryEvent';
 
 function readKeyValueFile(filePath) {
   try {
@@ -167,17 +168,53 @@ function writeKeyValueFile(filePath, data = {}) {
   }
 }
 
-function readEnvValue(rootPath, key) {
+function getRuntimeTelemetryContext() {
+  const { version, releaseVersion } = getPackageInfo(rootPath);
+  return {
+    version,
+    releaseVersion,
+    platform: os.platform(),
+    arch: os.arch(),
+    electron: process.versions?.electron,
+    chrome: process.versions?.chrome,
+    node: process.versions?.node,
+  };
+}
+
+async function sendTelemetryEvent(pathName, payload = {}) {
+  if (typeof fetch !== 'function') return;
   try {
-    const envPath = path.join(rootPath, '.env');
-    if (!fs.existsSync(envPath)) return undefined;
-    const raw = fs.readFileSync(envPath, 'utf8');
-    const line = raw.split(/\r?\n/).find(l => l.startsWith(`${key}=`));
-    if (!line) return undefined;
-    return line.slice(key.length + 1).trim();
-  } catch {
-    return undefined;
+    const from = await ensureLauncherInstanceId(path.join(rootPath, '.env'));
+    const body = {
+      path: pathName,
+      from,
+      payload: {
+        ...getRuntimeTelemetryContext(),
+        ...payload,
+      },
+    };
+    await fetch(telemetryUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.warn(`[telemetry] ${pathName} telemetry failed:`, err?.message || err);
   }
+}
+
+function sendDownloadTelemetry(result, payload = {}) {
+  return sendTelemetryEvent(`/launcher/download/${result}`, {
+    action: 'download',
+    ...payload,
+  });
+}
+
+function sendRunTelemetry(result, payload = {}) {
+  return sendTelemetryEvent(`/launcher/run/${result}`, {
+    action: 'run-project',
+    ...payload,
+  });
 }
 
 function getPackageInfo(rootPath) {
@@ -241,38 +278,10 @@ const ensureLauncherInstanceId = async (envPath) => {
 };
 
 
-async function sendLaunchTelemetry() {
-  if (typeof fetch !== 'function') return;
-  try {
-    const { version, releaseVersion } = getPackageInfo(rootPath);
-    const from = await ensureLauncherInstanceId(path.join(rootPath, '.env'));
-    const telemetryUrl = 'https://cloud.vento.build/api/v1/telemetryEvent'
-    const payload = {
-      path: '/launcher/start',
-      from,
-      payload: {
-        version,
-        releaseVersion,
-        platform: os.platform(),
-        arch: os.arch(),
-        electron: process.versions?.electron,
-        chrome: process.versions?.chrome,
-        node: process.versions?.node,
-      },
-    };
-    await fetch(telemetryUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    console.warn('[telemetry] Launcher start telemetry failed:', err?.message || err);
-  }
-}
 
 app.whenReady().then(async () => {
   try {
-    await sendLaunchTelemetry();
+    await sendTelemetryEvent('/launcher/start');
 
   } catch (e) {
     console.warn('Failed to send launch telemetry', e);
@@ -322,14 +331,29 @@ app.whenReady().then(async () => {
         child.on('exit', (code) => {
           if (code === 0) {
             updateProjectStatus(projectName, 'downloaded');
+            sendDownloadTelemetry('success', {
+              projectName,
+              version: project.version || '',
+            });
           } else {
             updateProjectStatus(projectName, 'error');
+            sendDownloadTelemetry('error', {
+              projectName,
+              version: project.version || '',
+              code,
+            });
           }
         });
 
         child.on('error', (err) => {
           console.error('Download worker error:', err);
           updateProjectStatus(projectName, 'error');
+          sendDownloadTelemetry('error', {
+            projectName,
+            version: project.version || '',
+            message: err?.message || String(err),
+            stack: err?.stack,
+          });
         });
 
         return respond({
@@ -339,6 +363,12 @@ app.whenReady().then(async () => {
       } catch (err) {
         console.error('Download failed to start:', err);
         updateProjectStatus(projectName, 'error');
+        sendDownloadTelemetry('error', {
+          projectName,
+          version: project?.version || '',
+          message: err?.message || String(err),
+          stack: err?.stack,
+        });
 
         return respond({ statusCode: 500, data: Buffer.from('Failed to start project download') });
       }
@@ -459,6 +489,10 @@ app.whenReady().then(async () => {
         startMain(projectFolderPath);
         // only mark and close on success
         hasRun = true;
+        sendRunTelemetry('success', {
+          projectName,
+          version: project.version || '',
+        });
         if (mainWindow) {
           mainWindow.close();
         }
@@ -469,6 +503,12 @@ app.whenReady().then(async () => {
         });
       } catch (e) {
         console.error('Run project failed:', e);
+        sendRunTelemetry('error', {
+          projectName,
+          version: project?.version || '',
+          message: e?.message || String(e),
+          stack: e?.stack,
+        });
         return respond({ statusCode: 500, data: Buffer.from(JSON.stringify(e)) });
       }
     }

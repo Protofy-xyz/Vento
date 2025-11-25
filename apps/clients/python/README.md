@@ -1,43 +1,51 @@
-# Vento Raspberry Pi agent (Python)
+# **Vento Raspberry Pi Agent (Python)**
 
-Agente en Python inspirado en `apps/client` (Go). Registra el dispositivo en Vento, se conecta al broker MQTT local (puerto 1883) y expone los mismos monitores/acciones que el agente Go, sumando control de pines GPIO en Raspberry Pi.
+Python agent inspired by `apps/clients/go` (Go).
+It registers the device in Vento, connects to the local MQTT broker (port 1883), and exposes the same monitors/actions as the Go agent — plus Raspberry Pi GPIO control.
 
-## Caracteristicas
-- Configuracion persistente en `config.json` (host, usuario, token, nombre de dispositivo, intervalo).
-- Login contra `/api/core/v1/auth/login` y actualizacion/creacion del dispositivo con su payload completo de subsistemas.
-- Publicacion de monitores: memoria total y uso periodico, modelo/cores/frecuencia de CPU y version de OS.
-- Acciones: imprimir, ejecutar comandos, listar/leer/escribir/borrar archivos y crear directorios.
-- Subsistema `gpio` (BCM) para `set_pin` y `read_pin`, activo solo en Raspberry Pi; responde con error amigable si el modulo GPIO no esta disponible.
+## **Features**
 
-## Requisitos
-- Python 3.10+.
-- Dependencias: `requests`, `paho-mqtt`, `psutil`, `python-periphery` (GPIO en Raspberry Pi 5).
+* Persistent configuration in `config.json` (host, user, token, device name, interval).
+* Login against `/api/core/v1/auth/login`, and device creation/update with its full subsystem payload.
+* Monitor publishing: total/used memory periodically, CPU model/cores/frequency, OS version.
+* Actions: print text, execute shell commands, list/read/write/delete files, create directories.
+* `gpio` subsystem (BCM pin numbering) for `set_pin` and `read_pin`.
+  Only enabled on Raspberry Pi; returns a friendly error if GPIO support is unavailable.
 
-Instalacion rapida:
+## **Requirements**
+
+* Python 3.10+
+* Dependencies: `requests`, `paho-mqtt`, `psutil`, `python-periphery` (for GPIO on Raspberry Pi 5)
+
+Quick install:
+
 ```bash
 cd apps/clients/python
 python -m venv .venv
-. .venv/bin/activate  # en Windows: .venv\Scripts\activate
+. .venv/bin/activate   # on Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-# En Raspberry Pi:
+# On Raspberry Pi:
 pip install python-periphery
 ```
 
-## Ejecucion
+## **Run**
+
 ```bash
 python main.py --host http://localhost:8000 --user admin
 ```
 
-Flags utiles:
-- `--config` ruta del config (default `config.json`).
-- `--password` o deja vacio para que pida por consola.
-- `--device` para forzar nombre.
-- `--interval` para override del intervalo de monitores.
-- `--token` si ya tienes un token y quieres saltar el login.
-- `--skip-register-actions` evita llamar a `/devices/registerActions` tras crear el device.
-- `--once` publica monitores de arranque y sale (sin loop).
+Useful flags:
 
-## Notas sobre GPIO
-- Usa numeracion BCM.
-- Detecta Raspberry Pi revisando `/proc/device-tree/model` y la arquitectura.
-- Si no hay soporte GPIO, las acciones responden con un error claro en el reply MQTT.
+* `--config` path to config file (default: `config.json`)
+* `--password` or leave empty to prompt interactively
+* `--device` to force device name
+* `--interval` to override monitor interval
+* `--token` if you already have a token and want to skip login
+* `--skip-register-actions` skips the `/devices/registerActions` call after device creation
+* `--once` publishes startup monitors once and exits (no loop)
+
+## **GPIO Notes**
+
+* Uses BCM numbering.
+* Detects Raspberry Pi by checking `/proc/device-tree/model` and CPU architecture.
+* If GPIO support is unavailable, GPIO actions reply over MQTT with a clear, user-friendly error.

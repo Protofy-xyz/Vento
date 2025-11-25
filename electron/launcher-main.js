@@ -10,6 +10,7 @@ const isDev = process.argv.includes('--ui-dev');
 const PROJECTS_DIR = path.join(app.getPath('userData'), 'vento-projects');
 console.log('Projects directory:', PROJECTS_DIR);
 const PROJECTS_FILE = path.join(PROJECTS_DIR, 'projects.json');
+const LAUNCHER_ENV_FILE = path.join(app.getPath('userData'), 'launcher-env');
 
 let hasRun = false;
 
@@ -145,6 +146,27 @@ function stripOuterQuotes(value = '') {
 
 const rootPath = path.resolve(__dirname, '..');
 
+function readKeyValueFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return {};
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return parseEnv(raw);
+  } catch (err) {
+    console.warn(`[env] Could not read ${filePath}:`, err?.message || err);
+    return {};
+  }
+}
+
+function writeKeyValueFile(filePath, data = {}) {
+  try {
+    const lines = Object.entries(data).map(([k, v]) => `${k}=${v}`);
+    const content = lines.length ? `${lines.join(os.EOL)}${os.EOL}` : '';
+    fs.writeFileSync(filePath, content, 'utf8');
+  } catch (err) {
+    console.warn(`[env] Could not write ${filePath}:`, err?.message || err);
+  }
+}
+
 function readEnvValue(rootPath, key) {
   try {
     const envPath = path.join(rootPath, '.env');
@@ -172,18 +194,45 @@ function getPackageInfo(rootPath) {
 
 const ensureLauncherInstanceId = async (envPath) => {
   try {
-    const rawEnv = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+    if (process.env.LAUNCHER_INSTANCE_ID) {
+      return process.env.LAUNCHER_INSTANCE_ID;
+    }
+
+    const launcherEnv = readKeyValueFile(LAUNCHER_ENV_FILE);
+    if (launcherEnv.LAUNCHER_INSTANCE_ID) {
+      process.env.LAUNCHER_INSTANCE_ID = launcherEnv.LAUNCHER_INSTANCE_ID;
+      return launcherEnv.LAUNCHER_INSTANCE_ID;
+    }
+
+    const rawEnv = envPath && fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
     const parsed = rawEnv ? parseEnv(rawEnv) : {};
-    const existing = parsed.LAUNCHER_INSTANCE_ID || process.env.LAUNCHER_INSTANCE_ID;
+    const existing = parsed.LAUNCHER_INSTANCE_ID;
     if (existing) {
       process.env.LAUNCHER_INSTANCE_ID = existing;
+      try {
+        writeKeyValueFile(LAUNCHER_ENV_FILE, { ...launcherEnv, LAUNCHER_INSTANCE_ID: existing });
+      } catch (err) {
+        console.warn('[env] Could not persist existing LAUNCHER_INSTANCE_ID:', err?.message || err);
+      }
       return existing;
     }
+
     const id = uuid();
-    const needsEol = rawEnv.length > 0 && !rawEnv.endsWith('\n') && !rawEnv.endsWith('\r\n');
-    const prefix = needsEol ? os.EOL : '';
-    fs.appendFileSync(envPath, `${prefix}LAUNCHER_INSTANCE_ID=${id}${os.EOL}`);
     process.env.LAUNCHER_INSTANCE_ID = id;
+    try {
+      writeKeyValueFile(LAUNCHER_ENV_FILE, { ...launcherEnv, LAUNCHER_INSTANCE_ID: id });
+    } catch (err) {
+      console.warn('[env] Could not persist generated LAUNCHER_INSTANCE_ID:', err?.message || err);
+    }
+    try {
+      if (envPath && fs.existsSync(envPath)) {
+        const needsEol = rawEnv.length > 0 && !rawEnv.endsWith('\n') && !rawEnv.endsWith('\r\n');
+        const prefix = needsEol ? os.EOL : '';
+        fs.appendFileSync(envPath, `${prefix}LAUNCHER_INSTANCE_ID=${id}${os.EOL}`);
+      }
+    } catch (err) {
+      console.warn('[env] Could not append LAUNCHER_INSTANCE_ID to env file:', err?.message || err);
+    }
     return id;
   } catch (err) {
     console.warn('[env] Could not ensure LAUNCHER_INSTANCE_ID:', err?.message || err);
@@ -192,12 +241,11 @@ const ensureLauncherInstanceId = async (envPath) => {
 };
 
 
-async function sendLaunchTelemetry(rootPath = "") {
+async function sendLaunchTelemetry() {
   if (typeof fetch !== 'function') return;
   try {
     const { version, releaseVersion } = getPackageInfo(rootPath);
-    await ensureLauncherInstanceId(path.join(rootPath, '.env'));
-    const from = process.env.LAUNCHER_INSTANCE_ID || readEnvValue(rootPath, 'LAUNCHER_INSTANCE_ID');
+    const from = await ensureLauncherInstanceId(path.join(rootPath, '.env'));
     const telemetryUrl = 'https://cloud.vento.build/api/v1/telemetryEvent'
     const payload = {
       path: '/launcher/start',

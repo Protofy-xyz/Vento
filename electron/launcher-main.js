@@ -13,6 +13,7 @@ const PROJECTS_FILE = path.join(PROJECTS_DIR, 'projects.json');
 const LAUNCHER_ENV_FILE = path.join(app.getPath('userData'), 'launcher-env');
 
 let hasRun = false;
+const activeDownloads = new Map();
 
 if (!fs.existsSync(PROJECTS_DIR)) {
   fs.mkdirSync(PROJECTS_DIR, { recursive: true });
@@ -75,6 +76,43 @@ function writeProjects(projects) {
     fs.writeFileSync(PROJECTS_FILE, JSON.stringify(projects, null, 2), 'utf-8');
   } catch (err) {
     console.error('Error writing projects.json:', err);
+  }
+}
+
+function resetInProgressDownloads() {
+  const projects = readProjects();
+  let changed = false;
+  const updated = projects.map(project => {
+    if (project.status === 'downloading') {
+      changed = true;
+      return {
+        ...project,
+        status: 'pending',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return project;
+  });
+  if (changed) {
+    writeProjects(updated);
+  }
+}
+
+function finalizeActiveDownload(projectName, status) {
+  if (!activeDownloads.has(projectName)) return false;
+  activeDownloads.delete(projectName);
+  updateProjectStatus(projectName, status);
+  return true;
+}
+
+function stopActiveDownloads() {
+  for (const [projectName, child] of activeDownloads.entries()) {
+    try {
+      child.kill();
+    } catch (err) {
+      console.warn('Failed to stop download worker for', projectName, err?.message || err);
+    }
+    finalizeActiveDownload(projectName, 'pending');
   }
 }
 
@@ -279,6 +317,7 @@ const ensureLauncherInstanceId = async (envPath) => {
 
 
 
+resetInProgressDownloads();
 app.whenReady().then(async () => {
   try {
     await sendTelemetryEvent('/launcher/start');
@@ -321,39 +360,76 @@ app.whenReady().then(async () => {
           return respond({ statusCode: 404, data: Buffer.from('Project not found') });
         }
 
+        if (activeDownloads.has(projectName)) {
+          return respond({ statusCode: 200, data: Buffer.from('Download already running') });
+        }
+
         updateProjectStatus(projectName, 'downloading');
 
         const workerPath = path.join(__dirname, 'launcher-download-worker.js');
         const child = fork(workerPath, [PROJECTS_DIR, projectName, String(project.version || '')], {
           stdio: 'inherit',
         });
+        activeDownloads.set(projectName, child);
 
-        child.on('exit', (code) => {
-          if (code === 0) {
-            updateProjectStatus(projectName, 'downloaded');
+        let downloadTelemetrySent = false;
+
+        child.on('message', (msg = {}) => {
+          if (msg.type === 'download-error') {
+            downloadTelemetrySent = true;
+            sendDownloadTelemetry('error', {
+              projectName,
+              version: project.version || '',
+              message: msg.message,
+              stack: msg.stack,
+              step: msg.step,
+            });
+          } else if (msg.type === 'download-success') {
+            downloadTelemetrySent = true;
             sendDownloadTelemetry('success', {
               projectName,
               version: project.version || '',
             });
+          }
+        });
+
+        child.on('exit', (code) => {
+          if (code === 0) {
+            const finalized = finalizeActiveDownload(projectName, 'downloaded');
+            if (finalized) {
+              if (!downloadTelemetrySent) {
+                sendDownloadTelemetry('success', {
+                  projectName,
+                  version: project.version || '',
+                });
+              }
+            }
           } else {
-            updateProjectStatus(projectName, 'error');
-            sendDownloadTelemetry('error', {
-              projectName,
-              version: project.version || '',
-              code,
-            });
+            const finalized = finalizeActiveDownload(projectName, 'error');
+            if (finalized) {
+              if (!downloadTelemetrySent) {
+                sendDownloadTelemetry('error', {
+                  projectName,
+                  version: project.version || '',
+                  code,
+                });
+              }
+            }
           }
         });
 
         child.on('error', (err) => {
           console.error('Download worker error:', err);
-          updateProjectStatus(projectName, 'error');
-          sendDownloadTelemetry('error', {
-            projectName,
-            version: project.version || '',
-            message: err?.message || String(err),
-            stack: err?.stack,
-          });
+          const finalized = finalizeActiveDownload(projectName, 'error');
+          if (finalized) {
+            sendDownloadTelemetry('error', {
+              projectName,
+              version: project.version || '',
+              message: err?.message || String(err),
+              stack: err?.stack,
+              step: 'worker-error',
+            });
+          }
         });
 
         return respond({
@@ -548,6 +624,10 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (!mainWindow) createWindow();
+});
+
+app.on('before-quit', () => {
+  stopActiveDownloads();
 });
 
 ipcMain.on('create-project', (event, newProject) => {

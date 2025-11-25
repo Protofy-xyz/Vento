@@ -2,7 +2,8 @@ import {
   Cable, Copy, Trash2, Settings, MoreVertical, Book, FileJson, ClipboardList,
   FileCode, FileInput, ExternalLink, Globe, Layers as LayersIcon, Check, Plus
 } from '@tamagui/lucide-icons'
-import { YStack, XStack, Popover, Text, TooltipSimple, Paragraph, Button, Input, Dialog, Theme } from '@my/ui'
+import { YStack, XStack, Popover, Text, TooltipSimple, Paragraph, Button, Input } from '@my/ui'
+import { AlertDialog } from 'protolib/components/AlertDialog'
 import { CenterCard } from '@extensions/services/widgets'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Tinted } from 'protolib/components/Tinted'
@@ -286,8 +287,8 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                     Icon={Plus}
                     onPress={() => {
                       setTemplateName(data?.name ?? '')
-                      setTemplateGroup('boards')
-                      setTemplateTag('copytemplates')
+                      setTemplateGroup(data?.group ?? 'boards')
+                      setTemplateTag(data?.tag ?? boardName ?? 'copytemplates')
                       setTemplateError('')
                       setAddTemplateDialog(true)
                     }}
@@ -303,133 +304,117 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
     </XStack>
     </Tinted>
 
-    {addTemplateDialog && (
-      <Dialog open={addTemplateDialog} onOpenChange={setAddTemplateDialog}>
-        <Dialog.Portal className="DialogPopup">
-          <Dialog.Overlay className="DialogPopup" />
-            <Dialog.Content
-              overflow="hidden"
-              width={420}
-              style={{ backgroundColor: 'var(--bgContent)', borderColor: 'var(--borderColor)' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-            <YStack gap="$4" p="$8">
-              <Text fos="$8" fow="600" className="DialogPopup">
-                Add card to palette
-              </Text>
+    <AlertDialog
+      open={addTemplateDialog}
+      setOpen={setAddTemplateDialog}
+      title="Add card to palette"
+      acceptCaption="Create"
+      showCancel
+      hideAccept={false}
+      overlayProps={{
+        onMouseDown: (e: any) => e.stopPropagation(),
+        onPointerDown: (e: any) => e.stopPropagation(),
+      }}
+      onMouseDown={(e: any) => e.stopPropagation()}
+      onPointerDown={(e: any) => e.stopPropagation()}
+      onAccept={async () => {
+        setTemplateError('');
+        const base = (templateName || 'card').trim();
+        const group = (templateGroup || 'boards').trim();
+        const tag = (templateTag || 'copytemplates').trim();
+        
+        if (!base) {
+          setTemplateError('Please enter a template name');
+          return true; // keep open
+        }
+        if (!group) {
+          setTemplateError('Please enter a group');
+          return true;
+        }
+        if (!tag) {
+          setTemplateError('Please enter a tag');
+          return true;
+        }
 
-              <YStack gap="$2">
-                <Text fontSize="$2" color="$gray10">Group</Text>
-                <Input
-                  br="$4"
-                  className="DialogPopup"
-                  value={templateGroup}
-                  onChangeText={setTemplateGroup}
-                  placeholder="Group (e.g. boards)"
-                />
-              </YStack>
+        const fullId = `${group}.${tag}.${base}`;
 
-              <YStack gap="$2">
-                <Text fontSize="$2" color="$gray10">Tag</Text>
-                <Input
-                  br="$4"
-                  className="DialogPopup"
-                  value={templateTag}
-                  onChangeText={setTemplateTag}
-                  placeholder="Tag (e.g. copytemplates)"
-                />
-              </YStack>
+        const payload = {
+          defaults: {
+            type: data?.type ?? "action",
+            icon: data?.icon,
+            rulesCode: data?.rulesCode,
+            params: data?.params ?? {},
+            configParams: data?.configParams ?? {},
+            html: data?.html,
+            description: data?.description ?? "",
+            displayResponse: data?.displayResponse,
+            width: data?.width,
+            height: data?.height,
+            presets: data?.presets,
+            tokens: data?.tokens,
+            displayButton: data?.displayButton,
+            editorOptions: data?.editorOptions,
+            name: base,
+          },
+          readme: data?.readme ?? undefined,
+          name: base,
+          id: fullId,
+          group: group,
+          tag: tag,
+          templateName: base,
+        };
+        
+        const result = await API.post("/api/core/v1/cards", payload);
+        
+        if (result?.isError || result?.error) {
+          const errorMsg = result.error?.error || result.error || 'Unknown error';
+          if (errorMsg === 'Already exists') {
+            setTemplateError('A template with this name already exists');
+          } else {
+            setTemplateError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+          }
+          return true; // keep open
+        }
 
-              <YStack gap="$2">
-                <Text fontSize="$2" color="$gray10">Name</Text>
-                <Input
-                  br="$4"
-                  className="DialogPopup"
-                  value={templateName}
-                  onChangeText={setTemplateName}
-                  placeholder="Template name"
-                />
-              </YStack>
+        setMenuOpened(false);
+        return false; // close
+      }}
+    >
+      <YStack gap="$4" width={350}>
+        <YStack gap="$2">
+          <Text fontSize="$2" color="$gray10">Group</Text>
+          <Input
+            value={templateGroup}
+            onChangeText={setTemplateGroup}
+            placeholder="Group (e.g. boards)"
+          />
+        </YStack>
 
-              {templateError && (
-                <Text color="$red10" fontSize="$3">
-                  {templateError}
-                </Text>
-              )}
+        <YStack gap="$2">
+          <Text fontSize="$2" color="$gray10">Tag</Text>
+          <Input
+            value={templateTag}
+            onChangeText={setTemplateTag}
+            placeholder="Tag (e.g. copytemplates)"
+          />
+        </YStack>
 
-              <Button
-                className="DialogPopup"
-                onPress={async () => {
-                  setTemplateError('');
-                  const base = (templateName || 'card').trim();
-                  const group = (templateGroup || 'boards').trim();
-                  const tag = (templateTag || 'copytemplates').trim();
-                  
-                  if (!base) {
-                    setTemplateError('Please enter a template name');
-                    return;
-                  }
-                  if (!group) {
-                    setTemplateError('Please enter a group');
-                    return;
-                  }
-                  if (!tag) {
-                    setTemplateError('Please enter a tag');
-                    return;
-                  }
+        <YStack gap="$2">
+          <Text fontSize="$2" color="$gray10">Name</Text>
+          <Input
+            value={templateName}
+            onChangeText={setTemplateName}
+            placeholder="Template name"
+          />
+        </YStack>
 
-                  const fullId = `${group}.${tag}.${base}`;
-
-                  const payload = {
-                    defaults: {
-                      type: data?.type ?? "action",
-                      icon: data?.icon,
-                      rulesCode: data?.rulesCode,
-                      params: data?.params ?? {},
-                      configParams: data?.configParams ?? {},
-                      html: data?.html,
-                      description: data?.description ?? "",
-                      displayResponse: data?.displayResponse,
-                      width: data?.width,
-                      height: data?.height,
-                      presets: data?.presets,
-                      tokens: data?.tokens,
-                      displayButton: data?.displayButton,
-                      editorOptions: data?.editorOptions,
-                      name: base,
-                    },
-                    readme: data?.readme ?? undefined,
-                    name: base,
-                    id: fullId,
-                    group: group,
-                    tag: tag,
-                    templateName: base,
-                  };
-                  
-                  const result = await API.post("/api/core/v1/cards", payload);
-                  
-                  if (result?.isError || result?.error) {
-                    const errorMsg = result.error?.error || result.error || 'Unknown error';
-                    if (errorMsg === 'Already exists') {
-                      setTemplateError('A template with this name already exists');
-                    } else {
-                      setTemplateError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
-                    }
-                    return;
-                  }
-
-                  setAddTemplateDialog(false);
-                  setMenuOpened(false);
-                }}
-              >
-                Create
-              </Button>
-            </YStack>
-              <Dialog.Close />
-            </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
-    )}
+        {templateError && (
+          <Text color="$red10" fontSize="$3">
+            {templateError}
+          </Text>
+        )}
+      </YStack>
+    </AlertDialog>
   </>
 }
 

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "vento",
+    "slug": "vento",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -32,8 +32,14 @@
         "ACCESS_FINE_LOCATION",
         "CAMERA",
         "INTERNET",
+        "RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "INTERNET",
         "RECORD_AUDIO"
-      ]
+      ],
+      "package": "com.protofy.vento"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -47,6 +53,11 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d2c51664-47e8-4b42-9c7f-71dc3b682298"
+      }
+    }
   }
 }

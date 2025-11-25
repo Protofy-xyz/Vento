@@ -288,7 +288,7 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                     onPress={() => {
                       setTemplateName(data?.name ?? '')
                       setTemplateGroup(data?.group ?? 'boards')
-                      setTemplateTag(data?.tag ?? boardName ?? 'copytemplates')
+                      setTemplateTag(data?.tag ?? boardName ?? 'tag')
                       setTemplateError('')
                       setAddTemplateDialog(true)
                     }}
@@ -311,6 +311,7 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
       acceptCaption="Create"
       showCancel
       hideAccept={false}
+      style={{ backgroundColor: 'var(--bgContent)' }}
       overlayProps={{
         onMouseDown: (e: any) => e.stopPropagation(),
         onPointerDown: (e: any) => e.stopPropagation(),

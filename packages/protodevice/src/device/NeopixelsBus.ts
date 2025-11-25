@@ -6,11 +6,10 @@ class NeopixelsBus {
     numLeds;
     restoreMode;
     defaultTransitionLength;
-    channel;
     effects = [];
     mqttMsgs;
     type;
-    constructor(name, platform, numLeds, rgb_order, chipset, restoreMode, defaultTransitionLength, channel, effect1, effect2, effect3, effect4, effect5, effect6, effect7, effect8, effect9, effect10, effect11) {
+    constructor(name, platform, numLeds, rgb_order, chipset, restoreMode, defaultTransitionLength, effect1, effect2, effect3, effect4, effect5, effect6, effect7, effect8, effect9, effect10, effect11) {
         this.name = name
         this.type = 'light'
         this.platform = platform
@@ -19,7 +18,6 @@ class NeopixelsBus {
         this.numLeds = numLeds
         this.restoreMode = restoreMode
         this.defaultTransitionLength = defaultTransitionLength
-        this.channel = channel
         this.effects = [effect1, effect2, effect3, effect4, effect5, effect6, effect7, effect8, effect9, , effect10, effect11]
         this.mqttMsgs = {
             state: "ON",
@@ -112,9 +110,6 @@ class NeopixelsBus {
                 }
               },
         ]
-        if(deviceComponents.esp32.framework.type == "arduino"){
-            componentObjects[0].config["rmt_channel"] = this.channel
-        }
 
         componentObjects.forEach((element, j) => {
             this.extractComponent(element, deviceComponents)

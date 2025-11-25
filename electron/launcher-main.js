@@ -10,8 +10,10 @@ const isDev = process.argv.includes('--ui-dev');
 const PROJECTS_DIR = path.join(app.getPath('userData'), 'vento-projects');
 console.log('Projects directory:', PROJECTS_DIR);
 const PROJECTS_FILE = path.join(PROJECTS_DIR, 'projects.json');
+const LAUNCHER_ENV_FILE = path.join(app.getPath('userData'), 'launcher-env');
 
 let hasRun = false;
+const activeDownloads = new Map();
 
 if (!fs.existsSync(PROJECTS_DIR)) {
   fs.mkdirSync(PROJECTS_DIR, { recursive: true });
@@ -74,6 +76,43 @@ function writeProjects(projects) {
     fs.writeFileSync(PROJECTS_FILE, JSON.stringify(projects, null, 2), 'utf-8');
   } catch (err) {
     console.error('Error writing projects.json:', err);
+  }
+}
+
+function resetInProgressDownloads() {
+  const projects = readProjects();
+  let changed = false;
+  const updated = projects.map(project => {
+    if (project.status === 'downloading') {
+      changed = true;
+      return {
+        ...project,
+        status: 'pending',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return project;
+  });
+  if (changed) {
+    writeProjects(updated);
+  }
+}
+
+function finalizeActiveDownload(projectName, status) {
+  if (!activeDownloads.has(projectName)) return false;
+  activeDownloads.delete(projectName);
+  updateProjectStatus(projectName, status);
+  return true;
+}
+
+function stopActiveDownloads() {
+  for (const [projectName, child] of activeDownloads.entries()) {
+    try {
+      child.kill();
+    } catch (err) {
+      console.warn('Failed to stop download worker for', projectName, err?.message || err);
+    }
+    finalizeActiveDownload(projectName, 'pending');
   }
 }
 
@@ -144,18 +183,76 @@ function stripOuterQuotes(value = '') {
 }
 
 const rootPath = path.resolve(__dirname, '..');
+const telemetryUrl = 'https://cloud.vento.build/api/v1/telemetryEvent';
 
-function readEnvValue(rootPath, key) {
+function readKeyValueFile(filePath) {
   try {
-    const envPath = path.join(rootPath, '.env');
-    if (!fs.existsSync(envPath)) return undefined;
-    const raw = fs.readFileSync(envPath, 'utf8');
-    const line = raw.split(/\r?\n/).find(l => l.startsWith(`${key}=`));
-    if (!line) return undefined;
-    return line.slice(key.length + 1).trim();
-  } catch {
-    return undefined;
+    if (!fs.existsSync(filePath)) return {};
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return parseEnv(raw);
+  } catch (err) {
+    console.warn(`[env] Could not read ${filePath}:`, err?.message || err);
+    return {};
   }
+}
+
+function writeKeyValueFile(filePath, data = {}) {
+  try {
+    const lines = Object.entries(data).map(([k, v]) => `${k}=${v}`);
+    const content = lines.length ? `${lines.join(os.EOL)}${os.EOL}` : '';
+    fs.writeFileSync(filePath, content, 'utf8');
+  } catch (err) {
+    console.warn(`[env] Could not write ${filePath}:`, err?.message || err);
+  }
+}
+
+function getRuntimeTelemetryContext() {
+  const { version, releaseVersion } = getPackageInfo(rootPath);
+  return {
+    version,
+    releaseVersion,
+    platform: os.platform(),
+    arch: os.arch(),
+    electron: process.versions?.electron,
+    chrome: process.versions?.chrome,
+    node: process.versions?.node,
+  };
+}
+
+async function sendTelemetryEvent(pathName, payload = {}) {
+  if (typeof fetch !== 'function') return;
+  try {
+    const from = await ensureLauncherInstanceId(path.join(rootPath, '.env'));
+    const body = {
+      path: pathName,
+      from,
+      payload: {
+        ...getRuntimeTelemetryContext(),
+        ...payload,
+      },
+    };
+    await fetch(telemetryUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.warn(`[telemetry] ${pathName} telemetry failed:`, err?.message || err);
+  }
+}
+
+function sendDownloadTelemetry(result, payload = {}) {
+  return sendTelemetryEvent(`/launcher/download/${result}`, {
+    action: 'download',
+    ...payload,
+  });
+}
+
+function sendRunTelemetry(result, payload = {}) {
+  return sendTelemetryEvent(`/launcher/run/${result}`, {
+    action: 'run-project',
+    ...payload,
+  });
 }
 
 function getPackageInfo(rootPath) {
@@ -172,18 +269,45 @@ function getPackageInfo(rootPath) {
 
 const ensureLauncherInstanceId = async (envPath) => {
   try {
-    const rawEnv = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+    if (process.env.LAUNCHER_INSTANCE_ID) {
+      return process.env.LAUNCHER_INSTANCE_ID;
+    }
+
+    const launcherEnv = readKeyValueFile(LAUNCHER_ENV_FILE);
+    if (launcherEnv.LAUNCHER_INSTANCE_ID) {
+      process.env.LAUNCHER_INSTANCE_ID = launcherEnv.LAUNCHER_INSTANCE_ID;
+      return launcherEnv.LAUNCHER_INSTANCE_ID;
+    }
+
+    const rawEnv = envPath && fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
     const parsed = rawEnv ? parseEnv(rawEnv) : {};
-    const existing = parsed.LAUNCHER_INSTANCE_ID || process.env.LAUNCHER_INSTANCE_ID;
+    const existing = parsed.LAUNCHER_INSTANCE_ID;
     if (existing) {
       process.env.LAUNCHER_INSTANCE_ID = existing;
+      try {
+        writeKeyValueFile(LAUNCHER_ENV_FILE, { ...launcherEnv, LAUNCHER_INSTANCE_ID: existing });
+      } catch (err) {
+        console.warn('[env] Could not persist existing LAUNCHER_INSTANCE_ID:', err?.message || err);
+      }
       return existing;
     }
+
     const id = uuid();
-    const needsEol = rawEnv.length > 0 && !rawEnv.endsWith('\n') && !rawEnv.endsWith('\r\n');
-    const prefix = needsEol ? os.EOL : '';
-    fs.appendFileSync(envPath, `${prefix}LAUNCHER_INSTANCE_ID=${id}${os.EOL}`);
     process.env.LAUNCHER_INSTANCE_ID = id;
+    try {
+      writeKeyValueFile(LAUNCHER_ENV_FILE, { ...launcherEnv, LAUNCHER_INSTANCE_ID: id });
+    } catch (err) {
+      console.warn('[env] Could not persist generated LAUNCHER_INSTANCE_ID:', err?.message || err);
+    }
+    try {
+      if (envPath && fs.existsSync(envPath)) {
+        const needsEol = rawEnv.length > 0 && !rawEnv.endsWith('\n') && !rawEnv.endsWith('\r\n');
+        const prefix = needsEol ? os.EOL : '';
+        fs.appendFileSync(envPath, `${prefix}LAUNCHER_INSTANCE_ID=${id}${os.EOL}`);
+      }
+    } catch (err) {
+      console.warn('[env] Could not append LAUNCHER_INSTANCE_ID to env file:', err?.message || err);
+    }
     return id;
   } catch (err) {
     console.warn('[env] Could not ensure LAUNCHER_INSTANCE_ID:', err?.message || err);
@@ -192,39 +316,11 @@ const ensureLauncherInstanceId = async (envPath) => {
 };
 
 
-async function sendLaunchTelemetry(rootPath = "") {
-  if (typeof fetch !== 'function') return;
-  try {
-    const { version, releaseVersion } = getPackageInfo(rootPath);
-    await ensureLauncherInstanceId(path.join(rootPath, '.env'));
-    const from = process.env.LAUNCHER_INSTANCE_ID || readEnvValue(rootPath, 'LAUNCHER_INSTANCE_ID');
-    const telemetryUrl = 'https://cloud.vento.build/api/v1/telemetryEvent'
-    const payload = {
-      path: '/launcher/start',
-      from,
-      payload: {
-        version,
-        releaseVersion,
-        platform: os.platform(),
-        arch: os.arch(),
-        electron: process.versions?.electron,
-        chrome: process.versions?.chrome,
-        node: process.versions?.node,
-      },
-    };
-    await fetch(telemetryUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    console.warn('[telemetry] Launcher start telemetry failed:', err?.message || err);
-  }
-}
 
+resetInProgressDownloads();
 app.whenReady().then(async () => {
   try {
-    await sendLaunchTelemetry();
+    await sendTelemetryEvent('/launcher/start');
 
   } catch (e) {
     console.warn('Failed to send launch telemetry', e);
@@ -264,24 +360,76 @@ app.whenReady().then(async () => {
           return respond({ statusCode: 404, data: Buffer.from('Project not found') });
         }
 
+        if (activeDownloads.has(projectName)) {
+          return respond({ statusCode: 200, data: Buffer.from('Download already running') });
+        }
+
         updateProjectStatus(projectName, 'downloading');
 
         const workerPath = path.join(__dirname, 'launcher-download-worker.js');
         const child = fork(workerPath, [PROJECTS_DIR, projectName, String(project.version || '')], {
           stdio: 'inherit',
         });
+        activeDownloads.set(projectName, child);
+
+        let downloadTelemetrySent = false;
+
+        child.on('message', (msg = {}) => {
+          if (msg.type === 'download-error') {
+            downloadTelemetrySent = true;
+            sendDownloadTelemetry('error', {
+              projectName,
+              version: project.version || '',
+              message: msg.message,
+              stack: msg.stack,
+              step: msg.step,
+            });
+          } else if (msg.type === 'download-success') {
+            downloadTelemetrySent = true;
+            sendDownloadTelemetry('success', {
+              projectName,
+              version: project.version || '',
+            });
+          }
+        });
 
         child.on('exit', (code) => {
           if (code === 0) {
-            updateProjectStatus(projectName, 'downloaded');
+            const finalized = finalizeActiveDownload(projectName, 'downloaded');
+            if (finalized) {
+              if (!downloadTelemetrySent) {
+                sendDownloadTelemetry('success', {
+                  projectName,
+                  version: project.version || '',
+                });
+              }
+            }
           } else {
-            updateProjectStatus(projectName, 'error');
+            const finalized = finalizeActiveDownload(projectName, 'error');
+            if (finalized) {
+              if (!downloadTelemetrySent) {
+                sendDownloadTelemetry('error', {
+                  projectName,
+                  version: project.version || '',
+                  code,
+                });
+              }
+            }
           }
         });
 
         child.on('error', (err) => {
           console.error('Download worker error:', err);
-          updateProjectStatus(projectName, 'error');
+          const finalized = finalizeActiveDownload(projectName, 'error');
+          if (finalized) {
+            sendDownloadTelemetry('error', {
+              projectName,
+              version: project.version || '',
+              message: err?.message || String(err),
+              stack: err?.stack,
+              step: 'worker-error',
+            });
+          }
         });
 
         return respond({
@@ -291,6 +439,12 @@ app.whenReady().then(async () => {
       } catch (err) {
         console.error('Download failed to start:', err);
         updateProjectStatus(projectName, 'error');
+        sendDownloadTelemetry('error', {
+          projectName,
+          version: project?.version || '',
+          message: err?.message || String(err),
+          stack: err?.stack,
+        });
 
         return respond({ statusCode: 500, data: Buffer.from('Failed to start project download') });
       }
@@ -411,6 +565,10 @@ app.whenReady().then(async () => {
         startMain(projectFolderPath);
         // only mark and close on success
         hasRun = true;
+        sendRunTelemetry('success', {
+          projectName,
+          version: project.version || '',
+        });
         if (mainWindow) {
           mainWindow.close();
         }
@@ -421,6 +579,12 @@ app.whenReady().then(async () => {
         });
       } catch (e) {
         console.error('Run project failed:', e);
+        sendRunTelemetry('error', {
+          projectName,
+          version: project?.version || '',
+          message: e?.message || String(e),
+          stack: e?.stack,
+        });
         return respond({ statusCode: 500, data: Buffer.from(JSON.stringify(e)) });
       }
     }
@@ -460,6 +624,10 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (!mainWindow) createWindow();
+});
+
+app.on('before-quit', () => {
+  stopActiveDownloads();
 });
 
 ipcMain.on('create-project', (event, newProject) => {

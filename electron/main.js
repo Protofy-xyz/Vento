@@ -60,6 +60,8 @@ module.exports = function start(rootPath) {
 
   const nodePath = getNodePath(rootPath);
 
+  process.env.VENTO_ELECTRON = '1';
+
   process.chdir(rootPath);
   console.log('🟢 Starting app...');
   console.log('📁 Current directory:', rootPath);

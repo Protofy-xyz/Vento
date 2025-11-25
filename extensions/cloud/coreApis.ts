@@ -4,7 +4,6 @@ import path from 'path';
 import { v4 as uuid } from "uuid";
 import dotenv from 'dotenv'
 import { API } from "protobase";
-import { isElectron } from 'protolib/lib/isElectron';
 import infraUrls from "@extensions/protoinfra/utils/protoInfraUrls";
 import crypto from "crypto";
 
@@ -70,7 +69,8 @@ function getCurrentCommit(repoPath) {
     }
 }
 
-function encryptString(str: string) {;
+function encryptString(str: string) {
+    ;
     return crypto.createHash("sha256").update(str).digest("hex");
 }
 
@@ -88,7 +88,8 @@ export default async (app, context) => {
             if (!await shouldSendTelemetry(telemetryPath)) {
                 return;
             }
-            const electronRuntime = isElectron();
+            const electronRuntime = process?.versions?.electron || process?.env?.ELECTRON_RUN_AS_NODE;
+
             await API.post(infraUrls.cloud.telemetry, {
                 path: "/vento/alive",
                 from: process.env.PROJECT_INSTANCE_ID,

@@ -34,6 +34,13 @@ if (fs.existsSync(cinnyNodeModulesPath)) {
     console.log('apps/cinny/node_modules directory has been removed');
 }
 
+//remove apps/clients/mobile/node_modules
+const mobileNodeModulesPath = path.join(dirname, 'apps', 'mobile', 'node_modules');
+if (fs.existsSync(mobileNodeModulesPath)) {
+    rimraf.sync(mobileNodeModulesPath);
+    console.log('apps/mobile/node_modules directory has been removed');
+}
+
 //remove apps/adminpanel/.next
 const nextPath = path.join(dirname, 'apps', 'adminpanel', '.next');
 if (fs.existsSync(nextPath)) {

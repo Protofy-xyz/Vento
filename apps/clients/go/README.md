@@ -11,7 +11,7 @@
 ## Project layout
 
 ```
-apps/client
+apps/clients/go
 ├── cmd/ventoagent      # CLI entrypoint
 ├── internal/agent       # device bootstrap + orchestrates subsystems
 ├── internal/config      # config persistence + prompting helpers
@@ -62,7 +62,7 @@ Flags override values stored in `config.json`. Leaving the password empty trigge
 
 ## Building
 
-Ensure Go ≥1.21 is installed, then from `apps/client`:
+Ensure Go ≥1.21 is installed, then from `apps/clients/go`:
 
 ```
 go mod tidy
@@ -87,5 +87,5 @@ GOOS=darwin GOARCH=amd64 go build -o ventoagent-darwin ./cmd/ventoagent
 
 That’s it—no changes are needed in the agent core. You can have dozens of subsystems, each with bespoke monitors/actions/intervals, and the runtime wires them automatically.
 
-All runtime code lives inside `apps/client` as requested, so it can be vendored independently from the rest of the monorepo.
+All runtime code lives inside `apps/clients/go` as requested, so it can be vendored independently from the rest of the monorepo.
 

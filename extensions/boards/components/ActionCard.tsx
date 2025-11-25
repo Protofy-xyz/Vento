@@ -49,6 +49,8 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
 
   const [addTemplateDialog, setAddTemplateDialog] = useState(false)
   const [templateName, setTemplateName] = useState(data?.name ?? '')
+  const [templateGroup, setTemplateGroup] = useState('boards')
+  const [templateTag, setTemplateTag] = useState('copytemplates')
   const [templateError, setTemplateError] = useState('')
 
   const openCreate = () => {
@@ -283,6 +285,8 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                     Icon={Plus}
                     onPress={() => {
                       setTemplateName(data?.name ?? '')
+                      setTemplateGroup('boards')
+                      setTemplateTag('copytemplates')
                       setTemplateError('')
                       setAddTemplateDialog(true)
                     }}
@@ -302,22 +306,46 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                 overflow="hidden"
                 p="$8"
                 width={420}
-                height="250px"
                 className="DialogPopup"
                 onClick={(e) => e.stopPropagation()}
               >
                 <YStack gap="$4">
                   <Text fos="$8" fow="600" className="DialogPopup">
-                    Add card to template
+                    Add card to palette
                   </Text>
 
-                  <Input
-                    br="$4"
-                    className="DialogPopup"
-                    value={templateName}
-                    onChangeText={setTemplateName}
-                    placeholder="Template name"
-                  />
+                  <YStack gap="$2">
+                    <Text fontSize="$2" color="$gray10">Group</Text>
+                    <Input
+                      br="$4"
+                      className="DialogPopup"
+                      value={templateGroup}
+                      onChangeText={setTemplateGroup}
+                      placeholder="Group (e.g. boards)"
+                    />
+                  </YStack>
+
+                  <YStack gap="$2">
+                    <Text fontSize="$2" color="$gray10">Tag</Text>
+                    <Input
+                      br="$4"
+                      className="DialogPopup"
+                      value={templateTag}
+                      onChangeText={setTemplateTag}
+                      placeholder="Tag (e.g. copytemplates)"
+                    />
+                  </YStack>
+
+                  <YStack gap="$2">
+                    <Text fontSize="$2" color="$gray10">Name</Text>
+                    <Input
+                      br="$4"
+                      className="DialogPopup"
+                      value={templateName}
+                      onChangeText={setTemplateName}
+                      placeholder="Template name"
+                    />
+                  </YStack>
 
                   {templateError && (
                     <Text color="$red10" fontSize="$3">
@@ -330,14 +358,22 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                     onPress={async () => {
                       setTemplateError('');
                       const base = (templateName || 'card').trim();
+                      const group = (templateGroup || 'boards').trim();
+                      const tag = (templateTag || 'copytemplates').trim();
                       
                       if (!base) {
                         setTemplateError('Please enter a template name');
                         return;
                       }
+                      if (!group) {
+                        setTemplateError('Please enter a group');
+                        return;
+                      }
+                      if (!tag) {
+                        setTemplateError('Please enter a tag');
+                        return;
+                      }
 
-                      const group = "boards";
-                      const tag = "copytemplates";
                       const fullId = `${group}.${tag}.${base}`;
 
                       const payload = {

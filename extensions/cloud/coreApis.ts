@@ -6,6 +6,7 @@ import dotenv from 'dotenv'
 import { API } from "protobase";
 import infraUrls from "@extensions/protoinfra/utils/protoInfraUrls";
 import crypto from "crypto";
+import { isElectron } from "protolib/lib/isElectron";
 
 const ensureProjectInstanceId = async (envPath: string) => {
     try {
@@ -88,7 +89,7 @@ export default async (app, context) => {
             if (!await shouldSendTelemetry(telemetryPath)) {
                 return;
             }
-            const electronRuntime = process?.versions?.electron || process?.env?.ELECTRON_RUN_AS_NODE;
+            const electronRuntime = isElectron();
 
             await API.post(infraUrls.cloud.telemetry, {
                 path: "/vento/alive",

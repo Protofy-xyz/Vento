@@ -1,0 +1,4 @@
+requests>=2.31.0
+paho-mqtt>=1.6.1
+psutil>=5.9.8
+python-periphery>=2.4.1

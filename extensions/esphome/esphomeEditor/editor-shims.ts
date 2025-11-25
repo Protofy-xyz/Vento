@@ -62,7 +62,7 @@ const createProxy = <T extends Record<string, unknown>>(
   }) as T;
 
 // Default schema version, minimum is 2025.5.0 as its the oldest that esphome gihub repo still has schema files for.
-let schema_version = "2025.5.0";
+let schema_version = "2025.11.1";
 const fetchSchemaVersion = async () => {
   try {
     const response = await fetch(

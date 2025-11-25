@@ -3,7 +3,8 @@ import os from 'os';
 import path from 'path';
 import { v4 as uuid } from "uuid";
 import dotenv from 'dotenv'
-import { API, isElectron } from "protobase";
+import { API } from "protobase";
+import { isElectron } from 'protolib/lib/isElectron';
 import infraUrls from "@extensions/protoinfra/utils/protoInfraUrls";
 import crypto from "crypto";
 

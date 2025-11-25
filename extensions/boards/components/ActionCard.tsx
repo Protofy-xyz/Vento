@@ -2,7 +2,7 @@ import {
   Cable, Copy, Trash2, Settings, MoreVertical, Book, FileJson, ClipboardList,
   FileCode, FileInput, ExternalLink, Globe, Layers as LayersIcon, Check, Plus
 } from '@tamagui/lucide-icons'
-import { YStack, XStack, Popover, Text, TooltipSimple, Paragraph, Button, Input } from '@my/ui'
+import { YStack, XStack, Popover, Text, TooltipSimple, Paragraph, Button, Input, Dialog } from '@my/ui'
 import { CenterCard } from '@extensions/services/widgets'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Tinted } from 'protolib/components/Tinted'
@@ -11,6 +11,7 @@ import { useEventEffect } from '@extensions/events/hooks'
 import { JSONView } from 'protolib/components/JSONView'
 import { useIsHighlightedCard, executeAction, useLayers } from '../store/boardStore'
 import { PublicIcon } from 'protolib/components/IconSelect'
+import { API } from 'protobase'
 
 const ActionRunner = dynamic(() => import('protolib/components/ActionRunner').then(mod => mod.ActionRunner), { ssr: false })
 
@@ -45,6 +46,9 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
   const [creating, setCreating] = useState(false)      // 👈 modo crear capa
   const [newLayer, setNewLayer] = useState('')         // 👈 nombre de la capa nueva
   const newInputRef = useRef<HTMLInputElement>(null)
+
+  const [addTemplateDialog, setAddTemplateDialog] = useState(false)
+  const [templateName, setTemplateName] = useState(data?.name ?? '')
 
   const openCreate = () => {
     setCreating(true)
@@ -105,15 +109,15 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
     return `${origin}${u.startsWith('/') ? '' : '/'}${u}`
   }
 
-    const makeReadUrl = () => {
-        if (data?.enableCustomPath && data?.customPath) return normalizeUrl(data.customPath)
-        return `${origin}/api/core/v1/boards/${boardName}/cards/${data?.name}`
-    }
+  const makeReadUrl = () => {
+    if (data?.enableCustomPath && data?.customPath) return normalizeUrl(data.customPath)
+    return `${origin}/api/core/v1/boards/${boardName}/cards/${data?.name}`
+  }
 
-    const makeRunUrl = () => {
-        if (data?.enableCustomRunPath && data?.customRunPath) return normalizeUrl(data.customRunPath)
-        return `${origin}/api/core/v1/boards/${boardName}/cards/${data?.name}/run`
-    }
+  const makeRunUrl = () => {
+    if (data?.enableCustomRunPath && data?.customRunPath) return normalizeUrl(data.customRunPath)
+    return `${origin}/api/core/v1/boards/${boardName}/cards/${data?.name}/run`
+  }
 
   return <Tinted>
     <XStack ref={cardActionRef} paddingTop="$1" flex={1} paddingRight="$4" justifyContent={hasSpace ? "space-between" : "flex-end"} alignItems="center">
@@ -273,6 +277,14 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
                   )}
 
                   <MenuButton text="Duplicate" Icon={Copy} onPress={() => onCopy()} />
+                  <MenuButton
+                    text="Add card to palette"
+                    Icon={Plus}
+                    onPress={() => {
+                      setTemplateName(data?.name ?? '')
+                      setAddTemplateDialog(true)
+                    }}
+                  />
                   <MenuButton text="Api Details" Icon={FileJson} onPress={() => onDetails()} />
                   <MenuButton text="Delete" Icon={Trash2} onPress={() => onDelete()} />
                 </YStack>
@@ -280,9 +292,92 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
             </Tinted>
           </Popover.Content>
         </Popover>
+        {addTemplateDialog && (
+          <Dialog open={addTemplateDialog} onOpenChange={setAddTemplateDialog}>
+            <Dialog.Portal className="DialogPopup">
+              <Dialog.Overlay className="DialogPopup" />
+              <Dialog.Content
+                overflow="hidden"
+                p="$8"
+                width={420}
+                height="250px"
+                className="DialogPopup"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <YStack gap="$4">
+                  <Text fos="$8" fow="600" className="DialogPopup">
+                    Add card to template
+                  </Text>
+
+                  <Input
+                    br="$4"
+                    className="DialogPopup"
+                    value={templateName}
+                    onChangeText={setTemplateName}
+                    placeholder="Template name"
+                  />
+
+                  <Button
+                    className="DialogPopup"
+                    onPress={async () => {
+                      try {
+                        // nombre base: el que ha escrito el usuario en el input
+                        const base = (templateName || 'card').trim();
+
+                        const group = "boards";
+                        const tag = "copytemplates";
+                        const fullId = `${group}.${tag}.${base}`;
+
+                        const payload = {
+                          defaults: {
+                            type: data?.type ?? "action",
+                            icon: data?.icon,
+                            rulesCode: data?.rulesCode,
+                            params: data?.params ?? {},
+                            configParams: data?.configParams ?? {},
+                            html: data?.html,
+                            description: data?.description ?? "",
+                            displayResponse: data?.displayResponse,
+                            // campos adicionales que faltaban
+                            width: data?.width,
+                            height: data?.height,
+                            presets: data?.presets,
+                            tokens: data?.tokens,
+                            displayButton: data?.displayButton,
+                            editorOptions: data?.editorOptions,
+                            name: base,
+                          },
+                          readme: data?.readme ?? undefined,
+                          name: base,
+                          id: fullId,
+                          group: group,
+                          tag: tag,
+                          templateName: base,
+                        };
+                        console.log('Creating card with payload:', payload);
+                        const result = await API.post("/api/core/v1/cards", payload);
+                        console.log('API result:', result);
+
+                        setAddTemplateDialog(false);
+                        setMenuOpened(false);
+                      } catch (err) {
+                        console.error('Error adding card template', err);
+                      }
+                    }}
+                  >
+                    Create
+                  </Button>
+                </YStack>
+
+                <Dialog.Close />
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog>
+        )}
+
       </XStack>
     </XStack>
-  </Tinted>
+  </Tinted >
 }
 
 export const ActionCard = ({

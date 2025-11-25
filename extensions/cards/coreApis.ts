@@ -88,7 +88,8 @@ const getDB = (path, req, session, context) => {
 
         async del(key, value) {
             const [group, tag, name] = key.split('.');
-            const cardPath = fspath.join(dataDir(getRoot()), group, tag, name + '.json');
+            //use full id as filename like put() does
+            const cardPath = fspath.join(dataDir(getRoot()), group, tag, key + '.json');
             if(fsSync.existsSync(cardPath)) {
                 fsSync.unlinkSync(cardPath);
             }
@@ -117,13 +118,13 @@ const getDB = (path, req, session, context) => {
 
         async get(key) {
             const [group, tag, name] = key.split('.');
-            //read card from filesystem
-            const cardPath = fspath.join(dataDir(getRoot()), group, tag, name + '.json');
+            //read card from filesystem - use full id as filename like put() does
+            const cardPath = fspath.join(dataDir(getRoot()), group, tag, key + '.json');
             if(fsSync.existsSync(cardPath)) {
                 const cardContent = await fs.readFile(cardPath, 'utf-8');
                 return cardContent;
             } else {
-                return null;
+                throw new Error('Card not found');
             }
         }
     };

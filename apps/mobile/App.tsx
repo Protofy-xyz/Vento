@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Button,
@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import * as NavigationBar from 'expo-navigation-bar';
 
 import { useAgent } from './src/hooks/useAgent';
 import { TorchBridge } from './src/components/TorchBridge';
@@ -22,7 +23,10 @@ import {
   registerScreenTextCallback,
   registerScreenTextColorCallback,
   registerScreenTextSizeCallback,
+  registerTouchPublisher,
+  type TouchData,
 } from './src/subsystems/screen';
+import { MQTTManager } from './src/mqttClient';
 
 type ScreenMode = 'blank' | 'camera' | 'logs';
 
@@ -53,6 +57,29 @@ export default function App() {
     };
   }, []);
 
+  // Touch handler - publishes touch data via MQTT
+  const handleTouch = useCallback(
+    (touches: any[]) => {
+      if (!state.deviceName) return;
+      
+      const touchData: TouchData = {
+        fingers: touches.length,
+        points: Array.from(touches).map((t: any, i: number) => ({
+          id: t.identifier ?? i,
+          x: Math.round(t.pageX),
+          y: Math.round(t.pageY),
+        })),
+      };
+      
+      // Publish via the global mqtt instance
+      if ((globalThis as any).__ventoMqtt && state.deviceName) {
+        const mqtt = (globalThis as any).__ventoMqtt as MQTTManager;
+        mqtt.publish(state.deviceName, '/screen/monitors/touch', touchData);
+      }
+    },
+    [state.deviceName],
+  );
+
   useEffect(() => {
     if (state.host && !host) {
       setHost(state.host);
@@ -62,15 +89,21 @@ export default function App() {
     }
   }, [state.host, state.username, host, username]);
 
-  // Keep screen awake while connected
+  // Keep screen awake and go fullscreen while connected
   useEffect(() => {
     if (state.status === 'connected') {
       activateKeepAwakeAsync('vento-app');
+      // Hide navigation bar for fullscreen (Android only)
+      NavigationBar.setVisibilityAsync('hidden').catch(() => {});
+      NavigationBar.setBehaviorAsync('overlay-swipe').catch(() => {});
     } else {
       deactivateKeepAwake('vento-app');
+      // Show navigation bar again
+      NavigationBar.setVisibilityAsync('visible').catch(() => {});
     }
     return () => {
       deactivateKeepAwake('vento-app');
+      NavigationBar.setVisibilityAsync('visible').catch(() => {});
     };
   }, [state.status]);
 
@@ -133,23 +166,37 @@ export default function App() {
   // Connected - show mode-based UI
   return (
     <View style={[styles.container, { backgroundColor }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style={isDark ? 'light' : 'dark'} hidden={screenMode === 'blank'} />
 
-      {/* Blank mode - just the background */}
+      {/* Blank mode - touch surface with menu button */}
       {screenMode === 'blank' && (
-        <Pressable style={styles.blankScreen} onPress={() => setScreenMode('logs')}>
-          <Text
-            style={[
-              styles.blankHint,
-              {
-                color: overrideTextColor ?? mutedColor,
-                fontSize: overrideTextSize ?? 14,
-              },
-            ]}
+        <>
+          <View
+            style={styles.blankScreen}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={(e) => handleTouch(e.nativeEvent.touches)}
+            onResponderMove={(e) => handleTouch(e.nativeEvent.touches)}
+            onResponderRelease={() => handleTouch([])}
+            onResponderTerminate={() => handleTouch([])}
           >
-            {overrideText ?? 'Tap to show controls'}
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                styles.blankHint,
+                {
+                  color: overrideTextColor ?? mutedColor,
+                  fontSize: overrideTextSize ?? 14,
+                },
+              ]}
+            >
+              {overrideText ?? ''}
+            </Text>
+          </View>
+          {/* Menu button in top right corner - outside touch view */}
+          <Pressable style={styles.menuButton} onPress={() => setScreenMode('logs')}>
+            <Text style={styles.menuButtonText}>☰</Text>
+          </Pressable>
+        </>
       )}
 
       {/* Camera preview mode */}
@@ -258,6 +305,21 @@ const styles = StyleSheet.create({
   blankHint: {
     fontSize: 14,
     opacity: 0.5,
+  },
+  menuButton: {
+    position: 'absolute',
+    top: 40,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(128, 128, 128, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuButtonText: {
+    fontSize: 20,
+    color: 'rgba(128, 128, 128, 0.8)',
   },
 
   // Camera mode

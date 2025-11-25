@@ -3225,6 +3225,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-application@npm:^7.0.7":
+  version: 7.0.7
+  resolution: "expo-application@npm:7.0.7"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/5ef9c08e124f0c4a741982c033738447214eb08f38ec3854e99a9135e955c98cc9ff7f01f51cbbb51868de57e43658b43c5d974ccb9df1fbd9d1db2cc2ef1688
+  languageName: node
+  linkType: hard
+
 "expo-asset@npm:~12.0.10":
   version: 12.0.10
   resolution: "expo-asset@npm:12.0.10"
@@ -3414,6 +3423,21 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/e2bef4ea23d753fe21dd3bb0fd756a875fe497a58b6ed792b9ea98b8ae5413dab7e94fb82d7f2c873307d0c267d32d9fd05aeb5ff231e77ad95aea29416445a6
+  languageName: node
+  linkType: hard
+
+"expo-navigation-bar@npm:^5.0.9":
+  version: 5.0.9
+  resolution: "expo-navigation-bar@npm:5.0.9"
+  dependencies:
+    "@react-native/normalize-colors": "npm:0.81.5"
+    debug: "npm:^4.3.2"
+    react-native-is-edge-to-edge: "npm:^1.2.1"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+  checksum: 10/9db36a0725275ec0819049508de915209fda9b61ee8ea25b305f92ea344ceb22385bbc79379cb89fd7bffcc7bfcf01948ce8642a4d63b4e6ec70c2f931939c02
   languageName: node
   linkType: hard
 
@@ -5153,6 +5177,7 @@ __metadata:
     "@react-native-community/netinfo": "npm:^11.4.1"
     "@types/react": "npm:~19.1.0"
     expo: "npm:~54.0.25"
+    expo-application: "npm:^7.0.7"
     expo-av: "npm:^16.0.7"
     expo-battery: "npm:^10.0.7"
     expo-brightness: "npm:^14.0.7"
@@ -5164,6 +5189,7 @@ __metadata:
     expo-keep-awake: "npm:~15.0.7"
     expo-linking: "npm:^8.0.9"
     expo-location: "npm:~19.0.7"
+    expo-navigation-bar: "npm:^5.0.9"
     expo-network: "npm:^8.0.7"
     expo-secure-store: "npm:~15.0.7"
     expo-sensors: "npm:~15.0.7"

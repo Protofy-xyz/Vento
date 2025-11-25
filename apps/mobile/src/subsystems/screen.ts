@@ -4,12 +4,37 @@ const SET_COLOR_ENDPOINT = '/screen/actions/set_color';
 const SET_TEXT_ENDPOINT = '/screen/actions/set_text';
 const SET_TEXT_COLOR_ENDPOINT = '/screen/actions/set_text_color';
 const SET_TEXT_SIZE_ENDPOINT = '/screen/actions/set_text_size';
+const TOUCH_ENDPOINT = '/screen/monitors/touch';
 
 // Global screen state callbacks
 let screenColorCallback: ((color: string | null) => void) | null = null;
 let screenTextCallback: ((text: string | null) => void) | null = null;
 let screenTextColorCallback: ((color: string | null) => void) | null = null;
 let screenTextSizeCallback: ((size: number | null) => void) | null = null;
+
+// Touch data publisher
+let touchPublisher: ((data: TouchData) => void) | null = null;
+
+export interface TouchPoint {
+  id: number;
+  x: number;
+  y: number;
+}
+
+export interface TouchData {
+  fingers: number;
+  points: TouchPoint[];
+}
+
+export function registerTouchPublisher(publisher: ((data: TouchData) => void) | null) {
+  touchPublisher = publisher;
+}
+
+export function publishTouch(data: TouchData) {
+  if (touchPublisher) {
+    touchPublisher(data);
+  }
+}
 
 export function registerScreenColorCallback(cb: ((color: string | null) => void) | null) {
   screenColorCallback = cb;
@@ -31,7 +56,23 @@ export function buildScreenSubsystem(): SubsystemDefinition {
   return {
     name: 'screen',
     type: 'virtual',
-    monitors: [],
+    monitors: [
+      {
+        descriptor: {
+          name: 'touch',
+          label: 'Touch input',
+          description: 'Current touch points on screen',
+          endpoint: TOUCH_ENDPOINT,
+          connectionType: 'mqtt',
+          ephemeral: true,
+          cardProps: {
+            icon: 'hand',
+            color: '$cyan10',
+          },
+        },
+        // No boot, no interval - published on touch events from App
+      },
+    ],
     actions: [
       {
         descriptor: {

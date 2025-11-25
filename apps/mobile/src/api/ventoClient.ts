@@ -56,8 +56,9 @@ export class VentoClient {
     return resp.session.token;
   }
 
-  async ensureDevice(token: string, payload: DevicePayload) {
+  async ensureDevice(token: string, payload: DevicePayload): Promise<boolean> {
     const devicePath = `/api/core/v1/devices/${encodeURIComponent(payload.name)}`;
+    let isNew = false;
 
     try {
       await this.request(devicePath, {}, token);
@@ -65,6 +66,7 @@ export class VentoClient {
       if ((err as any).status !== 404) {
         throw err;
       }
+      isNew = true;
       await this.request('/api/core/v1/devices', {
         method: 'POST',
         body: JSON.stringify({
@@ -78,6 +80,8 @@ export class VentoClient {
       method: 'POST',
       body: JSON.stringify(payload),
     }, token);
+
+    return isNew;
   }
 
   async triggerRegisterActions(token: string) {

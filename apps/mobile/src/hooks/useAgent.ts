@@ -14,7 +14,8 @@ type AgentStatus = 'idle' | 'connecting' | 'connected' | 'error';
 interface ConnectPayload {
   host: string;
   username: string;
-  password: string;
+  password?: string; // Optional if we have a stored token
+  token?: string; // Use stored token instead of password
 }
 
 interface AgentState {
@@ -58,34 +59,57 @@ export function useAgent(): AgentControls {
     mqttRef.current?.disconnect();
     mqttRef.current = null;
     configRef.current = null;
+    (globalThis as any).__ventoMqtt = null;
     deactivateKeepAwake('vento-mobile');
   }, []);
 
   const connect = useCallback(
-    async ({ host, username, password }: ConnectPayload) => {
+    async ({ host, username, password, token: storedToken }: ConnectPayload) => {
       stopAgent();
       setState((prev) => ({ ...prev, status: 'connecting', error: undefined }));
       try {
         const client = new VentoClient(host);
-        appendLog('Authenticating user');
-        const token = await client.login(username, password);
-        appendLog('Login successful');
+        let token: string;
+        
+        const t0 = Date.now();
+        if (storedToken) {
+          // Use stored token - skip login
+          appendLog('Using stored session');
+          token = storedToken;
+        } else if (password) {
+          // Login with password
+          appendLog('Authenticating user');
+          token = await client.login(username, password);
+          appendLog(`Login successful (${Date.now() - t0}ms)`);
+        } else {
+          throw new Error('No password or token provided');
+        }
 
+        const t1 = Date.now();
         const stored = (await loadStoredConfig()) ?? {};
-        const deviceName = stored.deviceName ?? generateDeviceName();
+        const deviceName = stored.deviceName ?? await generateDeviceName();
         const subsystems = buildSubsystems();
         actionHandlers.current = collectActionHandlers(subsystems);
         const payload = buildDevicePayload(deviceName, subsystems);
+        appendLog(`Built payload (${Date.now() - t1}ms)`);
 
+        const t2 = Date.now();
         appendLog('Ensuring device exists');
-        await client.ensureDevice(token, payload);
-        await client.triggerRegisterActions(token);
+        const isNewDevice = await client.ensureDevice(token, payload);
+        appendLog(`Device ensured (${Date.now() - t2}ms)`);
+        if (isNewDevice) {
+          const t3 = Date.now();
+          appendLog('New device, registering actions...');
+          await client.triggerRegisterActions(token);
+          appendLog(`Actions registered (${Date.now() - t3}ms)`);
+        }
 
         configRef.current = { host, username, token, deviceName, subsystems };
         await saveStoredConfig({ host, username, token, deviceName });
 
+        const t4 = Date.now();
         const mqttUrl = buildMQTTUrl(host);
-        appendLog(`Connecting MQTT (${mqttUrl})`);
+        appendLog(`Connecting MQTT...`);
         const mqtt = new MQTTManager();
         await mqtt.connect({
           hostUrl: mqttUrl,
@@ -106,10 +130,15 @@ export function useAgent(): AgentControls {
             });
           },
         });
+        appendLog(`MQTT connected (${Date.now() - t4}ms)`);
         mqttRef.current = mqtt;
+        // Expose MQTT globally for touch events
+        (globalThis as any).__ventoMqtt = mqtt;
 
-        appendLog('Publishing boot monitors');
+        const t5 = Date.now();
+        appendLog('Publishing boot monitors...');
         await publishBootMonitors(deviceName, subsystems, mqtt);
+        appendLog(`Boot monitors done (${Date.now() - t5}ms)`);
         startIntervals(deviceName, subsystems, mqtt, intervalsRef);
         await activateKeepAwakeAsync('vento-mobile');
         setState({
@@ -141,7 +170,16 @@ export function useAgent(): AgentControls {
 
   useEffect(() => {
     loadStoredConfig().then((cfg) => {
-      if (cfg) {
+      if (cfg && cfg.host && cfg.username && cfg.token) {
+        // Auto-connect with stored credentials
+        console.log('[agent] found stored config, auto-connecting...');
+        connect({
+          host: cfg.host,
+          username: cfg.username,
+          token: cfg.token,
+        });
+      } else if (cfg) {
+        // Just populate the form
         setState((prev) => ({
           ...prev,
           host: cfg.host,
@@ -152,7 +190,7 @@ export function useAgent(): AgentControls {
     return () => {
       stopAgent();
     };
-  }, [stopAgent]);
+  }, []);
 
   return useMemo(
     () => ({

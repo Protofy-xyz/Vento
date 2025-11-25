@@ -24,9 +24,23 @@ export interface ActionDescriptor {
   mode?: 'request-reply';
 }
 
+// Callback to emit a new value
+export type EmitFn = (value: any) => void;
+
+// Cleanup function returned by subscribe
+export type UnsubscribeFn = () => void;
+
 export interface MonitorRuntime {
   descriptor: MonitorDescriptor;
+  // Get initial value (optional, for boot)
   boot?: () => Promise<any>;
+  // Subscribe to changes - returns cleanup function
+  // The monitor should call emit() whenever the value changes
+  // minIntervalMs is the minimum time between emissions (throttle)
+  subscribe?: (emit: EmitFn) => UnsubscribeFn;
+  minIntervalMs?: number; // Throttle interval (default: 500ms)
+  
+  // Legacy polling mode (deprecated, use subscribe instead)
   intervalMs?: number;
   producer?: () => Promise<any>;
 }
@@ -55,4 +69,3 @@ export interface DevicePayload {
     actions?: ActionDescriptor[];
   }>;
 }
-

@@ -1,12 +1,10 @@
-import NetInfo from '@react-native-community/netinfo';
+import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 
-import type { SubsystemDefinition } from './types';
+import type { SubsystemDefinition, EmitFn, UnsubscribeFn } from './types';
 
 const NETWORK_TYPE_ENDPOINT = '/network/monitors/type';
 const NETWORK_CONNECTED_ENDPOINT = '/network/monitors/connected';
 const NETWORK_DETAILS_ENDPOINT = '/network/monitors/details';
-
-const NETWORK_INTERVAL_MS = 15_000; // Every 15 seconds
 
 export function buildNetworkSubsystem(): SubsystemDefinition {
   return {
@@ -20,15 +18,18 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
           description: 'Current network type (wifi, cellular, none, etc.)',
           endpoint: NETWORK_TYPE_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'wifi',
             color: '$blue10',
           },
         },
-        boot: readNetworkType,
-        intervalMs: NETWORK_INTERVAL_MS,
-        producer: readNetworkType,
+        boot: async () => {
+          const state = await NetInfo.fetch();
+          return state.type;
+        },
+        subscribe: (emit) => subscribeNetworkField(emit, (state) => state.type),
+        minIntervalMs: 1000,
       },
       {
         descriptor: {
@@ -37,15 +38,20 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
           description: 'Whether device has internet connection',
           endpoint: NETWORK_CONNECTED_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'globe',
             color: '$green10',
           },
         },
-        boot: readNetworkConnected,
-        intervalMs: NETWORK_INTERVAL_MS,
-        producer: readNetworkConnected,
+        boot: async () => {
+          const state = await NetInfo.fetch();
+          return state.isConnected ? 'connected' : 'disconnected';
+        },
+        subscribe: (emit) => subscribeNetworkField(emit, (state) => 
+          state.isConnected ? 'connected' : 'disconnected'
+        ),
+        minIntervalMs: 1000,
       },
       {
         descriptor: {
@@ -54,33 +60,32 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
           description: 'Detailed network information (SSID, IP, etc.)',
           endpoint: NETWORK_DETAILS_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'info',
             color: '$purple10',
           },
         },
-        boot: readNetworkDetails,
-        intervalMs: NETWORK_INTERVAL_MS,
-        producer: readNetworkDetails,
+        boot: async () => {
+          const state = await NetInfo.fetch();
+          return extractNetworkDetails(state);
+        },
+        subscribe: (emit) => subscribeNetworkField(emit, extractNetworkDetails),
+        minIntervalMs: 2000,
       },
     ],
     actions: [],
   };
 }
 
-async function readNetworkType() {
-  const state = await NetInfo.fetch();
-  return state.type;
+function subscribeNetworkField<T>(emit: EmitFn, extractor: (state: NetInfoState) => T): UnsubscribeFn {
+  const unsubscribe = NetInfo.addEventListener((state) => {
+    emit(extractor(state));
+  });
+  return unsubscribe;
 }
 
-async function readNetworkConnected() {
-  const state = await NetInfo.fetch();
-  return state.isConnected ? 'connected' : 'disconnected';
-}
-
-async function readNetworkDetails() {
-  const state = await NetInfo.fetch();
+function extractNetworkDetails(state: NetInfoState): Record<string, any> {
   const details: Record<string, any> = {
     type: state.type,
     isConnected: state.isConnected,
@@ -101,4 +106,3 @@ async function readNetworkDetails() {
 
   return details;
 }
-

@@ -1,12 +1,10 @@
 import * as Battery from 'expo-battery';
 
-import type { SubsystemDefinition } from './types';
+import type { SubsystemDefinition, EmitFn, UnsubscribeFn } from './types';
 
 const BATTERY_LEVEL_ENDPOINT = '/battery/monitors/level';
 const BATTERY_STATE_ENDPOINT = '/battery/monitors/state';
 const BATTERY_LOW_POWER_ENDPOINT = '/battery/monitors/low_power_mode';
-
-const BATTERY_INTERVAL_MS = 30_000; // Every 30 seconds
 
 export function buildBatterySubsystem(): SubsystemDefinition {
   return {
@@ -21,7 +19,7 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           units: '%',
           endpoint: BATTERY_LEVEL_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'battery',
             color: '$green10',
@@ -31,11 +29,8 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           const level = await Battery.getBatteryLevelAsync();
           return Math.round(level * 100);
         },
-        intervalMs: BATTERY_INTERVAL_MS,
-        producer: async () => {
-          const level = await Battery.getBatteryLevelAsync();
-          return Math.round(level * 100);
-        },
+        subscribe: subscribeBatteryLevel,
+        minIntervalMs: 5000, // Max 1 update per 5 seconds
       },
       {
         descriptor: {
@@ -44,7 +39,7 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           description: 'Charging state (charging, discharging, full, unknown)',
           endpoint: BATTERY_STATE_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'battery-charging',
             color: '$yellow10',
@@ -54,11 +49,8 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           const state = await Battery.getBatteryStateAsync();
           return batteryStateToString(state);
         },
-        intervalMs: BATTERY_INTERVAL_MS,
-        producer: async () => {
-          const state = await Battery.getBatteryStateAsync();
-          return batteryStateToString(state);
-        },
+        subscribe: subscribeBatteryState,
+        minIntervalMs: 1000,
       },
       {
         descriptor: {
@@ -67,7 +59,7 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           description: 'Whether low power mode is enabled',
           endpoint: BATTERY_LOW_POWER_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'zap-off',
             color: '$orange10',
@@ -77,15 +69,33 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           const enabled = await Battery.isLowPowerModeEnabledAsync();
           return enabled ? 'enabled' : 'disabled';
         },
-        intervalMs: BATTERY_INTERVAL_MS,
-        producer: async () => {
-          const enabled = await Battery.isLowPowerModeEnabledAsync();
-          return enabled ? 'enabled' : 'disabled';
-        },
+        subscribe: subscribeLowPowerMode,
+        minIntervalMs: 1000,
       },
     ],
     actions: [],
   };
+}
+
+function subscribeBatteryLevel(emit: EmitFn): UnsubscribeFn {
+  const subscription = Battery.addBatteryLevelListener(({ batteryLevel }) => {
+    emit(Math.round(batteryLevel * 100));
+  });
+  return () => subscription.remove();
+}
+
+function subscribeBatteryState(emit: EmitFn): UnsubscribeFn {
+  const subscription = Battery.addBatteryStateListener(({ batteryState }) => {
+    emit(batteryStateToString(batteryState));
+  });
+  return () => subscription.remove();
+}
+
+function subscribeLowPowerMode(emit: EmitFn): UnsubscribeFn {
+  const subscription = Battery.addLowPowerModeListener(({ lowPowerMode }) => {
+    emit(lowPowerMode ? 'enabled' : 'disabled');
+  });
+  return () => subscription.remove();
 }
 
 function batteryStateToString(state: Battery.BatteryState): string {
@@ -100,4 +110,3 @@ function batteryStateToString(state: Battery.BatteryState): string {
       return 'unknown';
   }
 }
-

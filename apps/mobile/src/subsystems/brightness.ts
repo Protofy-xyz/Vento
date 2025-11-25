@@ -32,6 +32,16 @@ export function buildBrightnessSubsystem(): SubsystemDefinition {
             return 'unavailable';
           }
         },
+        // No native events for brightness changes, use slow polling
+        intervalMs: 10000,
+        producer: async () => {
+          try {
+            const brightness = await Brightness.getBrightnessAsync();
+            return Math.round(brightness * 100);
+          } catch {
+            return 'unavailable';
+          }
+        },
       },
     ],
     actions: [

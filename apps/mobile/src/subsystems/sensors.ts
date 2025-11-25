@@ -6,13 +6,10 @@ import {
   Barometer,
   LightSensor,
   Pedometer,
-  type AccelerometerMeasurement,
-  type GyroscopeMeasurement,
-  type MagnetometerMeasurement,
 } from 'expo-sensors';
 import { hasTorchController, requestTorchState } from '../torch/controller';
 
-import type { SubsystemDefinition } from './types';
+import type { SubsystemDefinition, EmitFn, UnsubscribeFn } from './types';
 
 const GPS_ENDPOINT = '/sensors/monitors/gps';
 const ACCEL_ENDPOINT = '/sensors/monitors/accelerometer';
@@ -22,9 +19,6 @@ const BAROMETER_ENDPOINT = '/sensors/monitors/barometer';
 const LIGHT_ENDPOINT = '/sensors/monitors/light';
 const PEDOMETER_ENDPOINT = '/sensors/monitors/pedometer';
 const TORCH_ENDPOINT = '/sensors/actions/torch';
-
-const GPS_INTERVAL_MS = 10_000;
-const SENSOR_INTERVAL_MS = 5_000;
 
 let locationPermissionGranted: boolean | null = null;
 
@@ -40,15 +34,15 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           description: 'Latitude/longitude with accuracy',
           endpoint: GPS_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'navigation',
             color: '$cyan10',
           },
         },
-        boot: readLocation,
-        intervalMs: GPS_INTERVAL_MS,
-        producer: readLocation,
+        boot: readLocationOnce,
+        subscribe: subscribeLocation,
+        minIntervalMs: 5000, // Max 1 update per 5 seconds
       },
       {
         descriptor: {
@@ -57,15 +51,14 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           description: 'Acceleration on each axis (g)',
           endpoint: ACCEL_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'activity',
             color: '$pink10',
           },
         },
-        boot: readAccelerometer,
-        intervalMs: SENSOR_INTERVAL_MS,
-        producer: readAccelerometer,
+        subscribe: subscribeAccelerometer,
+        minIntervalMs: 200, // Max 5 updates per second
       },
       {
         descriptor: {
@@ -74,15 +67,14 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           description: 'Rotation rate on each axis (°/s)',
           endpoint: GYRO_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'refresh-cw',
             color: '$purple9',
           },
         },
-        boot: readGyroscope,
-        intervalMs: SENSOR_INTERVAL_MS,
-        producer: readGyroscope,
+        subscribe: subscribeGyroscope,
+        minIntervalMs: 200,
       },
       {
         descriptor: {
@@ -91,15 +83,14 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           description: 'Magnetic field on each axis (compass)',
           endpoint: MAGNETO_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'compass',
             color: '$red10',
           },
         },
-        boot: readMagnetometer,
-        intervalMs: SENSOR_INTERVAL_MS,
-        producer: readMagnetometer,
+        subscribe: subscribeMagnetometer,
+        minIntervalMs: 500,
       },
       {
         descriptor: {
@@ -108,15 +99,14 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           description: 'Atmospheric pressure (hPa)',
           endpoint: BAROMETER_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'cloud',
             color: '$blue9',
           },
         },
-        boot: readBarometer,
-        intervalMs: SENSOR_INTERVAL_MS * 2,
-        producer: readBarometer,
+        subscribe: subscribeBarometer,
+        minIntervalMs: 2000, // Pressure doesn't change fast
       },
       {
         descriptor: {
@@ -125,15 +115,14 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           description: 'Ambient light level (lux)',
           endpoint: LIGHT_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'sun',
             color: '$amber10',
           },
         },
-        boot: readLightSensor,
-        intervalMs: SENSOR_INTERVAL_MS,
-        producer: readLightSensor,
+        subscribe: subscribeLightSensor,
+        minIntervalMs: 500,
       },
       {
         descriptor: {
@@ -142,15 +131,14 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           description: 'Steps counted today',
           endpoint: PEDOMETER_ENDPOINT,
           connectionType: 'mqtt',
-          ephemeral: false,
+          ephemeral: true,
           cardProps: {
             icon: 'footprints',
             color: '$green9',
           },
         },
-        boot: readPedometer,
-        intervalMs: 30_000, // Every 30 seconds
-        producer: readPedometer,
+        subscribe: subscribePedometer,
+        minIntervalMs: 1000, // Steps don't need fast updates
       },
     ],
     actions: [
@@ -200,28 +188,7 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
   };
 }
 
-async function readLocation() {
-  if (!(await ensureLocationPermission())) {
-    return { error: 'permission-denied' };
-  }
-  try {
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-      mayShowUserSettingsDialog: true,
-    });
-    const { latitude, longitude, accuracy, altitude, speed } = position.coords;
-    return {
-      latitude,
-      longitude,
-      accuracy,
-      altitude,
-      speed,
-      timestamp: position.timestamp,
-    };
-  } catch (err: any) {
-    return { error: err?.message ?? 'location-error' };
-  }
-}
+// ============ Location ============
 
 async function ensureLocationPermission() {
   if (locationPermissionGranted !== null) {
@@ -232,155 +199,211 @@ async function ensureLocationPermission() {
   return locationPermissionGranted;
 }
 
-async function readAccelerometer() {
-  const available = await Accelerometer.isAvailableAsync();
-  if (!available) {
-    return { error: 'accelerometer-unavailable' };
-  }
-  const sample = await sampleSensor(Accelerometer);
-  if (!sample) {
-    return { error: 'accelerometer-timeout' };
-  }
-  return {
-    x: sample.x,
-    y: sample.y,
-    z: sample.z,
-  };
-}
-
-async function readGyroscope() {
-  const available = await Gyroscope.isAvailableAsync();
-  if (!available) {
-    return { error: 'gyroscope-unavailable' };
-  }
-  const sample = await sampleSensor(Gyroscope);
-  if (!sample) {
-    return { error: 'gyroscope-timeout' };
-  }
-  return {
-    x: sample.x,
-    y: sample.y,
-    z: sample.z,
-  };
-}
-
-function sampleSensor(
-  Sensor: typeof Accelerometer | typeof Gyroscope | typeof Magnetometer,
-): Promise<AccelerometerMeasurement | GyroscopeMeasurement | MagnetometerMeasurement | null> {
-  return new Promise((resolve) => {
-    let resolved = false;
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        subscription.remove();
-        resolve(null);
-      }
-    }, 750);
-
-    const subscription = Sensor.addListener((reading) => {
-      if (resolved) {
-        return;
-      }
-      resolved = true;
-      clearTimeout(timeout);
-      subscription.remove();
-      resolve(reading);
-    });
-
-    Sensor.setUpdateInterval(200);
-  });
-}
-
-async function readMagnetometer() {
-  const available = await Magnetometer.isAvailableAsync();
-  if (!available) {
-    return { error: 'magnetometer-unavailable' };
-  }
-  const sample = await sampleSensor(Magnetometer);
-  if (!sample) {
-    return { error: 'magnetometer-timeout' };
-  }
-  // Calculate heading (compass direction) from magnetometer data
-  const { x, y, z } = sample;
-  const heading = Math.atan2(y, x) * (180 / Math.PI);
-  const normalizedHeading = heading >= 0 ? heading : heading + 360;
-  return {
-    x,
-    y,
-    z,
-    heading: Math.round(normalizedHeading),
-  };
-}
-
-async function readBarometer() {
-  const available = await Barometer.isAvailableAsync();
-  if (!available) {
-    return { error: 'barometer-unavailable' };
-  }
-  return new Promise((resolve) => {
-    let resolved = false;
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        subscription.remove();
-        resolve({ error: 'barometer-timeout' });
-      }
-    }, 750);
-
-    const subscription = Barometer.addListener((reading) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(timeout);
-      subscription.remove();
-      resolve({
-        pressure: reading.pressure,
-        relativeAltitude: reading.relativeAltitude ?? null,
-      });
-    });
-  });
-}
-
-async function readLightSensor() {
-  const available = await LightSensor.isAvailableAsync();
-  if (!available) {
-    return { error: 'light-sensor-unavailable' };
-  }
-  return new Promise((resolve) => {
-    let resolved = false;
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        subscription.remove();
-        resolve({ error: 'light-sensor-timeout' });
-      }
-    }, 750);
-
-    const subscription = LightSensor.addListener((reading) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(timeout);
-      subscription.remove();
-      resolve({
-        illuminance: reading.illuminance,
-      });
-    });
-  });
-}
-
-async function readPedometer() {
-  const available = await Pedometer.isAvailableAsync();
-  if (!available) {
-    return { error: 'pedometer-unavailable' };
+async function readLocationOnce() {
+  if (!(await ensureLocationPermission())) {
+    return { error: 'permission-denied' };
   }
   try {
-    // Get steps from start of today
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const result = await Pedometer.getStepCountAsync(startOfDay, now);
-    return {
+    const lastKnown = await Location.getLastKnownPositionAsync();
+    if (lastKnown) {
+      const { latitude, longitude, accuracy, altitude, speed } = lastKnown.coords;
+      return { latitude, longitude, accuracy, altitude, speed, timestamp: lastKnown.timestamp };
+    }
+    return { error: 'no-cached-location' };
+  } catch (err: any) {
+    return { error: err?.message ?? 'location-error' };
+  }
+}
+
+function subscribeLocation(emit: EmitFn): UnsubscribeFn {
+  let subscription: Location.LocationSubscription | null = null;
+  
+  (async () => {
+    if (!(await ensureLocationPermission())) {
+      emit({ error: 'permission-denied' });
+      return;
+    }
+    
+    subscription = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Balanced,
+        distanceInterval: 10, // Minimum 10 meters change
+        timeInterval: 5000, // Or at least 5 seconds
+      },
+      (location) => {
+        const { latitude, longitude, accuracy, altitude, speed } = location.coords;
+        emit({
+          latitude: round(latitude, 6),
+          longitude: round(longitude, 6),
+          accuracy: round(accuracy ?? 0, 1),
+          altitude: round(altitude ?? 0, 1),
+          speed: round(speed ?? 0, 2),
+          timestamp: location.timestamp,
+        });
+      }
+    );
+  })();
+
+  return () => {
+    subscription?.remove();
+  };
+}
+
+// ============ Accelerometer ============
+
+function subscribeAccelerometer(emit: EmitFn): UnsubscribeFn {
+  let available = false;
+  
+  Accelerometer.isAvailableAsync().then((isAvailable) => {
+    available = isAvailable;
+    if (!available) {
+      emit({ error: 'accelerometer-unavailable' });
+    }
+  });
+
+  Accelerometer.setUpdateInterval(100);
+  const subscription = Accelerometer.addListener((data) => {
+    if (!available) return;
+    emit({
+      x: round(data.x, 3),
+      y: round(data.y, 3),
+      z: round(data.z, 3),
+    });
+  });
+
+  return () => subscription.remove();
+}
+
+// ============ Gyroscope ============
+
+function subscribeGyroscope(emit: EmitFn): UnsubscribeFn {
+  let available = false;
+  
+  Gyroscope.isAvailableAsync().then((isAvailable) => {
+    available = isAvailable;
+    if (!available) {
+      emit({ error: 'gyroscope-unavailable' });
+    }
+  });
+
+  Gyroscope.setUpdateInterval(100);
+  const subscription = Gyroscope.addListener((data) => {
+    if (!available) return;
+    emit({
+      x: round(data.x, 3),
+      y: round(data.y, 3),
+      z: round(data.z, 3),
+    });
+  });
+
+  return () => subscription.remove();
+}
+
+// ============ Magnetometer ============
+
+function subscribeMagnetometer(emit: EmitFn): UnsubscribeFn {
+  let available = false;
+  
+  Magnetometer.isAvailableAsync().then((isAvailable) => {
+    available = isAvailable;
+    if (!available) {
+      emit({ error: 'magnetometer-unavailable' });
+    }
+  });
+
+  Magnetometer.setUpdateInterval(200);
+  const subscription = Magnetometer.addListener((data) => {
+    if (!available) return;
+    const { x, y, z } = data;
+    const heading = Math.atan2(y, x) * (180 / Math.PI);
+    const normalizedHeading = heading >= 0 ? heading : heading + 360;
+    emit({
+      x: round(x, 2),
+      y: round(y, 2),
+      z: round(z, 2),
+      heading: Math.round(normalizedHeading),
+    });
+  });
+
+  return () => subscription.remove();
+}
+
+// ============ Barometer ============
+
+function subscribeBarometer(emit: EmitFn): UnsubscribeFn {
+  let available = false;
+  
+  Barometer.isAvailableAsync().then((isAvailable) => {
+    available = isAvailable;
+    if (!available) {
+      emit({ error: 'barometer-unavailable' });
+    }
+  });
+
+  const subscription = Barometer.addListener((data) => {
+    if (!available) return;
+    emit({
+      pressure: round(data.pressure, 2),
+      relativeAltitude: data.relativeAltitude != null ? round(data.relativeAltitude, 1) : null,
+    });
+  });
+
+  return () => subscription.remove();
+}
+
+// ============ Light Sensor ============
+
+function subscribeLightSensor(emit: EmitFn): UnsubscribeFn {
+  let available = false;
+  
+  LightSensor.isAvailableAsync().then((isAvailable) => {
+    available = isAvailable;
+    if (!available) {
+      emit({ error: 'light-sensor-unavailable' });
+    }
+  });
+
+  const subscription = LightSensor.addListener((data) => {
+    if (!available) return;
+    emit({
+      illuminance: Math.round(data.illuminance),
+    });
+  });
+
+  return () => subscription.remove();
+}
+
+// ============ Pedometer ============
+
+function subscribePedometer(emit: EmitFn): UnsubscribeFn {
+  let available = false;
+  
+  Pedometer.isAvailableAsync().then((isAvailable) => {
+    available = isAvailable;
+    if (!available) {
+      emit({ error: 'pedometer-unavailable' });
+    }
+  });
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const subscription = Pedometer.watchStepCount((result) => {
+    if (!available) return;
+    emit({
       steps: result.steps,
       since: startOfDay.toISOString(),
-    };
-  } catch (err: any) {
-    return { error: err?.message ?? 'pedometer-error' };
-  }
+    });
+  });
+
+  return () => subscription.remove();
+}
+
+// ============ Helpers ============
+
+function round(value: number, decimals: number): number {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
 }
 
 function parseTorchPayload(payload: string) {
@@ -404,4 +427,3 @@ function parseTorchPayload(payload: string) {
   }
   return null;
 }
-

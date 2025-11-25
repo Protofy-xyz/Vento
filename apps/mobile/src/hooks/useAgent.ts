@@ -5,7 +5,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { VentoClient } from '../api/ventoClient';
 import { MQTTManager } from '../mqttClient';
 import { buildDevicePayload, buildSubsystems } from '../subsystems';
-import type { SubsystemDefinition } from '../subsystems/types';
+import type { SubsystemDefinition, UnsubscribeFn } from '../subsystems/types';
 import { clearStoredConfig, loadStoredConfig, saveStoredConfig, type StoredConfig } from '../storage';
 import { formatError, generateDeviceName } from '../utils';
 
@@ -44,7 +44,7 @@ export function useAgent(): AgentControls {
     subsystems: SubsystemDefinition[];
   } | null>(null);
   const mqttRef = useRef<MQTTManager | null>(null);
-  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+  const cleanupRef = useRef<Array<UnsubscribeFn | ReturnType<typeof setInterval>>>([]);
 
   const appendLog = useCallback((entry: string) => {
     setState((prev) => ({
@@ -54,8 +54,15 @@ export function useAgent(): AgentControls {
   }, []);
 
   const stopAgent = useCallback(() => {
-    intervalsRef.current.forEach(clearInterval);
-    intervalsRef.current = [];
+    // Clean up all subscriptions and intervals
+    for (const cleanup of cleanupRef.current) {
+      if (typeof cleanup === 'function') {
+        cleanup();
+      } else {
+        clearInterval(cleanup);
+      }
+    }
+    cleanupRef.current = [];
     mqttRef.current?.disconnect();
     mqttRef.current = null;
     configRef.current = null;
@@ -139,7 +146,7 @@ export function useAgent(): AgentControls {
         appendLog('Publishing boot monitors...');
         await publishBootMonitors(deviceName, subsystems, mqtt);
         appendLog(`Boot monitors done (${Date.now() - t5}ms)`);
-        startIntervals(deviceName, subsystems, mqtt, intervalsRef);
+        startMonitors(deviceName, subsystems, mqtt, cleanupRef);
         await activateKeepAwakeAsync('vento-mobile');
         setState({
           status: 'connected',
@@ -221,33 +228,117 @@ function collectActionHandlers(subsystems: SubsystemDefinition[]) {
 }
 
 async function publishBootMonitors(deviceName: string, subsystems: SubsystemDefinition[], mqtt: MQTTManager) {
+  // Collect all boot monitors
+  const bootTasks: Array<{ endpoint: string; boot: () => Promise<any> }> = [];
   for (const subsystem of subsystems) {
     for (const monitor of subsystem.monitors) {
       if (!monitor.boot) continue;
-      const value = await monitor.boot();
-      mqtt.publish(deviceName, monitor.descriptor.endpoint, value);
+      bootTasks.push({ endpoint: monitor.descriptor.endpoint, boot: monitor.boot });
+    }
+  }
+  
+  // Execute all boot monitors in parallel
+  const results = await Promise.allSettled(
+    bootTasks.map(async (task) => {
+      const value = await task.boot();
+      return { endpoint: task.endpoint, value };
+    })
+  );
+  
+  // Publish results
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      mqtt.publish(deviceName, result.value.endpoint, result.value.value);
     }
   }
 }
 
-function startIntervals(
+// Serialize value for comparison
+function serializeValue(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function startMonitors(
   deviceName: string,
   subsystems: SubsystemDefinition[],
   mqtt: MQTTManager,
-  ref: MutableRefObject<ReturnType<typeof setInterval>[]>,
+  ref: MutableRefObject<Array<UnsubscribeFn | ReturnType<typeof setInterval>>>,
 ) {
   for (const subsystem of subsystems) {
     for (const monitor of subsystem.monitors) {
-      if (!monitor.intervalMs || !monitor.producer) continue;
-      const timer = setInterval(async () => {
-        try {
-          const value = await monitor.producer!();
-          mqtt.publish(deviceName, monitor.descriptor.endpoint, value);
-        } catch (err) {
-          console.warn('monitor publish failed', err);
-        }
-      }, monitor.intervalMs);
-      ref.current.push(timer);
+      // New subscription-based monitors
+      if (monitor.subscribe) {
+        const minInterval = monitor.minIntervalMs ?? 500;
+        let lastValue = '';
+        let lastEmitTime = 0;
+        let pendingValue: any = null;
+        let pendingTimeout: ReturnType<typeof setTimeout> | null = null;
+
+        const emit = (value: any) => {
+          const serialized = serializeValue(value);
+          
+          // Skip if value hasn't changed
+          if (serialized === lastValue) {
+            return;
+          }
+
+          const now = Date.now();
+          const timeSinceLastEmit = now - lastEmitTime;
+
+          if (timeSinceLastEmit >= minInterval) {
+            // Enough time has passed, emit immediately
+            lastValue = serialized;
+            lastEmitTime = now;
+            mqtt.publish(deviceName, monitor.descriptor.endpoint, value);
+          } else {
+            // Throttle: schedule emission for later
+            pendingValue = value;
+            if (!pendingTimeout) {
+              pendingTimeout = setTimeout(() => {
+                pendingTimeout = null;
+                if (pendingValue !== null) {
+                  const newSerialized = serializeValue(pendingValue);
+                  if (newSerialized !== lastValue) {
+                    lastValue = newSerialized;
+                    lastEmitTime = Date.now();
+                    mqtt.publish(deviceName, monitor.descriptor.endpoint, pendingValue);
+                  }
+                  pendingValue = null;
+                }
+              }, minInterval - timeSinceLastEmit);
+            }
+          }
+        };
+
+        const unsubscribe = monitor.subscribe(emit);
+        ref.current.push(() => {
+          unsubscribe();
+          if (pendingTimeout) {
+            clearTimeout(pendingTimeout);
+          }
+        });
+      }
+      // Legacy polling-based monitors
+      else if (monitor.intervalMs && monitor.producer) {
+        let lastValue = '';
+        const timer = setInterval(async () => {
+          try {
+            const value = await monitor.producer!();
+            const serialized = serializeValue(value);
+            
+            // Only publish if value changed
+            if (serialized !== lastValue) {
+              lastValue = serialized;
+              mqtt.publish(deviceName, monitor.descriptor.endpoint, value);
+            }
+          } catch (err) {
+            console.warn('monitor publish failed', err);
+          }
+        }, monitor.intervalMs);
+        ref.current.push(timer);
+      }
     }
   }
 }
@@ -264,5 +355,3 @@ function buildMQTTUrl(host: string) {
     return 'ws://localhost:8000/websocket';
   }
 }
-
-

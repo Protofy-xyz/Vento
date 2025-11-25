@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Used to report the device location to Vento",
-        "NSCameraUsageDescription": "Used to control the flashlight"
+        "NSCameraUsageDescription": "Used to control the flashlight",
+        "NSMicrophoneUsageDescription": "Used to measure ambient sound levels"
       }
     },
     "android": {
@@ -30,7 +31,8 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "CAMERA",
-        "INTERNET"
+        "INTERNET",
+        "RECORD_AUDIO"
       ],
       "usesCleartextTraffic": true
     },

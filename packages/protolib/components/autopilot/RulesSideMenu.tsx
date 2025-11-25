@@ -82,13 +82,12 @@ export const RulesSideMenu = ({ leftIcons = <></>, icons = <></>, automationInfo
             rulesProps={{ title: "Board Rules" }}
             onModeChange={(currMode) => setRulesMode(currMode)}
             onApplyRules={async (rules) => {
+                const rulesCode = await API.post(`/api/core/v1/autopilot/getBoardCode`, { rules: rules, previousRules: boardRef.current.rules, states: boardStates, actions: actions.boards ? actions.boards[board.name] : {}, boardName: board.name })
+                boardRef.current.rules = rules
+                if (rulesCode.error || !rulesCode.data?.jsCode) {
+                    throw new Error(rulesCode.error.message)
+                }
                 try {
-                    const rulesCode = await API.post(`/api/core/v1/autopilot/getBoardCode`, { rules: rules, previousRules: boardRef.current.rules, states: boardStates, actions: actions.boards ? actions.boards[board.name] : {}, boardName: board.name })
-                    boardRef.current.rules = rules
-                    if (rulesCode.error || !rulesCode.data?.jsCode) {
-                        toast.show(`Error generating board code: ${rulesCode.error.message}`)
-                        return
-                    }
 
                     savedCode.current = rulesCode.data.jsCode
                     editedCode.current = rulesCode.data.jsCode
@@ -104,8 +103,9 @@ export const RulesSideMenu = ({ leftIcons = <></>, icons = <></>, automationInfo
 
                     toast.show(`Rules applied successfully!`)
                 } catch (e) {
-                    toast.show(`Error generating board code: ${e.message}`)
+                    // toast.show(`Error generating board code 2: ${e.message}`)
                     console.error(e)
+                    throw new Error(e.message)
                 }
             }}
             disableAIPanels={!isAIEnabled}

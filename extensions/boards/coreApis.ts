@@ -669,7 +669,6 @@ export default async (app, context) => {
     const handleCallModel = async (res, prompt, options = {}) => {
         let reply = await ai.callModel(prompt)
 
-        console.log('REPLY: ', reply)
         if (reply?.raw?.error) {
             logger.ui.error({ error: reply.raw.error }, "Error from AI model");
             res.status(500).send({ error: 'Error from AI model', message: reply.raw.error });
@@ -941,6 +940,12 @@ export default async (app, context) => {
             }
 
             const jsCode = data?.choices?.[0]?.message?.content;
+
+            if (data?.raw?.error) {
+                res.status(500).send({ error: 'Error from AI model', message: data.raw.error });
+                return
+            }
+
             if (!jsCode) {
                 logger.ui.error({ data }, 'No response from AI model or empty content');
                 return res.status(500).send({ error: 'No response from AI model' });
@@ -1487,7 +1492,7 @@ export default async (app, context) => {
         const boardId = req.params.boardId;
         const cardData = req.body.card;
         //read board file using locks
-        
+
         const boardData = await API.get('/api/core/v1/boards/' + boardId + '?token=' + getServiceToken());
         if(boardData.status == 'loaded'){
             const board = boardData.data;

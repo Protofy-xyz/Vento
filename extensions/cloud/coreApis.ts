@@ -5,6 +5,7 @@ import { v4 as uuid } from "uuid";
 import dotenv from 'dotenv'
 import { API, isElectron } from "protobase";
 import infraUrls from "@extensions/protoinfra/utils/protoInfraUrls";
+import crypto from "crypto";
 
 const ensureProjectInstanceId = async (envPath: string) => {
     try {
@@ -68,6 +69,10 @@ function getCurrentCommit(repoPath) {
     }
 }
 
+function encryptString(str: string) {;
+    return crypto.createHash("sha256").update(str).digest("hex");
+}
+
 const envPath = path.resolve(process.cwd(), '../../.env');
 const sourcePath = path.resolve(process.cwd(), '../../');
 const telemetryPath = path.resolve(process.cwd(), '../../data/settings/cloud.telemetry');
@@ -93,10 +98,10 @@ export default async (app, context) => {
                     arch: os.arch(),
                     electron: electronRuntime,
                     gitCommit: getCurrentCommit(sourcePath),
-                    gitBranch: getCurrentBranch(sourcePath),    
+                    gitBranch: getCurrentBranch(sourcePath),
                     totalmem: os.totalmem(),
                     freemem: os.freemem(),
-                    hostname: os.hostname(),
+                    hostname: encryptString(os.hostname()),
                     osUptime: os.uptime(),
                     processUptime: process.uptime(),
                 }

@@ -10,6 +10,7 @@ import { Tinted } from 'protolib/components/Tinted'
 import { ErrorMessage, useFetch } from 'protolib'
 import rootPkg from '../../../package.json'
 import { useThemeSetting } from '@tamagui/next-theme'
+import semver from 'semver'
 
 const obj = {
   "name": "project",
@@ -257,8 +258,13 @@ const MainView = () => {
 
   let parsedResult = JSON.parse(result ?? '[]')
   const versions = parsedResult && parsedResult.map ? parsedResult.map((item) => {
-    return "" + item.tag_name.replace('v', '')
-  }) : []
+    return item.tag_name.replace(/^v/, '')
+  }).filter((v: string) => v !== "latest")
+    .sort((a: any, b: any) => {
+      if (a === 'development') return 1
+      if (b === 'development') return -1
+      return 0
+    }) : []
 
 
   console.log('versions', versions)
@@ -321,7 +327,17 @@ const MainView = () => {
           .label("version")
           .after('name')
           .defaultValue(
-            "latest")
+            versions
+              .filter((v: any) => v !== "latest" && v !== "development")
+              .sort((a: any, b: any) => {
+                try {
+                  return semver.rcompare(semver.coerce(a)!, semver.coerce(b)!)
+                } catch (e) {
+                  console.error('semver comparison error', e)
+                  return 0
+                }
+              })[0]
+          )
       }}
     />
   </YStack>

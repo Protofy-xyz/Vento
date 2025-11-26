@@ -1,4 +1,4 @@
-name: Build & Release Latest
+name: Build & Release Development
 
 on:
   push:
@@ -30,21 +30,21 @@ jobs:
 
       - name: Create release zip
         run: |
-          zip -r release-latest.zip . -x ".git/*" "node_modules/*" "release-*.zip"
+          zip -r release-development.zip . -x ".git/*" "node_modules/*" "release-*.zip"
 
-      - name: Create or update latest tag
+      - name: Create or update development tag
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag -f latest
-          git push origin -f latest
+          git tag -f development
+          git push origin -f development
 
-      - name: Create GitHub Release (latest)
+      - name: Create GitHub Release (development)
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: latest
-          name: Latest release
-          files: release-latest.zip
+          tag_name: development
+          name: development release
+          files: release-development.zip
           draft: false
           prerelease: false
         env:

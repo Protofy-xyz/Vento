@@ -6,7 +6,7 @@
     "dev-standalone": "FULL_DEV=1 NODE_ENV=development node entrypoint.js",
     "dev-service": "FULL_DEV=1 NODE_ENV=development pm2 start pm2.config.js",
     "dev": "FULL_DEV=1 NODE_ENV=development pm2 start pm2.config.js --no-daemon",
-    "package": "shx rm -rf out && NEXT_PUBLIC_APP_ID=launcher BUILD_MODE=export next build && shx rm -rf ../../electron/launcher && shx mkdir -p ../../electron/launcher && shx cp -r out/* ../../electron/launcher && shx mkdir -p ../../electron/launcher/public && shx cp -r ../../data/public/* ../../electron/launcher/public"
+    "package-launcher": "shx rm -rf out && NEXT_PUBLIC_APP_ID=launcher BUILD_MODE=export next build && shx rm -rf ../../electron/launcher && shx mkdir -p ../../electron/launcher && shx cp -r out/* ../../electron/launcher && shx mkdir -p ../../electron/launcher/public && shx cp -r ../../data/public/* ../../electron/launcher/public"
   },
   "dependencies": {
     "@craftjs/core": "0.2.0-beta.8",

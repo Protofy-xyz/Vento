@@ -1,0 +1,80 @@
+{
+  "defaults": {
+    "width": 3,
+    "height": 16,
+    "type": "action",
+    "icon": "camera",
+    "name": "camera",
+    "description": "Unified camera card. Select webcam to capture from the local device or IP camera to render an MJPEG stream.",
+    "displayResponse": true,
+    "displayButton": true,
+    "buttonLabel": "Open camera",
+    "html": "//@card/react\n\nfunction Widget(card) {\n  const value = card.value || {};\n  const selectedType = (value.sourceType || card.configParams?.sourceType?.defaultValue || 'ipcamera').toLowerCase();\n  const [streamPath, setStreamPath] = React.useState(value?.streamPath ?? '');\n  const [loading, setLoading] = React.useState(true);\n  const [error, setError] = React.useState(false);\n\n  React.useEffect(() => {\n    setStreamPath(value?.streamPath ?? '');\n    setLoading(true);\n    setError(false);\n  }, [value?.streamPath]);\n\n  const ipCamera = (\n    <YStack f={1} mt={\"20px\"} ai=\"center\" jc=\"center\" width=\"100%\">\n      {loading && !error && streamPath && <p>Searching for camera...</p>}\n      {error && <p style={{ color: \"red\" }}>Error getting camera stream</p>}\n      {!streamPath && <p>Run the card after setting IP camera details to view the stream.</p>}\n      {streamPath && (\n        <img\n          style={{\n            width: \"100%\",\n            display: loading || error ? \"none\" : \"block\",\n          }}\n          src={streamPath}\n          onLoad={() => setLoading(false)}\n          onError={() => {\n            setLoading(false);\n            setError(true);\n          }}\n          alt=\"Camera stream\"\n        />\n      )}\n    </YStack>\n  );\n\n  const webcam = (\n    <YStack f={1} mt=\"$3\" w=\"100%\">\n      <CameraCard\n        params={card.configParams}\n        startLabel=\"Start webcam\"\n        onPicture={async (picture64) => {\n          const url = document.location.origin + (await execute_action('/api/core/v1/vision/frame/set', { id: 'frame', image: picture64 }));\n          execute_action(card.name, { picture: url, sourceType: 'webcam' });\n        }}\n      />\n    </YStack>\n  );\n\n  const content = selectedType === 'webcam' ? webcam : ipCamera;\n\n  // Adjust visibility of config params depending on source type\n  const fullConfig = card.configParams || {};\n  const ipFields = ['cameraAddr', 'cameraPort', 'streamPath', 'stillPath', 'cameraProtocol'];\n  const webcamFields = ['mode', 'fps'];\n  const configOverrides = {};\n\n  for (const key of ipFields) {\n    if (fullConfig[key]) {\n      const baseVisible = fullConfig[key].visible ?? true;\n      configOverrides[key] = { ...fullConfig[key], visible: baseVisible && selectedType === 'ipcamera' };\n    }\n  }\n  for (const key of webcamFields) {\n    if (fullConfig[key]) {\n      const baseVisible = fullConfig[key].visible ?? true;\n      configOverrides[key] = { ...fullConfig[key], visible: baseVisible && selectedType === 'webcam' };\n    }\n  }\n  const cardData = {\n    ...card,\n    configParams: { ...fullConfig, ...configOverrides },\n    displayButton: true,\n    buttonLabel: selectedType === 'ipcamera' ? (card.buttonLabel || 'Load IP camera') : 'Apply',\n  };\n\n  return (\n    <Tinted>\n      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n        <ActionCard data={cardData}>\n          {cardData.displayButton !== false ? (\n            <ParamsForm data={cardData}>{content}</ParamsForm>\n          ) : (\n            cardData.displayResponse !== false && content\n          )}\n        </ActionCard>\n      </ProtoThemeProvider>\n    </Tinted>\n  );\n}\n",
+    "rulesCode": "const type = (params.sourceType || '').toLowerCase() || 'ipcamera';\nconst randomKey = Math.floor(Math.random() * (9999 - 1000 + 1)) + 1000;\n\nif (type === 'webcam') {\n  const key = randomKey;\n  return {\n    sourceType: 'webcam',\n    frame: params.picture,\n    type: 'frame',\n    key,\n    imageUrl: params.picture ? (params.picture + '&mode=image/png&key=' + key) : null,\n  };\n}\n\nconst protocol = params.cameraProtocol || 'http://';\nconst addr = params.cameraAddr || '';\nconst port = params.cameraPort || '';\nconst streamPath = params.streamPath || '/video';\nconst stillPath = params.stillPath || '/photo.jpg';\n\nif (!addr || !port) {\n  return { sourceType: 'ipcamera', error: 'Missing camera address or port' };\n}\n\nreturn {\n  sourceType: 'ipcamera',\n  imageUrl: `${protocol}${addr}:${port}${stillPath}`,\n  streamPath: `${protocol}${addr}:${port}${streamPath}?k=${randomKey}`,\n};\n",
+    "params": {
+      "sourceType": "Choose between ipcamera or webcam",
+      "cameraAddr": "Ip camera address",
+      "cameraPort": "Ip camera port",
+      "streamPath": "Path to the video stream",
+      "stillPath": "Path to get a still image",
+      "cameraProtocol": "Camera protocol",
+      "mode": "Webcam mode: manual or auto",
+      "fps": "Webcam fps to capture"
+    },
+    "configParams": {
+      "sourceType": {
+        "visible": true,
+        "description": "Select camera source type",
+        "defaultValue": "webcam",
+        "type": "string",
+        "options": [
+          "ipcamera",
+          "webcam"
+        ]
+      },
+      "cameraAddr": {
+        "visible": true,
+        "description": "IP Camera address",
+        "defaultValue": "192.168.10.131",
+        "type": "string"
+      },
+      "cameraPort": {
+        "visible": true,
+        "description": "IP Camera port",
+        "defaultValue": "8080",
+        "type": "string"
+      },
+      "streamPath": {
+        "visible": false,
+        "description": "Path to the video stream",
+        "defaultValue": "/video",
+        "type": "string"
+      },
+      "stillPath": {
+        "visible": false,
+        "description": "Path to get a still image",
+        "defaultValue": "/photo.jpg",
+        "type": "string"
+      },
+      "cameraProtocol": {
+        "visible": false,
+        "description": "Camera protocol",
+        "defaultValue": "http://",
+        "type": "string"
+      },
+      "mode": {
+        "visible": false,
+        "defaultValue": "manual"
+      },
+      "fps": {
+        "visible": false,
+        "defaultValue": "0.5"
+      }
+    }
+  },
+  "name": "camera",
+  "id": "vision.inputs.camera",
+  "group": "vision",
+  "tag": "inputs",
+  "templateName": "Camera"
+}

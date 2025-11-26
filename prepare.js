@@ -27,9 +27,8 @@ directories.forEach(directory => {
 //download data/pages if it doesn't exist
 (async () => {
     if (!fs.existsSync('./data/pages')) {
+        console.log('Compiled pages not found, downloading from release...');
         fs.mkdirSync('./data/pages');
-        //download from https://github.com/Protofy-xyz/Vento/releases/download/development/vento-pages.zip it contains a zip file with the pages, to be extracted
-        //at the root of the project
         const response = await fetch('https://github.com/Protofy-xyz/Vento/releases/download/development/vento-pages.zip');
         const zip = await response.arrayBuffer();
         const zipFile = new AdmZip(Buffer.from(zip));

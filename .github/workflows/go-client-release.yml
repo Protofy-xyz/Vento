@@ -1,0 +1,171 @@
+name: Build & Release Go Client
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  # Detectar si hay cambios en el cliente Go (solo para pushes a main, no para tags)
+  changes:
+    if: github.repository == 'Protofy-xyz/Vento'
+    runs-on: ubuntu-latest
+    outputs:
+      go-client: ${{ steps.filter.outputs.go-client }}
+      is-tag: ${{ steps.check-tag.outputs.is-tag }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if tag
+        id: check-tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "is-tag=true" >> $GITHUB_OUTPUT
+          else
+            echo "is-tag=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        if: steps.check-tag.outputs.is-tag == 'false'
+        with:
+          filters: |
+            go-client:
+              - 'apps/clients/go/**'
+              - '.github/workflows/go-client-release.yml'
+
+  build:
+    needs: changes
+    if: |
+      github.repository == 'Protofy-xyz/Vento' && 
+      (needs.changes.outputs.is-tag == 'true' || needs.changes.outputs.go-client == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: linux
+            goarch: arm
+            goarm: "7"
+            suffix: linux-armv7
+          # macOS
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+          # Windows
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64
+            extension: .exe
+          - goos: windows
+            goarch: arm64
+            suffix: windows-arm64
+            extension: .exe
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: apps/clients/go/go.sum
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: "0"
+        run: |
+          cd apps/clients/go
+          go build -ldflags="-s -w" -o ventoagent-${{ matrix.suffix }}${{ matrix.extension }} ./cmd/ventoagent
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ventoagent-${{ matrix.suffix }}
+          path: apps/clients/go/ventoagent-${{ matrix.suffix }}${{ matrix.extension }}
+          retention-days: 1
+
+  release-development:
+    needs: build
+    if: github.repository == 'Protofy-xyz/Vento' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find artifacts -type f -name "ventoagent-*" -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Upload to development release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: development
+          name: development release
+          files: release/ventoagent-*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-version:
+    needs: build
+    if: github.repository == 'Protofy-xyz/Vento' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find artifacts -type f -name "ventoagent-*" -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Upload to version release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: release/ventoagent-*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

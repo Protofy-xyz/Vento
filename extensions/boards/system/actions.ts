@@ -308,7 +308,9 @@ export const handleBoardAction = async (context, Manager, req, boardId, action_o
                 responseCb(response);
             } else {
                 if (rawResponse) {
-                    res.send(response);
+                    // Express treats numeric bodies as status codes; stringify to avoid invalid status errors.
+                    const safeResponse = typeof response === 'number' ? response.toString() : response;
+                    res.status(200).send(safeResponse);
                 } else {
                     res.json(response);
                 }
@@ -361,7 +363,7 @@ export const handleBoardAction = async (context, Manager, req, boardId, action_o
         }, getServiceToken());
         await setActionValue(Manager, context, boardId, action, { error: err });
         await updateActionStatus(context, boardId, action.name, 'error', { error: err });
-        console.error("Error executing action: ", err);
+        console.error("Error executing action22: ", err);
         res.status(500).send({ _err: "e_general", error: "Error executing action", message: err.message, stack: err.stack, name: err.name, code: err.code });
     }
 };

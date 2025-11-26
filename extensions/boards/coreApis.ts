@@ -1651,18 +1651,48 @@ export default async (app, context) => {
             context.mqtt,
             context,
             async (event) => {
-                if(event.path in eventListeners){
-                    for(const listener of eventListeners[event.path]){
-                        try {
-                            console.log("Invoking listener for event: ", event.path, listener, `/api/core/v1/boards/${listener.board}/cards/${listener.card}/run/raw?token=${getServiceToken()}`)
-                            const response = await API.post(`/api/core/v1/boards/${listener.board}/cards/${listener.card}/run/raw?token=${getServiceToken()}`, {
-                                [listener.defaultInput]: event.payload,
-                                _event: event
-                            })
-                            console.log("Listener response for event: ", event.path, response)
-                        } catch (error) {
-                            console.error("Error invoking event listener for event: ", event.path, error)
-                        }
+                const normalizeTopic = (topic: string) => topic.replace(/^\/+/, '').replace(/\/+$/, '');
+                const matchPattern = (pattern: string, path: string) => {
+                    const normalizedPattern = normalizeTopic(pattern || '');
+                    const normalizedPath = normalizeTopic(path || '');
+
+                    if (normalizedPattern === '#') return true;
+
+                    if (normalizedPattern.endsWith('/#')) {
+                        const prefix = normalizedPattern.slice(0, -2);
+                        if (!prefix) return true; // "/#" -> match everything
+                        return normalizedPath === prefix || normalizedPath.startsWith(prefix + '/');
+                    }
+
+                    return normalizedPattern === normalizedPath;
+                };
+
+                const listenersToRun = Object.entries(eventListeners)
+                    .filter(([pattern]) => matchPattern(pattern, event.path))
+                    .flatMap(([, listeners]) => listeners)
+
+                for (const listener of listenersToRun) {
+                    try {
+                        console.log(
+                            "Invoking listener for event: ",
+                            event.path,
+                            listener,
+                            `/api/core/v1/boards/${listener.board}/cards/${listener.card}/run/raw?token=${getServiceToken()}`
+                        )
+
+                        const requestBody = {
+                            [listener.defaultInput]: event.payload,
+                            _event: event
+                        };
+
+                        const response = await API.post(
+                            `/api/core/v1/boards/${listener.board}/cards/${listener.card}/run/raw?token=${getServiceToken()}`,
+                            requestBody
+                        )
+
+                        console.log("Listener response for event: ", event.path, response)
+                    } catch (error) {
+                        console.error("Error invoking event listener for event: ", event.path, error)
                     }
                 }
             },

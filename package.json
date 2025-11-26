@@ -61,6 +61,7 @@
     "launcher-build-win": "electron-builder -c electron-builder.yml --win --x64",
     "launcher-package-mac": "yarn package && yarn launcher-build-mac",
     "launcher-build-mac": "electron-builder -c electron-builder.yml --mac --arm64",
+    "launcher-notarize-mac": "node scripts/launcher-notarize-mac.js",
     "launcher-package-linux": "yarn package && yarn launcher-build-linux",
     "launcher-build-linux": "electron-builder -c electron-builder.yml --linux --x64",
     "launcher-package-rpi": "yarn package && yarn launcher-build-rpi",

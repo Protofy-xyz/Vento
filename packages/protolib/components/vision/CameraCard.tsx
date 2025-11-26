@@ -9,9 +9,11 @@ type CameraCardProps = {
         mode?: { defaultValue?: 'auto' | 'manual' };
     };
     onPicture: (base64: string) => void;
+    startLabel?: string;
+    stopLabel?: string;
 };
 
-export const CameraCard = ({ params, onPicture }: CameraCardProps) => {
+export const CameraCard = ({ params, onPicture, startLabel = "Open Camera", stopLabel = "" }: CameraCardProps) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -136,7 +138,7 @@ export const CameraCard = ({ params, onPicture }: CameraCardProps) => {
                         disabled={busy}
                         className="no-drag"
                     >
-                        {isOn ? "" : "Open Camera"}
+                        {isOn ? stopLabel : startLabel}
                     </Button>
                     {isOn && <Tinted tint="green">
                         <Button

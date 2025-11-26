@@ -46,6 +46,7 @@
     "@tamagui/themes": "^1.101.7",
     "@tamagui/toast": "^1.101.7",
     "burnt": "^0.12.2",
+    "expo-constants": "~16.0.2",
     "moti": "^0.29.0",
     "react-data-table-component": "^7.5.4",
     "react-data-table-component-extensions": "^1.6.0",

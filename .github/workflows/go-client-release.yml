@@ -99,7 +99,7 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           cd apps/clients/go
-          go build -ldflags="-s -w" -o ventoagent-${{ matrix.suffix }}${{ matrix.extension }} ./cmd/ventoagent
+          go build -mod=mod -ldflags="-s -w" -o ventoagent-${{ matrix.suffix }}${{ matrix.extension }} ./cmd/ventoagent
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -30,7 +30,11 @@ jobs:
 
       - name: Create release zip
         run: |
-          zip -r release-development.zip . -x ".git/*" "node_modules/*" "release-*.zip"
+          zip -r release-development.zip . -x ".git/*" "node_modules/*" "release-*.zip" "vento-pages.zip"
+
+      - name: Create pages zip
+        run: |
+          zip -r vento-pages.zip data/pages
 
       - name: Create or update development tag
         run: |
@@ -44,7 +48,9 @@ jobs:
         with:
           tag_name: development
           name: development release
-          files: release-development.zip
+          files: |
+            release-development.zip
+            vento-pages.zip
           draft: false
           prerelease: false
         env:

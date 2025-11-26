@@ -30,14 +30,20 @@ jobs:
 
       - name: Create release zip
         run: |
-          zip -r release-${GITHUB_REF_NAME}.zip . -x ".git/*" "node_modules/*" "release-*.zip"
+          zip -r release-${GITHUB_REF_NAME}.zip . -x ".git/*" "node_modules/*" "release-*.zip" "vento-pages.zip"
+
+      - name: Create pages zip
+        run: |
+          zip -r vento-pages.zip data/pages
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          files: release-${{ github.ref_name }}.zip
+          files: |
+            release-${{ github.ref_name }}.zip
+            vento-pages.zip
           draft: false
           prerelease: false
         env:

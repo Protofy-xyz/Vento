@@ -23,7 +23,7 @@ jobs:
         run: yarn
 
       - name: Prepare dev
-        run: yarn prepare-dev
+        run: yarn prepare-dev-ci
 
       - name: Shrink
         run: yarn shrink

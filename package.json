@@ -36,6 +36,7 @@
     "prod": "NODE_ENV=production pm2 start ecosystem.config.js --no-daemon",
     "prod-service": "NODE_ENV=production pm2 start ecosystem.config.js && yarn monit",
     "prepare-dev": "node prepare.js && yarn build && yarn workspaces foreach --all run prepare-dev",
+    "prepare-dev-ci": "node prepare.js --skip-pages-download && yarn build && yarn workspaces foreach --all run prepare-dev",
     "prepare": "node prepare.js && yarn workspaces foreach --all run prepare-dev",
     "add-user": "yarn workspace core add-user",
     "build": "yarn workspaces foreach -t --all run build",

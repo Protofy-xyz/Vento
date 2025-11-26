@@ -2,6 +2,7 @@ const fs = require('fs')
 const semver = require('semver');
 const AdmZip = require('adm-zip');
 
+const skipPagesDownload = process.argv.includes('--skip-pages-download') || process.env.SKIP_PAGES_DOWNLOAD === 'true';
 const requiredVersion = '>=18.0.0';
 
 if (!semver.satisfies(process.version, requiredVersion)) {
@@ -27,6 +28,11 @@ directories.forEach(directory => {
 //download data/pages if it doesn't exist
 (async () => {
     if (!fs.existsSync('./data/pages')) {
+        if (skipPagesDownload) {
+            console.log('Skipping pages download (--skip-pages-download flag detected)');
+            fs.mkdirSync('./data/pages');
+            return;
+        }
         console.log('Compiled pages not found, downloading from release...');
         fs.mkdirSync('./data/pages');
         

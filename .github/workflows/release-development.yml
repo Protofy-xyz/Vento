@@ -8,7 +8,7 @@ on:
 jobs:
   release:
     if: github.repository == 'Protofy-xyz/Vento'
-    runs-on: ubuntu-development
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo

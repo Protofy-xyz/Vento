@@ -257,8 +257,8 @@ const MainView = () => {
   }, []);
 
   let parsedResult = JSON.parse(result ?? '[]')
-  const versions = parsedResult && parsedResult.map ? parsedResult.map((item) => {
-    return item.tag_name.replace(/^v/, '')
+  const versions = parsedResult && parsedResult.map ? parsedResult.map((item: any) => {
+    return item.tag_name
   }).filter((v: string) => v !== "latest")
     .sort((a: any, b: any) => {
       if (a === 'development') return 1

@@ -28,10 +28,9 @@ async function main() {
 
   try {
     currentStep = 'fetch-release';
-    const tag = version === 'latest' ? 'latest' : 'v' + version;
-    const releaseUrl = 'https://api.github.com/repos/Protofy-xyz/Vento/releases/tags/' + tag;
+    const releaseUrl = 'https://api.github.com/repos/Protofy-xyz/Vento/releases/tags/' + version;
 
-    console.log('[worker] Fetching release info for', { projectName, tag });
+    console.log('[worker] Fetching release info for', { projectName, version });
     const response = await fetch(releaseUrl);
     if (!response.ok) {
       throw new Error('Failed to fetch release info: ' + response.status);

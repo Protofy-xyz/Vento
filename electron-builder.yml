@@ -8,14 +8,14 @@ directories:
 mac:
   target:
     - dmg
-    - zip
   icon: apps/adminpanel/public/icon.icns
   hardenedRuntime: true
-  entitlements: electron/entitlements.plist
-  entitlementsInherit: electron/entitlements.plist
   extendInfo:
     NSCameraUsageDescription: "Esta aplicación necesita acceso a la cámara"
     NSMicrophoneUsageDescription: "Esta aplicación necesita acceso al micrófono"
+  signIgnore:
+    - ".*\\.lproj/.*"
+    - ".*\\.pak"
 win:
   target:
     - portable

@@ -29,9 +29,37 @@ directories.forEach(directory => {
     if (!fs.existsSync('./data/pages')) {
         console.log('Compiled pages not found, downloading from release...');
         fs.mkdirSync('./data/pages');
-        const response = await fetch('https://github.com/Protofy-xyz/Vento/releases/download/development/vento-pages.zip');
-        const zip = await response.arrayBuffer();
-        const zipFile = new AdmZip(Buffer.from(zip));
-        zipFile.extractAllTo('.');
+        
+        const url = 'https://github.com/Protofy-xyz/Vento/releases/download/development/vento-pages.zip';
+        const maxRetries = 3;
+        const retryDelay = 3000;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`Download attempt ${attempt}/${maxRetries}...`);
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+                }
+                
+                console.log('Download complete, extracting files...');
+                const zip = await response.arrayBuffer();
+                const zipFile = new AdmZip(Buffer.from(zip));
+                zipFile.extractAllTo('.');
+                console.log('Pages extracted successfully!');
+                return;
+            } catch (error) {
+                console.error(`Attempt ${attempt} failed: ${error.message}`);
+                if (attempt < maxRetries) {
+                    console.log(`Retrying in ${retryDelay / 1000} seconds...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                } else {
+                    console.error('All download attempts failed. Please check your internet connection.');
+                    fs.rmdirSync('./data/pages');
+                    process.exit(1);
+                }
+            }
+        }
     }
 })();

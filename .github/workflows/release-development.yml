@@ -20,7 +20,7 @@ jobs:
           node-version: '21'
 
       - name: Install dependencies
-        run: yarn
+        run: node scripts/enableUiDev.js && yarn
 
       - name: Prepare dev
         run: yarn prepare-dev-ci

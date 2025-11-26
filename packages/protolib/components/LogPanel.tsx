@@ -1,12 +1,10 @@
 
 import React from 'react'
-import { XStack, YStack, Text, ScrollView, Popover, Input, Theme, Spacer } from '@my/ui'
+import { XStack, YStack, Text, ScrollView, Popover, Input, Theme, Spacer, ToggleGroup, Switch, Tooltip, Checkbox } from '@my/ui'
 import { JSONView } from './JSONView'
 import { useTint } from '../lib/Tints'
-import { GroupButton } from './GroupButton'
-import { ButtonGroup } from './ButtonGroup'
 import { InteractiveIcon } from './InteractiveIcon'
-import { Ban, Microscope, Bug, Info, AlertCircle, XCircle, Bomb, Filter } from '@tamagui/lucide-icons'
+import { Ban, Microscope, Bug, Info, AlertCircle, XCircle, Bomb, Filter, Check } from '@tamagui/lucide-icons'
 import { Tinted } from './Tinted'
 import { useAtom } from 'jotai';
 import { useEffect, useState } from 'react'
@@ -20,6 +18,17 @@ const types = {
     50: { name: "ERROR", color: "$red7", icon: XCircle },
     60: { name: "FATAL", color: "$red10", icon: Bomb }
 }
+
+type Level = { name: string; icon: React.ComponentType<any> };
+const levels: Level[] = [
+    { name: "trace", icon: Microscope },
+    { name: "debug", icon: Bug },
+    { name: "info", icon: Info },
+    { name: "warn", icon: AlertCircle },
+    { name: "error", icon: XCircle },
+    { name: "fatal", icon: Bomb }
+]
+const initialLevels = ['info', 'warn', 'error', 'fatal']
 
 function formatTimestamp(ts) {
     const d = new Date(ts)
@@ -93,9 +102,12 @@ export const LogPanel = ({ AppState, logs, setLogs }) => {
 
     const [filteredMessages, setFilteredMessages] = useState([])
     const [search, setSearch] = useState('')
-    const initialLevels = ['info', 'warn', 'error', 'fatal']
+    const selectedLevels = appState.levels ?? initialLevels
+    const allLevelNames = React.useMemo(() => levels.map(level => level.name), [])
+    const allToggled = selectedLevels.length === levels.length
 
     useEffect(() => {
+        const activeLevels = appState.levels ?? initialLevels
         setFilteredMessages(logs.filter((m: any) => {
             // console.log('message: ', m)
             const topic = m?.topic
@@ -103,69 +115,86 @@ export const LogPanel = ({ AppState, logs, setLogs }) => {
             //@ts-ignore
             const type = types[topic.split("/")[2]]
             // console.log('result: ', type && (!search || JSON.stringify(m).toLowerCase().includes(search.toLocaleLowerCase())) && appState.levels.includes(type.name.toLocaleLowerCase()))
-            return type && (!search || JSON.stringify(m).toLowerCase().includes(search.toLocaleLowerCase())) && appState.levels.includes(type.name.toLocaleLowerCase())
+            return type && (!search || JSON.stringify(m).toLowerCase().includes(search.toLocaleLowerCase())) && activeLevels.includes(type.name.toLocaleLowerCase())
         }))
     }, [search, logs, appState.levels])
 
     useEffect(() => {
         if (!appState.levels) {
-            setAppState({ ...appState, levels: initialLevels })
+            setAppState(prev => ({ ...prev, levels: initialLevels }))
         }
-    }, [appState.levels])
+    }, [appState.levels, setAppState])
 
     const { tint } = useTint()
-
-    const toggleLevel = (level: string) => {
-        const { levels } = appState;
-
-        setAppState({
-            ...appState,
-            levels: levels.includes(level) ? levels.filter(l => l !== level) : [...levels, level],
-        });
-    };
     const color = React.useMemo(() => ("$" + tint + "8"), [tint]);
 
     return <Theme>
         <YStack f={1}>
             <XStack px="$2" ai="center" backgroundColor={'$backgroundTransparent'} borderBottomWidth={1} borderColor={"$borderColor"}>
-                <Popover placement="bottom-start">
-                    <Popover.Trigger m="$0" p="$0">
-                        <InteractiveIcon size={20} Icon={Ban} onPress={() => setLogs([])} />
-                    </Popover.Trigger>
-                </Popover>
-                <Popover placement="bottom-start">
-                    <Popover.Trigger m="$0" p="$0">
-                        <InteractiveIcon size={20} Icon={Filter} />
-                    </Popover.Trigger>
-                    <Popover.Content padding={0} space={0} bw={1} boc="$borderColor" bc={"$color1"} >
-                        <ButtonGroup mode="vertical">
-                            <GroupButton onPress={() => toggleLevel('trace')} jc="flex-start" inActive={!appState.levels || !appState.levels.includes('trace')}>
-                                <Microscope size="$1" strokeWidth={1} />
-                                <Text>Trace</Text>
-                            </GroupButton>
-                            <GroupButton onPress={() => toggleLevel('debug')} jc="flex-start" inActive={!appState.levels || !appState.levels.includes('debug')}>
-                                <Bug size="$1" strokeWidth={1} />
-                                <Text>Debug</Text>
-                            </GroupButton>
-                            <GroupButton onPress={() => toggleLevel('info')} jc="flex-start" inActive={!appState.levels || !appState.levels.includes('info')}>
-                                <Info size="$1" strokeWidth={1} />
-                                <Text>Info</Text>
-                            </GroupButton>
-                            <GroupButton onPress={() => toggleLevel('warn')} jc="flex-start" inActive={!appState.levels || !appState.levels.includes('warn')}>
-                                <AlertCircle size="$1" strokeWidth={1} />
-                                <Text>Warn</Text>
-                            </GroupButton>
-                            <GroupButton onPress={() => toggleLevel('error')} jc="flex-start" inActive={!appState.levels || !appState.levels.includes('error')}>
-                                <XCircle size="$1" strokeWidth={1} />
-                                <Text>Error</Text>
-                            </GroupButton>
-                            <GroupButton onPress={() => toggleLevel('fatal')} jc="flex-start" inActive={!appState.levels || !appState.levels.includes('fatal')}>
-                                <Bomb size="$1" strokeWidth={1} />
-                                <Text>Fatal</Text>
-                            </GroupButton>
-                        </ButtonGroup>
-                    </Popover.Content>
-                </Popover>
+                <XStack px="$2" py="$1.5" ai="center" space="$2" backgroundColor="$backgroundTransparent" borderBottomWidth={1} borderColor="$borderColor">
+                    <XStack px="$2" ai="center" backgroundColor={'$backgroundTransparent'} >
+                        <Popover placement="bottom-start">
+                            <Popover.Trigger m="$0" p="$0">
+                                <InteractiveIcon size={20} Icon={Ban} onPress={() => setLogs([])} />
+                            </Popover.Trigger>
+                        </Popover>
+                        <Popover placement="bottom-start">
+                            <Popover.Trigger m="$0" p="$0">
+                                <InteractiveIcon size={20} Icon={Filter} />
+                            </Popover.Trigger>
+                            <Popover.Content p="$3" boc="$borderColor" bw={1} bc="$bgPanel" gap="$2" br="$6" elevation="$2">
+                                <Text fontSize="$2" fontWeight="700">
+                                    Log levels
+                                </Text>
+                                <XStack w="100%" jc="space-between" pt="$2" px="$2" ai="center" gap="$2">
+                                    <Text fontSize="$3" col="$gray10" >
+                                        All levels
+                                    </Text>
+                                    <Checkbox
+                                        bc="$bgContent"
+                                        size="$4"
+                                        height={20}
+                                        checked={allToggled}
+                                        onCheckedChange={() => {
+                                            if (allToggled) {
+                                                setAppState((prev) => ({ ...prev, levels: [] }))
+                                            } else {
+                                                setAppState((prev) => ({ ...prev, levels: allLevelNames }))
+                                            }
+                                        }}
+                                    >
+                                        <Checkbox.Indicator>
+                                            <Check size={16} color={"$color"} />
+                                        </Checkbox.Indicator>
+                                    </Checkbox>
+                                </XStack>
+                                {/* @ts-ignore */}
+                                <ToggleGroup
+                                    orientation='vertical'
+                                    type="multiple"
+                                    onValueChange={(values) => { setAppState(prev => ({ ...prev, levels: values })); }}
+                                    value={selectedLevels} > {levels.map((level: Level) => {
+                                        const inActive = !selectedLevels || !selectedLevels.includes(level.name)
+                                        const bgColor = inActive ? "$bgPanel" : "$bgContent"
+                                        return (
+                                            <ToggleGroup.Item jc="flex-start" ai="center" flexDirection="row" px="$3" py="$2" miw="160px"
+                                                key={level.name}
+                                                value={level.name}
+                                                focusStyle={{ borderColor: "transparent", bc: bgColor }}
+                                                pressStyle={{ borderColor: "transparent", bc: bgColor }}
+                                                borderColor={inActive ? "transparent" : "$gray4"}
+                                                hoverStyle={{ bc: "$bgContent" }}
+                                                bc={bgColor} borderRadius="$4" >
+                                                <Tinted> <level.icon size="$1" o={inActive ? 0.8 : 1} color={inActive ? "$color" : "$color8"} /></Tinted>
+                                                <Text o={inActive ? 0.8 : 1} ml={"$4"}>{level.name.charAt(0).toUpperCase() + level.name.slice(1)}</Text>
+                                            </ToggleGroup.Item>
+                                        )
+                                    })}
+                                </ToggleGroup>
+                            </Popover.Content>
+                        </Popover>
+                    </XStack>
+                </XStack>
                 <Input
                     focusStyle={{ borderLeftWidth: 0, borderRightWidth: 0, borderTopWidth: 0, outlineWidth: 0 }}
                     forceStyle='focus'
@@ -176,7 +205,7 @@ export const LogPanel = ({ AppState, logs, setLogs }) => {
                     onChangeText={(text) => {
                         setSearch(text);
                     }}
-                    placeholder='Filter logs...'
+                    placeholder='Search logs...'
                     bw={0}
                 />
             </XStack>

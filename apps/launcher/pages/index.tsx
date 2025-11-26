@@ -321,7 +321,7 @@ const MainView = () => {
           .label("version")
           .after('name')
           .defaultValue(
-            "latest")
+            "development")
       }}
     />
   </YStack>

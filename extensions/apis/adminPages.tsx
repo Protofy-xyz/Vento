@@ -1,15 +1,15 @@
 import { APIModel } from '.'
-import { YStack, Text, Stack, XStack, Accordion, Spacer, Square, ScrollView, useToastController, Spinner, Paragraph, SizableText } from "@my/ui";
-import { ToyBrick, Eye, ChevronDown, UploadCloud, CheckCircle, Package, AlertTriangle } from '@tamagui/lucide-icons'
+import { YStack, Text, Stack, XStack, Accordion, Spacer, Square, ScrollView, useToastController } from "@my/ui";
+import { Eye, ChevronDown } from '@tamagui/lucide-icons'
 import { z, getPendingResult, API } from 'protobase'
 import { usePageParams } from 'protolib/next'
 import { usePrompt } from 'protolib/context/PromptAtom'
 import { Chip } from 'protolib/components/Chip'
 import { DataTable2 } from 'protolib/components/DataTable2'
-import { DataView, DataViewActionButton } from 'protolib/components/DataView'
+import { DataView } from 'protolib/components/DataView'
 import { AlertDialog } from 'protolib/components/AlertDialog'
 import { AdminPage } from 'protolib/components/AdminPage'
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import Center from 'protolib/components/Center'
 import { Tinted } from 'protolib/components/Tinted';
 import { usePendingEffect } from 'protolib/lib/usePendingEffect';
@@ -20,6 +20,12 @@ import { TemplateCard } from './TemplateCard';
 import { EditableObject } from 'protolib/components/EditableObject';
 
 const APIIcons = {}
+const defaultTemplateId = 'custom-api'
+const resolveTemplate = (templateId?: string) => {
+    const fallbackTemplate = apiTemplates[defaultTemplateId] ?? Object.values(apiTemplates)[0]
+    if (templateId && apiTemplates[templateId]) return apiTemplates[templateId]
+    return fallbackTemplate
+}
 
 const SelectGrid = ({ children }) => {
     return <XStack jc="center" ai="center" gap={25} flexWrap='wrap'>
@@ -44,7 +50,10 @@ const FirstSlide = ({ selected, setSelected }) => {
     </YStack>
 }
 
-const SecondSlide = ({ data, setData, error, setError, objects }) => {
+const SecondSlide = ({ data, setData, error, setError, objects, template }) => {
+    const currentTemplate = template ?? resolveTemplate(data?.data?.template)
+    const extraFields = currentTemplate?.extraFields ? currentTemplate.extraFields(objects) : {}
+
     return <ScrollView height={"250px"}>
         <EditableObject
             externalErrorHandling={true}
@@ -52,12 +61,12 @@ const SecondSlide = ({ data, setData, error, setError, objects }) => {
             setError={setError}
             data={data}
             setData={setData}
-            numColumns={apiTemplates[data['data'].template].extraFields ? 2 : 1}
+            numColumns={currentTemplate?.extraFields ? 2 : 1}
             mode={'add'}
             title={false}
             model={APIModel}
             extraFields={{
-                ...(apiTemplates[data['data'].template].extraFields ? apiTemplates[data['data'].template].extraFields(objects) : {})
+                ...extraFields
             }}
         />
     </ScrollView>
@@ -153,7 +162,7 @@ export default {
                     initialItems?.isLoaded ? 'Currently the system returned the following information: ' + JSON.stringify(initialItems.data) : ''
                 ))
 
-            const defaultData = { data: { template: 'custom-api' } }
+            const defaultData = { data: { template: defaultTemplateId } }
             const [dialogOpen, setDialogOpen] = useState(false)
             const [objects, setObjects] = useState(extraData?.objects ?? getPendingResult('pending'))
             const [currentElement, setCurrentElement] = useState<any>({})
@@ -162,6 +171,16 @@ export default {
             const [data, setData] = useState(defaultData)
             const [error, setError] = useState<any>('')
             const toast = useToastController()
+
+            const selectedTemplateId = (data?.data?.template && apiTemplates[data.data.template]) ? data.data.template : defaultTemplateId
+            const selectedTemplate = resolveTemplate(data?.data?.template)
+
+            useEffect(() => {
+                const templateId = data?.data?.template
+                if (!templateId || !apiTemplates[templateId]) {
+                    setData(prev => ({ ...prev, data: { ...prev.data, template: selectedTemplateId } }))
+                }
+            }, [data?.data?.template, selectedTemplateId])
 
             let options: any = {}
             const ObjectModel = currentElement?.data?.object ? objects[currentElement?.data?.object] : null
@@ -194,9 +213,10 @@ export default {
                                         //TODO: when using custom data and setData in editablectObject
                                         //it seems that defaultValue is no longer working
                                         //we are going to emulate it here until its fixed
-                                        const obj = APIModel.load(data['data'])
-                                        if (apiTemplates[data['data'].template].extraValidation) {
-                                            const check = apiTemplates[data['data'].template].extraValidation(data['data'])
+                                        const payload = { ...data, data: { ...data['data'], template: selectedTemplateId } }
+                                        const obj = APIModel.load(payload['data'])
+                                        if (selectedTemplate?.extraValidation) {
+                                            const check = selectedTemplate.extraValidation(payload['data'])
                                             if (check?.error) {
                                                 throw check.error
                                             }
@@ -217,12 +237,12 @@ export default {
                                     {
                                         name: "Create new Action",
                                         title: "Select your Template",
-                                        component: <FirstSlide selected={data?.data['template']} setSelected={(tpl) => setData({ ...data, data: { ...data['data'], template: tpl } })} />
+                                        component: <FirstSlide selected={selectedTemplateId} setSelected={(tpl) => setData({ ...data, data: { ...data['data'], template: tpl } })} />
                                     },
                                     {
-                                        name: apiTemplates[data?.data['template']]['name'],
+                                        name: selectedTemplate?.name ?? "Configure your action",
                                         title: "Configure your action",
-                                        component: <SecondSlide error={error} objects={objects} setError={setError} data={data} setData={setData} />
+                                        component: <SecondSlide error={error} objects={objects} setError={setError} data={data} setData={setData} template={selectedTemplate} />
                                     }
                                 ]
                                 }></Slides>

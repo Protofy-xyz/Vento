@@ -1,0 +1,23 @@
+{
+  "name": "mcp",
+  "version": "0.0.1",
+  "description": "MCP Server for Vento - Exposes boards as tools and resources",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "dev": "tsc && node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@my/config": "*",
+    "dotenv": "^16.3.1",
+    "protobase": "*",
+    "protonode": "*"
+  },
+  "devDependencies": {
+    "@types/node": "20.6.0",
+    "typescript": "5.8.2"
+  }
+}

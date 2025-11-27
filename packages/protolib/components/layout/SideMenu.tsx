@@ -86,10 +86,9 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                         <YStack
                             p="$2"
                             cursor='pointer'
-                            hoverStyle={{ backgroundColor: '$gray4' }}
                             br="$4"
                         >
-                            <Settings size={20} color="$gray9" strokeWidth={1.5} />
+                            <Settings size={28} color="$gray9" strokeWidth={1.5} />
                         </YStack>
                     }
                 >

@@ -272,7 +272,7 @@ function Widget(card) {
             }
         }
 
-        const aiTemplatePath = fspath.join(process.cwd(), '..', '..', 'data', 'templates', 'boards', 'ai agent', 'ai agent.json');
+        const aiTemplatePath = fspath.join(process.cwd(), '..', '..', 'data', 'templates', 'boards', 'smart ai agent', 'smart ai agent.json');
         let aiTemplateJson: any = {};
         if (fs.existsSync(aiTemplatePath)) {
             const aiTemplateData = fs.readFileSync(aiTemplatePath, 'utf-8');

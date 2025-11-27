@@ -53,6 +53,64 @@ const createdMatrixUsers: Set<string> = new Set();
 const agentsInVentoRoom: Set<string> = new Set();
 // Room alias for the main room
 const VENTO_ROOM_ALIAS = '#vento:vento.local';
+// Cache for DM room -> agent mapping
+const dmRoomAgentCache: Map<string, string> = new Map();
+// Room ID of #vento (to exclude from DM detection)
+let ventoRoomId: string | null = null;
+// Max history messages to keep per DM
+const MAX_DM_HISTORY = 50;
+
+interface ChatMessage {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
+
+/**
+ * Get the path for DM history file (per room, so new DM = new conversation)
+ */
+function getDMHistoryPath(agentName: string, roomId: string): string {
+    // Sanitize names for filesystem
+    const safeAgent = agentName.replace(/[^a-z0-9_-]/gi, '_');
+    // Room IDs look like !abc123:server - sanitize for filesystem
+    const safeRoom = roomId.replace(/[^a-z0-9_-]/gi, '_');
+    return path.join(getRoot(), 'data', 'dendrite', 'dms', safeAgent, `${safeRoom}.json`);
+}
+
+/**
+ * Load DM history for a room with an agent
+ */
+function loadDMHistory(agentName: string, roomId: string): ChatMessage[] {
+    const historyPath = getDMHistoryPath(agentName, roomId);
+    try {
+        if (fs.existsSync(historyPath)) {
+            const data = fs.readFileSync(historyPath, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (e) {
+        logger.warn({ error: (e as Error).message, agentName, roomId }, 'Error loading DM history');
+    }
+    return [];
+}
+
+/**
+ * Save DM history for a room with an agent
+ */
+function saveDMHistory(agentName: string, roomId: string, history: ChatMessage[]): void {
+    const historyPath = getDMHistoryPath(agentName, roomId);
+    try {
+        // Ensure directory exists
+        const dir = path.dirname(historyPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        // Trim history to max size
+        const trimmedHistory = history.slice(-MAX_DM_HISTORY);
+        fs.writeFileSync(historyPath, JSON.stringify(trimmedHistory, null, 2));
+    } catch (e) {
+        logger.error({ error: (e as Error).message, agentName, roomId }, 'Error saving DM history');
+    }
+}
 
 /**
  * Get Matrix user ID for an agent
@@ -179,6 +237,57 @@ async function joinAgentToVentoRoom(agent: VentoAgent): Promise<void> {
 }
 
 /**
+ * Detect if a room is a DM with one of our agents
+ * Returns the agent if this is a DM, null otherwise
+ */
+async function detectDMAgent(roomId: string, sender: string): Promise<VentoAgent | null> {
+    // Check cache first
+    const cachedAgentId = dmRoomAgentCache.get(roomId);
+    if (cachedAgentId) {
+        const agent = registeredAgents.get(cachedAgentId);
+        if (agent) {
+            logger.debug({ roomId, agent: cachedAgentId }, 'Found agent in DM cache');
+            return agent;
+        }
+    }
+
+    // Skip if this is the #vento room
+    if (ventoRoomId && roomId === ventoRoomId) {
+        return null;
+    }
+
+    // Try to detect by querying room members as each agent
+    // (appservice can't query rooms it's not in, but agents can)
+    for (const [boardId, agent] of registeredAgents) {
+        try {
+            const membersResult = await matrixRequest(
+                'GET',
+                `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/members?membership=join`,
+                undefined,
+                agent.matrixUserId // Query as the agent
+            );
+
+            const members = membersResult?.chunk || [];
+            const memberIds = members.map((m: any) => m.state_key);
+
+            // If we got here, this agent is in the room
+            // Check if it's a small room (DM-like)
+            if (memberIds.length <= 3 && memberIds.includes(agent.matrixUserId)) {
+                dmRoomAgentCache.set(roomId, boardId);
+                logger.debug({ roomId, agent: boardId, memberCount: memberIds.length }, 'Detected DM room with agent');
+                return agent;
+            }
+        } catch (error: any) {
+            // This agent is not in the room, try next
+            continue;
+        }
+    }
+
+    logger.debug({ roomId }, 'No agent found for this room');
+    return null;
+}
+
+/**
  * Send a message as an agent
  */
 async function sendMessageAsAgent(agent: VentoAgent, roomId: string, message: string): Promise<void> {
@@ -198,6 +307,9 @@ async function sendMessageAsAgent(agent: VentoAgent, roomId: string, message: st
 /**
  * Call the Vento agent and get response
  */
+/**
+ * Call agent with a simple message (for mentions in public rooms)
+ */
 async function callAgentInput(boardId: string, message: string, sender: string): Promise<string> {
     const token = getServiceToken();
     const url = `/api/agents/v1/${boardId}/agent_input`;
@@ -210,8 +322,33 @@ async function callAgentInput(boardId: string, message: string, sender: string):
         throw new Error(response.error?.message || 'Agent call failed');
     }
 
-    // Extract response text
-    const data = response.data;
+    return extractAgentResponse(response.data);
+}
+
+/**
+ * Call agent with conversation history (for DMs)
+ */
+async function callAgentWithHistory(boardId: string, messages: ChatMessage[], sender: string): Promise<string> {
+    const token = getServiceToken();
+    const url = `/api/agents/v1/${boardId}/agent_input`;
+
+    logger.debug({ url, messageCount: messages.length, sender }, 'Calling agent with history');
+
+    // Send messages array as JSON in the message parameter
+    const messageParam = JSON.stringify(messages);
+    const response = await API.get(url + `?message=${encodeURIComponent(messageParam)}&sender=${encodeURIComponent(sender)}&token=${token}`);
+
+    if (response.isError) {
+        throw new Error(response.error?.message || 'Agent call failed');
+    }
+
+    return extractAgentResponse(response.data);
+}
+
+/**
+ * Extract response text from agent response data
+ */
+function extractAgentResponse(data: any): string {
     if (typeof data === 'string') {
         return data;
     } else if (data?.response) {
@@ -229,9 +366,55 @@ async function callAgentInput(boardId: string, message: string, sender: string):
 }
 
 /**
+ * Handle invite event - auto-join when an agent is invited to a room
+ */
+async function handleInvite(event: any): Promise<void> {
+    const stateKey = event.state_key; // The user being invited
+    const roomId = event.room_id;
+    const sender = event.sender;
+    const content = event.content;
+
+    // Check if this is an invite for one of our agents
+    if (content?.membership !== 'invite') return;
+    if (!stateKey.startsWith(`@${USER_PREFIX}`)) return;
+
+    const agentName = getAgentNameFromMatrixId(stateKey);
+    if (!agentName) return;
+
+    const agent = registeredAgents.get(agentName);
+    if (!agent) {
+        logger.debug({ stateKey, agentName }, 'Invite for unknown agent');
+        return;
+    }
+
+    logger.info({ agent: agent.boardId, roomId, invitedBy: sender }, 'Agent invited to room, auto-joining');
+
+    try {
+        await matrixRequest(
+            'POST',
+            `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/join`,
+            {},
+            agent.matrixUserId
+        );
+        
+        // Cache this room as a DM with this agent
+        dmRoomAgentCache.set(roomId, agent.boardId);
+        logger.info({ agent: agent.boardId, roomId }, 'Agent auto-joined room (cached as DM)');
+    } catch (error: any) {
+        logger.error({ error: error.message, agent: agent.boardId, roomId }, 'Failed to auto-join room');
+    }
+}
+
+/**
  * Handle incoming Matrix event from appservice
  */
 async function handleMatrixEvent(event: any): Promise<void> {
+    // Handle invites first
+    if (event.type === 'm.room.member') {
+        await handleInvite(event);
+        return;
+    }
+
     // Only process room messages
     if (event.type !== 'm.room.message') return;
     
@@ -247,10 +430,7 @@ async function handleMatrixEvent(event: any): Promise<void> {
 
     logger.debug({ sender, roomId, body }, 'Processing Matrix event');
 
-    // Check if message is in a DM with an agent or mentions an agent
-    // For now, check if any registered agent should respond
-    
-    // Look for mentions like @_vento_agentname or just agentname:
+    // Check if message mentions an agent
     for (const [boardId, agent] of registeredAgents) {
         const mentionPatterns = [
             new RegExp(`^@?${USER_PREFIX}${boardId}[:\\s]+(.+)$`, 'is'),
@@ -264,14 +444,9 @@ async function handleMatrixEvent(event: any): Promise<void> {
                 logger.info({ agent: boardId, message, sender }, 'Agent mentioned');
 
                 try {
-                    // Ensure agent is registered and in room
                     await registerAgentUser(agent);
                     await joinAgentToRoom(agent, roomId);
-
-                    // Call agent
                     const response = await callAgentInput(boardId, message, sender);
-
-                    // Send response
                     await sendMessageAsAgent(agent, roomId, response);
                 } catch (error: any) {
                     logger.error({ error: error.message, agent: boardId }, 'Error handling agent request');
@@ -279,6 +454,36 @@ async function handleMatrixEvent(event: any): Promise<void> {
                 }
                 return;
             }
+        }
+    }
+
+    // No mention found - check if this is a DM with an agent
+    // A DM is detected when one of our agents is a member of this room (not #vento)
+    const dmAgent = await detectDMAgent(roomId, sender);
+    if (dmAgent) {
+        logger.info({ agent: dmAgent.boardId, message: body, sender, roomId }, 'DM to agent');
+        
+        try {
+            // Load conversation history (per room, so new DM = fresh conversation)
+            const history = loadDMHistory(dmAgent.boardId, roomId);
+            
+            // Add user's new message to history
+            history.push({ role: 'user', content: body });
+            
+            // Call agent with full history
+            const response = await callAgentWithHistory(dmAgent.boardId, history, sender);
+            
+            // Add assistant's response to history
+            history.push({ role: 'assistant', content: response });
+            
+            // Save updated history
+            saveDMHistory(dmAgent.boardId, roomId, history);
+            
+            // Send response to Matrix
+            await sendMessageAsAgent(dmAgent, roomId, response);
+        } catch (error: any) {
+            logger.error({ error: error.message, agent: dmAgent.boardId }, 'Error handling DM');
+            await sendMessageAsAgent(dmAgent, roomId, `❌ Error: ${error.message}`);
         }
     }
 }

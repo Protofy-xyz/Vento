@@ -743,7 +743,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     useCallback(
       () => ({
         root: getScrollElement(),
-        rootMargin: '100px',
+        rootMargin: '200px', // Increased margin for better "at bottom" detection
       }),
       [getScrollElement]
     ),
@@ -806,7 +806,13 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   useLayoutEffect(() => {
     const scrollEl = scrollRef.current;
     if (scrollEl) {
-      scrollToBottom(scrollEl);
+      // Immediate scroll
+      scrollToBottom(scrollEl, 'instant');
+      // Also scroll after content loads (images, etc)
+      requestAnimationFrame(() => {
+        scrollToBottom(scrollEl, 'instant');
+        setTimeout(() => scrollToBottom(scrollEl, 'instant'), 150);
+      });
     }
   }, []);
 
@@ -853,8 +859,16 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   useLayoutEffect(() => {
     if (scrollToBottomCount > 0) {
       const scrollEl = scrollRef.current;
-      if (scrollEl)
-        scrollToBottom(scrollEl, scrollToBottomRef.current.smooth ? 'smooth' : 'instant');
+      if (scrollEl) {
+        // Use requestAnimationFrame to ensure DOM has updated before scrolling
+        requestAnimationFrame(() => {
+          scrollToBottom(scrollEl, scrollToBottomRef.current.smooth ? 'smooth' : 'instant');
+          // Double-check scroll after a short delay (for dynamically sized content)
+          setTimeout(() => {
+            scrollToBottom(scrollEl, 'instant');
+          }, 100);
+        });
+      }
     }
   }, [scrollToBottomCount]);
 

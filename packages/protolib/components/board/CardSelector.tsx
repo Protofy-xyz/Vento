@@ -424,13 +424,7 @@ const extraCards = [
       width: 2,
       height: 7,
       icon: 'scan-eye',
-      description: `A reusable card that observes value changes on the board.
-
-  #### Key Features
-  - Real time updates.
-  - Customize parameters.
-  - Rule execution on each value change.
-  - Customize the card view (UI/render).`,
+      description: `Default description, edit this description to improve usability of this value`,
       params: {
         input: "input to observe"
       },

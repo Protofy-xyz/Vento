@@ -82,13 +82,45 @@ app.post('/api/core/v1/auth/login', handler(async (req: any, res: any) => {
     }
     try {
         LoginSchema.parse(request)
+        
+        // Check if password is a service token (type: 'system') - allows login as any user without DB check
+        try {
+            const decoded = verifyToken(request.password)
+            if (decoded && decoded.type === 'system') {
+                // Service token: create session directly for requested user
+                const newSession = {
+                    id: request.username,
+                    type: 'admin',
+                    admin: true,
+                    permissions: ['*', 'admin']
+                }
+                logger.info({ user: request.username }, "Login with service token (impersonation)")
+                res.send({
+                    session: genNewSession(newSession),
+                    context: await getSessionContext('admin')
+                })
+                generateEvent({
+                    path: 'auth/login/success',
+                    from: 'core',
+                    user: request.username,
+                    payload: { clientIp: req.get('X-Client-IP') || req.headers['x-client-ip'], serviceToken: true }
+                }, getServiceToken())
+                return
+            }
+        } catch (e) {
+            // Not a valid token, continue with normal flow
+        }
+
+        // Normal login flow - user must exist
         const db = getDB(dbPath, req)
         if (!await db.exists(request.username)) {
             return fail('Incorrect user or password')
         }
 
         const storedUser = JSON.parse(await db.get(request.username))
-        let skipLogin;
+        let skipLogin = false;
+        
+        // Check if password is a user token (only for own account)
         try {
             const decoded = verifyToken(request.password)
             if (decoded && decoded.id === storedUser.username) {
@@ -96,7 +128,7 @@ app.post('/api/core/v1/auth/login', handler(async (req: any, res: any) => {
                 logger.info({ user: storedUser.username }, "Login with token successful")
             }
         } catch (e) {
-            skipLogin = false;
+            // Not a valid token
         }
 
         //check if the password is a token, if so, accept it directly to get a new session

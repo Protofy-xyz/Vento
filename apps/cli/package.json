@@ -1,0 +1,21 @@
+{
+  "name": "vento-cli",
+  "version": "0.0.1",
+  "description": "CLI for Vento - Interact with agents, tools and values",
+  "bin": {
+    "vento": "./bin/vento.js"
+  },
+  "scripts": {
+    "vento": "node bin/vento.js"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.3",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "inquirer": "^8.2.6",
+    "ora": "^5.4.1",
+    "protobase": "*",
+    "protonode": "*"
+  }
+}

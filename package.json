@@ -8,6 +8,7 @@
     "apps/dendrite",
     "apps/core",
     "apps/mcp",
+    "apps/cli",
     "packages/app",
     "packages/config",
     "packages/protobase",
@@ -71,7 +72,8 @@
     "download-binaries": "node scripts/download-bins.js",
     "clean-deps": "shx rm -rf node_modules",
     "update-ui": "shx rm -rf data/pages && node prepare.js",
-    "assets": "node extensions/assets/scripts/index.js"
+    "assets": "node extensions/assets/scripts/index.js",
+    "vento": "node apps/cli/bin/vento.js"
   },
   "resolutions": {
     "react": "18.2.0",

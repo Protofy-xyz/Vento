@@ -81,7 +81,8 @@ const token = getServiceToken();
 // Build args - pass host and token directly for headless operation
 const args = [
     '-config', configPath,
-    '-host', host
+    '-host', host,
+    '-device', 'computer'  // Use 'computer' as the device name for the main agent
 ];
 
 // Add service token for headless mode

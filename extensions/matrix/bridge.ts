@@ -314,6 +314,15 @@ export async function syncAgents(): Promise<void> {
                 cardCount: board.cards?.length,
             }, 'Checking board');
 
+            // Check visibility: visible if no visibility array, or if visibility includes 'chat'
+            const visibility = board.visibility;
+            const isVisibleInChat = !visibility || (Array.isArray(visibility) && visibility.includes('chat'));
+            
+            if (!isVisibleInChat) {
+                logger.debug({ boardName, visibility }, 'Board not visible in chat, skipping');
+                continue;
+            }
+
             // Check if board has agent_input card
             const hasAgentInput = board.cards?.some((card: any) =>
                 card.name === 'agent_input' || card.enableAgentInputMode

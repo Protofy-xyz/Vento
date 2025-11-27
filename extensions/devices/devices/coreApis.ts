@@ -757,7 +757,7 @@ const registerActions = async () => {
                 })
             }
         }
-        await generateDeviceBoard(`${deviceInfo.data.name}_device`, deviceInfo.data.name);
+        await generateDeviceBoard(deviceInfo.data.name, deviceInfo.data.name);
     }
 }
 
@@ -795,12 +795,12 @@ export const DevicesAutoAPI = AutoAPI({
         //delete associated board
         const token = getServiceToken();
         try {
-            await API.get(`/api/core/v1/boards/${encodeURIComponent(data.name + "_device")}/delete?token=${token}`);
-            logger.info({ boardName: data.name + "_device" }, 'Deleted associated device board');
+            await API.get(`/api/core/v1/boards/${encodeURIComponent(data.name)}/delete?token=${token}`);
+            logger.info({ boardName: data.name }, 'Deleted associated device board');
         } catch (e: any) {
             const status = e?.response?.status || e?.status;
             if (status !== 404) {
-                logger.warn({ boardName: data.name + "_device", err: e?.response?.data || e }, 'Delete associated device board failed (non-404)');
+                logger.warn({ boardName: data.name, err: e?.response?.data || e }, 'Delete associated device board failed (non-404)');
             }
         }
         return data;

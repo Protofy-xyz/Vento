@@ -161,7 +161,7 @@ function buildEdgesFromCards(cards: Card[]): RFEdge[] {
     return edges;
 }
 
-const DefaultNode = memo(({ data }: { data: any }) => {
+const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean }) => {
     const inCount = data?.ports?.inputs?.length ?? 0;
     const outCount = data?.ports?.outputs?.length ?? 0;
     return (
@@ -177,8 +177,8 @@ const DefaultNode = memo(({ data }: { data: any }) => {
                 color: 'var(--color)',
                 position: 'relative',
                 zIndex: 2,
-                border: '1px solid var(--gray6)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                border: selected ? '2px solid var(--color9)' : '1px solid var(--gray6)',
+                boxShadow: selected ? '0 0 0 4px rgba(0,0,0,0.05)' : '0 2px 8px rgba(0,0,0,0.05)',
                 transition: 'border 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
             }}
         >
@@ -231,6 +231,7 @@ const LayerGroupNode = memo(({ data }: { data: any }) => (
         style={{
             width: '100%',
             height: '100%',
+            pointerEvents: 'none',
             borderRadius: 12,
             background: CFG.GROUP_BG,
             border: data?.isActiveLayer ? '3px solid var(--gray8)' : CFG.GROUP_BORDER,
@@ -254,9 +255,11 @@ const LayerGroupNode = memo(({ data }: { data: any }) => (
                 borderTopLeftRadius: 12,
                 borderTopRightRadius: 12,
                 borderBottom: '1px solid rgba(0,0,0,0.08)',
-                pointerEvents: 'none',
                 alignItems: 'center',
+                cursor: 'grab',
+                pointerEvents: 'auto',
             }}
+            className="layer-group-header"
         >
             {data?.label}
         </div>
@@ -338,6 +341,7 @@ const Flow = ({
     onLayoutChange,
     activeLayer,
     onSelectLayer,
+    onDeleteNodes,
 }: {
     initialNodes: RFNode[];
     initialEdges: RFEdge[];
@@ -345,6 +349,7 @@ const Flow = ({
     onLayoutChange?: (layout: GraphLayout) => void;
     activeLayer?: string;
     onSelectLayer?: (layer: string) => void;
+    onDeleteNodes?: (ids: string[]) => void;
 }) => {
     const normalizedInitial = useMemo(() => normalizeGroupNodes(initialNodes), [initialNodes]);
     const layoutRef = useRef<GraphLayout | undefined | null>(initialLayout);
@@ -434,12 +439,28 @@ const Flow = ({
 
 
     const onNodesChange = useCallback((changes) => {
-        const shouldPersist = changes.some((c: any) =>
-            c.type === 'position' && c.dragging === false
-        );
+        const removedIds = changes.filter((c: any) => c.type === 'remove').map((c: any) => c.id);
+        if (removedIds.length) {
+            setEdges((eds) => eds.filter((e: RFEdge) =>
+                !removedIds.includes(e.source) && !removedIds.includes(e.target)
+            ));
+        }
+
+        const shouldPersistPosition = changes.some((c: any) => c.type === 'position' && c.dragging === false);
+        const shouldPersistRemoval = removedIds.length > 0;
+
         setNodes((nds) => {
             const next = applyActiveLayerStyle(normalizeGroupNodes(applyNodeChanges(changes, nds)));
-            if (shouldPersist && onLayoutChange) {
+
+            if (removedIds.length && onDeleteNodes) {
+                const deletable = removedIds.filter((id) => {
+                    const node = nds.find((n) => n.id === id);
+                    return node && node.type !== 'layerGroup';
+                });
+                if (deletable.length) onDeleteNodes(deletable);
+            }
+
+            if ((shouldPersistPosition || shouldPersistRemoval) && onLayoutChange) {
                 const exported = exportLayout(next);
                 if (!isSameLayout(exported, layoutRef?.current)) {
                     layoutRef.current = exported;
@@ -448,7 +469,7 @@ const Flow = ({
             }
             return next;
         });
-    }, [setNodes, onLayoutChange, exportLayout, applyActiveLayerStyle, isSameLayout]);
+    }, [setNodes, onLayoutChange, exportLayout, applyActiveLayerStyle, isSameLayout, onDeleteNodes, setEdges]);
 
     // Guardamos en la URL cuando terminas pan/zoom
     const handleMoveEnd = useCallback((_e: any, vp: { x: number; y: number; zoom: number }) => {
@@ -511,6 +532,10 @@ const Flow = ({
                 defaultViewport={defaultViewport}
                 minZoom={0.03}
                 maxZoom={2}
+                selectionOnDrag
+                selectNodesOnDrag
+                // selectionKeyCode="Shift"
+                multiSelectionKeyCode={['Meta', 'Control']}
                 nodesDraggable
                 nodesConnectable
                 elementsSelectable
@@ -584,6 +609,7 @@ function createGroupNode(
         data: { label: layerName, layer: layerName },
         style: { width: groupWidth, height: groupHeight },
         draggable: true,
+        dragHandle: '.layer-group-header',
         selectable: true,
     };
 }
@@ -727,12 +753,14 @@ export const GraphView = ({
     onLayoutChange,
     activeLayer,
     onSelectLayer,
+    onDeleteNodes,
 }: {
     cards: Card[];
     layout?: GraphLayout;
     onLayoutChange?: (layout: GraphLayout) => void;
     activeLayer?: string;
     onSelectLayer?: (layer: string) => void;
+    onDeleteNodes?: (ids: string[]) => void;
 }) => {
     const initialEdges = buildEdgesFromCards(cards || []);
     const grouped = groupByLayer(cards || []);
@@ -755,6 +783,7 @@ export const GraphView = ({
             onLayoutChange={onLayoutChange}
             activeLayer={activeLayer}
             onSelectLayer={onSelectLayer}
+            onDeleteNodes={onDeleteNodes}
         />
     );
 };

@@ -541,6 +541,32 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     setCurrentCard(null)
   }
 
+  const deleteCardsByName = useCallback(async (targets: string[]) => {
+    if (!targets.length) return;
+
+    const newItems = items.filter((item) => !targets.includes(item.name));
+    if (newItems.length === items.length) return;
+
+    setItems(newItems);
+    boardRef.current.cards = newItems;
+
+    const nextLayout = { ...(graphLayoutRef.current || {}) };
+    let layoutChanged = false;
+    targets.forEach((name) => {
+      if (nextLayout[name]) {
+        delete nextLayout[name];
+        layoutChanged = true;
+      }
+    });
+    if (layoutChanged) {
+      setGraphLayout(nextLayout);
+      graphLayoutRef.current = nextLayout;
+      boardRef.current.graphLayout = nextLayout;
+    }
+
+    await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
+  }, [items, board.name, setBoardVersion, refresh]);
+
   const layouts = useMemo(() => {
     // return {
     //   lg: computeLayout(items, { totalCols: 24, normalW: 8, normalH: 6, doubleW: 8, doubleH: 6 }, { layout: board?.layouts?.lg }),
@@ -1006,6 +1032,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
                 onLayoutChange={persistGraphLayout}
                 activeLayer={activeLayer}
                 onSelectLayer={(layer) => setActiveLayer(layer)}
+                onDeleteNodes={deleteCardsByName}
               /> : <YStack f={1} p={"$6"}>{cards.length > 0 && items !== null ? <DashboardGrid
                 extraScrollSpace={50}
                 items={cards}

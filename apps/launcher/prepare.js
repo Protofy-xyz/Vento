@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const { spawn } = require('child_process')
 
 if(!fs.existsSync('public')) {
     fs.mkdirSync('public')
@@ -10,14 +11,23 @@ if(!fs.existsSync('public')) {
 }
 
 if (!fs.existsSync('../../electron/launcher')) {
-    //run yarn package
-    const { exec } = require('child_process');
     console.log("Compiling launcher app...")
-    exec('yarn package', (err, stdout, stderr) => {
-        if (err) {
-            console.error(err);
-            return;
+    
+    const child = spawn('yarn', ['package'], {
+        stdio: 'inherit',
+        shell: true,
+        cwd: __dirname
+    })
+    
+    child.on('error', (err) => {
+        console.error('Failed to compile launcher:', err)
+        process.exit(1)
+    })
+    
+    child.on('close', (code) => {
+        if (code !== 0) {
+            console.error(`Launcher compilation failed with code ${code}`)
+            process.exit(code)
         }
-        console.log(stdout);
-    });
+    })
 }

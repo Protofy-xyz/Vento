@@ -335,14 +335,7 @@ const extraCards = [
         }
       },
       rulesCode: "return params.input",
-      description: `Actions can perform tasks, automate processes, and enhance user interactions. It can also trigger other action-type cards on the board.
-
-  #### Key Features
-  - Run actions from rules.
-  - Chain/trigger other action cards.
-  - Parameterized execution.
-  - Customize parameters.
-  - Customize the card view (UI/render).`,
+      description: `Default description, edit this description to improve usability of this action`,
     },
     group: "base",
     tag: "cards",

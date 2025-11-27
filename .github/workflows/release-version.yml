@@ -19,8 +19,11 @@ jobs:
         with:
           node-version: '21'
 
+      - name: Enable UI dev workspaces
+        run: node scripts/enableUiDev.js
+
       - name: Install dependencies
-        run: node scripts/enableUiDev.js && yarn
+        run: YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
 
       - name: Prepare dev
         run: yarn prepare-dev-ci

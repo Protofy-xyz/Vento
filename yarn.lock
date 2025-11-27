@@ -19305,6 +19305,7 @@ __metadata:
     semver: "npm:^7.5.4"
     shx: "npm:^0.3.4"
     tar: "npm:^7.4.3"
+    tree-kill: "npm:^1.2.2"
     ts-node: "npm:10.9.1"
     typescript: "npm:5.8.2"
   languageName: unknown
@@ -20394,6 +20395,15 @@ __metadata:
   version: 0.0.3
   resolution: "tr46@npm:0.0.3"
   checksum: 10/8f1f5aa6cb232f9e1bdc86f485f916b7aa38caee8a778b378ffec0b70d9307873f253f5cbadbe2955ece2ac5c83d0dc14a77513166ccd0a0c7fe197e21396695
+  languageName: node
+  linkType: hard
+
+"tree-kill@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "tree-kill@npm:1.2.2"
+  bin:
+    tree-kill: cli.js
+  checksum: 10/49117f5f410d19c84b0464d29afb9642c863bc5ba40fcb9a245d474c6d5cc64d1b177a6e6713129eb346b40aebb9d4631d967517f9fbe8251c35b21b13cd96c7
   languageName: node
   linkType: hard
 

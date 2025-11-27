@@ -10,6 +10,8 @@ module.exports = {
         interpreter: "node",
         windowsHide: true,
         autorestart: true,
+        treekill: true,
+        kill_timeout: 5000,
         cwd: currentDir,
         watch: [
             path.join(currentDir),  // Ruta que deseas monitorear

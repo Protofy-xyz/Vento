@@ -35,6 +35,8 @@ const api = {
     watch: false,
     autorestart: true,
     windowsHide: true,
+    treekill: true,
+    kill_timeout: 5000,
     env: {
         NODE_ENV: 'production'
     },
@@ -53,6 +55,8 @@ const apiDev = {
     watch: false,
     autorestart: true,
     windowsHide: true,
+    treekill: true,
+    kill_timeout: 5000,
     env: {
         NODE_ENV: 'development'
     },

@@ -8,6 +8,8 @@ const siteDev = {
   interpreter: 'node',
   windowsHide: true,
   watch: false,
+  treekill: true,
+  kill_timeout: 5000,
   env: {
     NODE_ENV: 'development',
     DOTENV_CONFIG_PATH: path.resolve(currentDir, '../../.env')

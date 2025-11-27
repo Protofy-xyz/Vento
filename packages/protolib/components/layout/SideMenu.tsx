@@ -16,7 +16,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
     const isXs = useMedia().xs
     const [open, setOpen] = useState(false)
     const [collapsed, setCollapsed] = useAtom(CollapsedSideMenuAtom)
-    const width = collapsed ? 80 : 260
+    const width = collapsed ? 64 : 260
 
     const settingsTintSwitcher = SiteConfig.ui?.tintSwitcher
     const settingsThemeSwitcher = SiteConfig.ui?.themeSwitcher
@@ -41,7 +41,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
             }}
             style={{ overflowY: 'auto' }}
         >
-            <YStack px="$5" pt="$5" jc="center" ai={collapsed ? "center" : "flex-start"} height={"fit-content"}>
+            <YStack px={collapsed ? "$2" : "$5"} pt={collapsed ? "$3" : "$5"} jc="center" ai={collapsed ? "center" : "flex-start"} height={"fit-content"}>
                 {/* do not use ternary, use `display` to have both images loaded and only play 
                 with visibility */}
                 <YStack display={collapsed ? "none" : "flex"}>{logo}</YStack>
@@ -51,7 +51,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                 {React.cloneElement(children, { ...children.props, collapsed })}
             </YStack>
         </YStack>
-        <XStack jc={collapsed ? "center" : "space-between"} m="$4" ai="center">
+        <XStack jc={collapsed ? "center" : "space-between"} m={collapsed ? "$2" : "$4"} ai="center">
             {(tintSwitcher || themeSwitcher) &&
                 <XStack display={collapsed ? "none" : "flex"}>
                     {themeSwitcher && settingsThemeSwitcherEnabled && <ThemeToggle borderWidth={0} chromeless />}

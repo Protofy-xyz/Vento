@@ -4,7 +4,7 @@ const fs = require('fs')
 const services = [
       {
         "name": "dendrite",
-        "disabled": true,
+        "disabled": false,
         "description": "Dendrite Service",
         "route": (req) => {
           if (req.url.startsWith('/_matrix/') || req.url == '/_matrix' || req.url.startsWith('.well-known/matrix/')) {

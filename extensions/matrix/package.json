@@ -1,0 +1,8 @@
+{
+  "name": "@extensions/matrix",
+  "version": "1.0.0",
+  "dependencies": {
+    "matrix-js-sdk": "^38.2.0",
+    "node-fetch": "^2.6.0"
+  }
+}

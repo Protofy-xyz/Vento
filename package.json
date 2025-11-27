@@ -8,6 +8,8 @@
     "apps/dendrite",
     "apps/core",
     "apps/mcp",
+    "apps/cli",
+    "apps/agent",
     "packages/app",
     "packages/config",
     "packages/protobase",
@@ -34,7 +36,7 @@
     "prod": "node scripts/start.js --prod",
     "prod-service": "NODE_ENV=production pm2 start ecosystem.config.js && yarn monit",
     "prepare-dev": "node prepare.js && yarn build && yarn workspaces foreach --all run prepare-dev",
-    "prepare-dev-ci": "node prepare.js --skip-pages-download && yarn build && yarn workspaces foreach --all run prepare-dev",
+    "prepare-dev-ci": "node prepare.js --skip-pages-download --skip-download-client && yarn build && yarn workspaces foreach --all run prepare-dev",
     "prepare": "node prepare.js && yarn workspaces foreach --all run prepare-dev",
     "add-user": "yarn workspace core add-user",
     "build": "yarn workspaces foreach -t --all run build",
@@ -71,7 +73,11 @@
     "download-binaries": "node scripts/download-bins.js",
     "clean-deps": "shx rm -rf node_modules",
     "update-ui": "shx rm -rf data/pages && node prepare.js",
-    "assets": "node extensions/assets/scripts/index.js"
+    "assets": "node extensions/assets/scripts/index.js",
+    "vento": "node apps/cli/bin/vento.js",
+    "download-agent": "node scripts/download-agent.js",
+    "build-agent": "node scripts/build-agent.js",
+    "setup-agent": "node apps/agent/setup.js"
   },
   "resolutions": {
     "react": "18.2.0",

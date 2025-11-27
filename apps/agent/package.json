@@ -1,0 +1,8 @@
+{
+  "name": "agent",
+  "version": "0.0.1",
+  "description": "Vento Agent - System monitor and action executor",
+  "scripts": {
+    "setup": "node setup.js"
+  }
+}

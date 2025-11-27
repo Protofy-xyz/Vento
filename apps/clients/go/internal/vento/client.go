@@ -41,6 +41,52 @@ func NewClient(rawBase string) (*Client, error) {
 	}, nil
 }
 
+// WaitForReady polls the API until it responds (any HTTP response), or times out.
+// Any HTTP response (even 401/404) means the server is running.
+// It retries every retryInterval for up to maxWait duration.
+func (c *Client) WaitForReady(ctx context.Context, maxWait, retryInterval time.Duration) error {
+	deadline := time.Now().Add(maxWait)
+	healthURL := *c.baseURL
+	healthURL.Path = path.Join(healthURL.Path, "/api/core/v1/boards")
+
+	for {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("server not ready after %v", maxWait)
+		}
+
+		// Check if context cancelled
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// Try HEAD request (lightweight, no body)
+		reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodHead, healthURL.String(), nil)
+		if err != nil {
+			cancel()
+			return err
+		}
+
+		resp, err := c.http.Do(req)
+		cancel()
+
+		if err == nil {
+			resp.Body.Close()
+			// Any HTTP response means server is running (even 401/404)
+			return nil
+		}
+
+		// Wait before retry
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(retryInterval):
+		}
+	}
+}
+
 // Login performs username/password authentication and returns the session token.
 func (c *Client) Login(ctx context.Context, username, password string) (string, error) {
 	payload := map[string]string{

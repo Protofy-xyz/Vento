@@ -9,7 +9,7 @@ import { DashboardGrid, gridSizes, getCurrentBreakPoint } from 'protolib/compone
 import { LogPanel } from 'protolib/components/LogPanel';
 import { AlertDialog } from 'protolib/components/AlertDialog';
 import { CenterCard, HTMLView } from '@extensions/services/widgets'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useEffectOnce, useUpdateEffect } from 'usehooks-ts'
 import { Tinted } from 'protolib/components/Tinted'
 import { useProtoStates } from '@extensions/protomemdb/lib/useProtoStates'
@@ -296,31 +296,13 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
 
   const [items, setItems] = useState(board.cards && board.cards.length ? board.cards : []);
   const [boardCode, setBoardCode] = useState(JSON.stringify(board))
-  const [graphLayout, setGraphLayout] = useState(board?.graphLayout ?? {});
-  const graphLayoutRef = useRef(graphLayout);
-  const layoutsEqual = useCallback((a: any, b: any) => {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-    if (aKeys.length !== bKeys.length) return false;
-    for (const k of aKeys) {
-      const av = a[k]; const bv = b[k];
-      if (!bv) return false;
-      if (av.x !== bv.x || av.y !== bv.y || av.layer !== bv.layer || av.parent !== bv.parent || av.type !== bv.type) return false;
-    }
-    return true;
-  }, []);
 
   useEffect(() => {
+    console.log('board changed, updating items', board)
     setItems(board.cards && board.cards.length ? board.cards : []);
     setBoardCode(JSON.stringify(board));
-    if (!layoutsEqual(graphLayoutRef.current, board?.graphLayout ?? {})) {
-      setGraphLayout(board?.graphLayout ?? {});
-      graphLayoutRef.current = board?.graphLayout ?? {};
-    }
     window['board'] = board;
-  }, [board, layoutsEqual])
+  }, [board])
 
   const [availableLayers, setLayers] = useLayers();
   const [activeLayer, setActiveLayer] = useBoardLayer();
@@ -502,11 +484,6 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
   }, [items])
 
   useEffect(() => {
-    boardRef.current.graphLayout = graphLayout
-    graphLayoutRef.current = graphLayout
-  }, [graphLayout])
-
-  useEffect(() => {
     boardRef.current = board;
   }, [board]);
 
@@ -540,32 +517,6 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     setIsDeleting(false)
     setCurrentCard(null)
   }
-
-  const deleteCardsByName = useCallback(async (targets: string[]) => {
-    if (!targets.length) return;
-
-    const newItems = items.filter((item) => !targets.includes(item.name));
-    if (newItems.length === items.length) return;
-
-    setItems(newItems);
-    boardRef.current.cards = newItems;
-
-    const nextLayout = { ...(graphLayoutRef.current || {}) };
-    let layoutChanged = false;
-    targets.forEach((name) => {
-      if (nextLayout[name]) {
-        delete nextLayout[name];
-        layoutChanged = true;
-      }
-    });
-    if (layoutChanged) {
-      setGraphLayout(nextLayout);
-      graphLayoutRef.current = nextLayout;
-      boardRef.current.graphLayout = nextLayout;
-    }
-
-    await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
-  }, [items, board.name, setBoardVersion, refresh]);
 
   const layouts = useMemo(() => {
     // return {
@@ -640,15 +591,6 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
       alert('Error editing board')
     }
   }
-
-  const persistGraphLayout = useCallback((nextLayout) => {
-    const safeLayout = nextLayout || {};
-    if (layoutsEqual(safeLayout, graphLayoutRef.current)) return;
-    graphLayoutRef.current = safeLayout;
-    setGraphLayout(safeLayout);
-    boardRef.current.graphLayout = safeLayout;
-    saveBoard(board.name, boardRef.current, setBoardVersion, refresh, { bumpVersion: false });
-  }, [board.name, setBoardVersion, refresh, layoutsEqual]);
 
   //fill items with react content, addWidget should be the last item
   const cards = (items || []).map((item) => {
@@ -1026,14 +968,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
                   formatOnType: true
                 }}
               />
-              : isGraphView ? <GraphView
-                cards={cards}
-                layout={graphLayout}
-                onLayoutChange={persistGraphLayout}
-                activeLayer={activeLayer}
-                onSelectLayer={(layer) => setActiveLayer(layer)}
-                onDeleteNodes={deleteCardsByName}
-              /> : <YStack f={1} p={"$6"}>{cards.length > 0 && items !== null ? <DashboardGrid
+              : isGraphView ? <GraphView cards={cards} /> : <YStack f={1} p={"$6"}>{cards.length > 0 && items !== null ? <DashboardGrid
                 extraScrollSpace={50}
                 items={cards}
                 settings={board.settings}
@@ -1043,17 +978,23 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
                 }}
                 onLayoutChange={(layout, layouts) => {
                   if (breakpointCancelRef.current == breakpointRef.current) {
+                    console.log('Layout change cancelled for breakpoint: ', breakpointRef.current, breakpointCancelRef.current)
                     breakpointCancelRef.current = null
                     return
                   }
 
                   //small dedup to avoid multiple saves in a short time
                   if (JSON.stringify(boardRef.current.layouts[breakpointRef.current]) == JSON.stringify(layout)) {
+                    console.log('Layout not changed, skipping save')
                     return
                   }
 
+                  console.log('programming layout change: ', breakpointRef.current)
                   clearTimeout(dedupRef.current)
                   dedupRef.current = setTimeout(() => {
+                    console.log('Layout changed: ', breakpointRef.current)
+                    console.log('Prev layout: ', boardRef.current.layouts[breakpointRef.current])
+                    console.log('New layout: ', layout)
                     const bp = breakpointRef.current;
                     const prev = boardRef.current.layouts[bp] || [];
                     const next = layout;
@@ -1238,6 +1179,7 @@ export const BoardView = ({ workspace, pageState, initialItems, itemData, pageSe
   usePendingEffect((s) => { API.get({ url: `/api/core/v1/boards/${params.board}/` }, s) }, setBoardData, board)
   useEffect(() => {
     refresh(true)
+    console.log('Board param changed, refreshing board version*************************')
   }, [params.board])
 
   const [iconsData, setIconsData] = useState(icons ?? getPendingResult('pending'))

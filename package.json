@@ -76,6 +76,7 @@
     "assets": "node extensions/assets/scripts/index.js",
     "vento": "node apps/cli/bin/vento.js",
     "download-agent": "node scripts/download-agent.js",
+    "build-agent": "node scripts/build-agent.js",
     "setup-agent": "node apps/agent/setup.js"
   },
   "resolutions": {

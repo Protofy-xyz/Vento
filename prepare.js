@@ -3,6 +3,7 @@ const semver = require('semver');
 const AdmZip = require('adm-zip');
 
 const skipPagesDownload = process.argv.includes('--skip-pages-download') || process.env.SKIP_PAGES_DOWNLOAD === 'true';
+const skipDownloadClient = process.argv.includes('--skip-download-client') || process.env.SKIP_DOWNLOAD_CLIENT === 'true';
 const requiredVersion = '>=18.0.0';
 
 if (!semver.satisfies(process.version, requiredVersion)) {
@@ -67,5 +68,20 @@ directories.forEach(directory => {
                 }
             }
         }
+    }
+})();
+
+//download vento agent if it doesn't exist
+(async () => {
+    if (skipDownloadClient) {
+        console.log('Skipping agent download (--skip-download-client flag detected)');
+        return;
+    }
+    
+    const { downloadAgent } = require('./scripts/download-agent');
+    const result = await downloadAgent({ force: false });
+    
+    if (!result.success) {
+        console.error('Warning: Failed to download Vento agent. You can retry with: node scripts/download-agent.js');
     }
 })();

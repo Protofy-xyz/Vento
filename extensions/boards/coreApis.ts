@@ -1287,7 +1287,7 @@ export default async (app, context) => {
             res.status(403).send({ error: "Forbidden: Invalid token" });
         } else {
             const value = ProtoMemDB('states').get('boards', req.params.boardId, req.params.cardId);
-            res.send(value || null);
+            res.json(value ?? null);
         }
     }))
 

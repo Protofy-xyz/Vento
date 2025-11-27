@@ -26,13 +26,22 @@ function getPM2Pids() {
         });
         
         // El output puede tener mensajes de PM2 antes del JSON
-        // Buscar el array JSON que empieza con [
-        const jsonMatch = output.match(/\[[\s\S]*\]/);
+        // Buscar el array JSON - puede ser [] o [{...}]
+        // Usar un regex más específico que busque un array JSON válido
+        const jsonMatch = output.match(/\[(?:\s*\{[\s\S]*?\}\s*,?\s*)*\]|\[\s*\]/);
         if (!jsonMatch) {
             return [];
         }
         
-        const processes = JSON.parse(jsonMatch[0]);
+        let processes;
+        try {
+            processes = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+            // Si falla el parsing, intentar buscar de otra forma
+            const altMatch = output.match(/\[\{.*\}\]/s);
+            if (!altMatch) return [];
+            processes = JSON.parse(altMatch[0]);
+        }
         return processes
             .filter(p => p.pid && p.pid !== 0) // Solo procesos con PID válido
             .map(p => ({

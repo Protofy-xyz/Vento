@@ -68,6 +68,7 @@
     "launcher-package-all": "yarn package-launcher && electron-builder -c electron-builder.yml --win --mac --linux",
     "download-binaries": "node scripts/download-bins.js",
     "clean-deps": "shx rm -rf node_modules",
+    "update-ui": "shx rm -rf data/pages && node prepare.js",
     "assets": "node extensions/assets/scripts/index.js"
   },
   "resolutions": {

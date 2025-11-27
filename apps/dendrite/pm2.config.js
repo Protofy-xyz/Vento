@@ -2,15 +2,10 @@
 const path = require('path');
 const currentDir = __dirname;
 
-const binName = process.platform === 'win32' ? 'dendrite.exe' : 'dendrite';
-const dendriteBinary = path.join(currentDir, 'bin', binName);
-const configPath = path.resolve(currentDir, '../../data/dendrite/dendrite.yaml');
-
 const service = {
   name: 'dendrite',
-  script: dendriteBinary,
-  args: ['--config', configPath, '--really-enable-open-registration'],
-  interpreter: 'none',
+  script: path.join(currentDir, 'start.js'),
+  interpreter: 'node',
   windowsHide: true,
   watch: false,
   treekill: true,

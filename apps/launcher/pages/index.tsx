@@ -287,7 +287,7 @@ const MainView = () => {
         return false
       }}
       disableItemSelection={true}
-      title={<img style={{ width: "80px", filter: darkMode ? 'invert(1)' : 'invert(0)' }} src="/public/vento-logo.png" alt="Vento logo" />}
+      title={<img style={{ width: "80px", filter: darkMode ? 'invert(1)' : 'invert(0)' }} src="/public/vento-logo.svg" alt="Vento logo" />}
       dataTableGridProps={{
         marginTop: '$10',
         getCard: (element: any, width: any) => {

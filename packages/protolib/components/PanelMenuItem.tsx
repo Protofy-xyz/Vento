@@ -12,10 +12,10 @@ export type PanelMenuItemProps = {
   extraLabel?: React.ReactNode;
 }
 
-export const PanelMenuItem = React.forwardRef(({ onPress, children, selected, collapsed = false, icon, text, extraLabel,...props }: PanelMenuItemProps & StackProps, ref: any) => {
+export const PanelMenuItem = React.forwardRef(({ onPress, children, selected, collapsed = false, icon, text, extraLabel, ...props }: PanelMenuItemProps & StackProps, ref: any) => {
   const { resolvedTheme } = useThemeSetting()
   return (
-    <Tooltip>
+    <Tooltip delay={200} restMs={100}>
       <Tooltip.Trigger>
         <XStack
           ref={ref}
@@ -31,20 +31,45 @@ export const PanelMenuItem = React.forwardRef(({ onPress, children, selected, co
           onPress={onPress}
           cursor='pointer'
           {...collapsed ? {
-            paddingHorizontal: "12px",
+            paddingHorizontal: 0,
+            justifyContent: "center",
+            borderRadius: 0,
+            height: 48,
+            position: 'relative',
+            hoverStyle: {
+              backgroundColor: 'transparent',
+            }
           } : {}}
-          {...(selected ? {
+          {...(selected && !collapsed ? {
             backgroundColor: resolvedTheme == 'dark' ? '$color2' : "$color4"
           } : {})}
           {...props}
         >
-          {icon ? <Stack marginRight={text ? "$3" : "$0"}>
-            {React.cloneElement(icon, { ...icon.props, color: selected ? 'var(--color8)' : icon.props?.color })}
+          {collapsed && selected && (
+            <Stack 
+              position="absolute" 
+              left={-8} 
+              height={36} 
+              width={3} 
+              backgroundColor="var(--color9)" 
+              borderRadius={2}
+            />
+          )}
+          {icon ? <Stack marginRight={text && !collapsed ? "$3" : "$0"}>
+            {React.cloneElement(icon, { 
+              ...icon.props, 
+              color: selected ? 'var(--color8)' : icon.props?.color,
+              ...(collapsed ? { 
+                size: 28, 
+                color: selected ? 'var(--gray11)' : 'var(--gray9)', 
+                opacity: selected ? 1 : 0.6
+              } : {})
+            })}
           </Stack> : null}
           {text && !collapsed ? <SizableText numberOfLines={1} ellipsizeMode="tail" selectable={false} pointerEvents="none" color="$color" o={1} size="$4" fontWeight={selected ? "400" : "400"}>
             {text}
           </SizableText> : null}
-          {extraLabel && !collapsed?<XStack ml="auto" ai="center" jc="center" {...collapsed ? { ml: 0 } : {}}>
+          {extraLabel && !collapsed ? <XStack ml="auto" ai="center" jc="center" {...collapsed ? { ml: 0 } : {}}>
             <SizableText flexShrink={0} o={1} size="$1" bg="$color6" p="$2" borderRadius={"$5"} color="$color" pointerEvents="none" selectable={false}>{extraLabel}</SizableText>
           </XStack> : null}
           {children}

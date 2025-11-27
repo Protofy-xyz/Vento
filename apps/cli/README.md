@@ -187,7 +187,7 @@ Card: temperature
 
 ## Requirements
 
-- Vento must be running (`yarn dev` or `yarn start`)
+- Vento must be running (`yarn start` or `yarn dev`)
 - API accessible at `http://localhost:8000` (or set `API_URL` env var)
 
 ## Environment Variables
@@ -203,7 +203,7 @@ Card: temperature
 Make sure Vento is running:
 
 ```bash
-yarn dev
+yarn start
 ```
 
 ### "Unauthorized" error

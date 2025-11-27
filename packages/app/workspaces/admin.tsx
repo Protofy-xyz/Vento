@@ -1,5 +1,5 @@
-import { Router, Cog, Boxes, Box, LayoutDashboard, Zap, Blocks } from '@tamagui/lucide-icons'
-import { Bot, MonitorCog as RawMonitorCog } from 'lucide-react'
+import { Router, Cog, Boxes, Box, LayoutDashboard, Zap, Blocks, Bot, Folder } from '@tamagui/lucide-icons'
+import { MonitorCog as RawMonitorCog } from 'lucide-react'
 import { styled } from 'tamagui'
 
 const MonitorCog = styled(RawMonitorCog, {
@@ -20,7 +20,7 @@ export default ({ boards, objects }) => {
         { name: 'Devices', icon: Router, href: '/workspace/devices' },
         { name: 'Storages', icon: Boxes, href: '/workspace/objects' },
         // { name: 'Events', icon: 'activity', href: '/workspace/events' },
-        { name: 'Files', icon: 'folder', href: '/workspace/files?path=/', path: '' },
+        { name: 'Files', icon: Folder, href: '/workspace/files?path=/', path: '' },
         { name: 'Config', icon: Cog, href: '/workspace/config' },
     ]
     if (enableArduinos) integrations.push({ name: 'Arduinos', icon: Router, href: '/workspace/arduinos' })

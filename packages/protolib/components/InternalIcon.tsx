@@ -1,5 +1,19 @@
 import type { ComponentType } from "react";
-import { Bot } from "@tamagui/lucide-icons";
+import * as LucideIcons from "@tamagui/lucide-icons";
+
+// Convert kebab-case or lowercase to PascalCase (e.g., "bot-message-square" -> "BotMessageSquare")
+const toPascalCase = (str: string): string => {
+  return str
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
+};
+
+// Get Lucide icon component by name dynamically
+const getLucideIcon = (name: string): ComponentType<any> | null => {
+  const pascalName = toPascalCase(name);
+  return (LucideIcons as Record<string, ComponentType<any>>)[pascalName] || null;
+};
 
 export const getIcon = (
   Icon: string | ComponentType<any> | null | undefined,
@@ -8,10 +22,16 @@ export const getIcon = (
   const { color = "var(--gray9)", size = 20, opacity = 0.8, strokeWidth = 2 } = opts;
 
   if (!Icon) {
-    return <Bot color={color} size={size} opacity={opacity} strokeWidth={strokeWidth} />;
+    return <LucideIcons.Bot color={color} size={size} opacity={opacity} strokeWidth={strokeWidth} />;
   }
 
   if (typeof Icon === "string") {
+    // Try to find a Lucide component dynamically
+    const LucideComponent = getLucideIcon(Icon);
+    if (LucideComponent) {
+      return <LucideComponent color={color} size={size} opacity={opacity} strokeWidth={strokeWidth} />;
+    }
+    // Fallback to InternalIcon for icons not in Lucide
     return <InternalIcon name={Icon} color={color} size={size} opacity={opacity} />;
   }
 

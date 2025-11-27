@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { Check, X } from "@tamagui/lucide-icons"
 import { API } from "protobase"
 import { MultiSelectList } from "protolib/components/MultiSelectList"
+import { IconSelect } from "protolib/components/IconSelect"
 
 const columnWidth = 170
 
@@ -27,9 +28,13 @@ export const BoardSettingsEditor = ({ board, onSave }) => {
 
     // -------- Board fields we are editing --------
     const [displayName, setDisplayName] = useState(board.displayName ?? board.name ?? '');
+    const [icon, setIcon] = useState(board.icon ?? 'layout-dashboard');
     const [hidden, setHidden] = useState(board.visibility?.length === 0);
     const [tags, setTags] = useState<string[]>(board.tags ?? []);
     const [newTag, setNewTag] = useState('');
+    
+    // -------- Icons section --------
+    const [availableIcons, setAvailableIcons] = useState<string[]>([]);
 
     // -------- Settings section --------
     const [currentSettings, setCurrentSettings] = useState(board.settings ?? {});
@@ -53,6 +58,22 @@ export const BoardSettingsEditor = ({ board, onSave }) => {
         setTags(prev => [...prev, value]);
         setNewTag('');
     };
+
+    // ---------------- ICONS LOADING ----------------
+    useEffect(() => {
+        let cancelled = false;
+        const loadIcons = async () => {
+            try {
+                const response = await API.get('/api/core/v1/icons');
+                const icons = response?.data?.icons ?? [];
+                if (!cancelled) setAvailableIcons(icons);
+            } catch {
+                if (!cancelled) setAvailableIcons([]);
+            }
+        };
+        loadIcons();
+        return () => { cancelled = true; };
+    }, []);
 
     // ---------------- USERS LOADING ----------------
     useEffect(() => {
@@ -82,6 +103,7 @@ export const BoardSettingsEditor = ({ board, onSave }) => {
         const updatedBoard = {
             ...board,
             displayName: displayName || board.name,
+            icon,
             visibility: hidden ? [] : undefined,
             tags,
             users: currentUsers?.length ? currentUsers : undefined,
@@ -125,6 +147,18 @@ export const BoardSettingsEditor = ({ board, onSave }) => {
                         value={displayName}
                         onChangeText={setDisplayName}
                     />
+                </XStack>
+
+                {/* ICON */}
+                <XStack alignItems="center">
+                    <ColumnTitle>Icon</ColumnTitle>
+                    <YStack f={1}>
+                        <IconSelect
+                            icons={availableIcons}
+                            onSelect={setIcon}
+                            selected={icon}
+                        />
+                    </YStack>
                 </XStack>
 
                 {/* HIDE BOARD */}

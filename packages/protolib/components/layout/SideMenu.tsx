@@ -18,7 +18,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
 
     const isXs = useMedia().xs
     const [open, setOpen] = useState(false)
-    const [collapsed, setCollapsed] = useAtom(CollapsedSideMenuAtom)
+    const [collapsed, setCollapsed] = useState(true) //useAtom(CollapsedSideMenuAtom)
     const width = collapsed ? 64 : 260
 
     const settingsTintSwitcher = SiteConfig.ui?.tintSwitcher

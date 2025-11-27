@@ -21,13 +21,16 @@ import fetch from 'node-fetch';
 let eventListeners = {};
 const TemplatesDir = (root) => fspath.join(root, "/data/templates/boards/")
 
-const BOARD_REFRESH_INTERVAL = 100 //in miliseconds
+const BOARD_REFRESH_INTERVAL = 5000 //in miliseconds (fallback, main trigger is via MQTT events)
 const defaultAIProvider = 'chatgpt'
 const logger = getLogger()
-const processTable = {}
 const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
 const memory = {}
 let alreadyStarted = false
+
+// Coalescence mechanism for board reloading
+let isReloadingBoards = false
+let pendingBoardsReload = false
 
 class HttpError extends Error {
     constructor(public status: number, message: string) {
@@ -1568,23 +1571,47 @@ export default async (app, context) => {
         res.json(card.name);
     })
 
-    setInterval(async () => {
-        const boards = await getBoards()
-        // console.log("Boards: ", boards)
-        for (const board of boards) {
-            if (processTable[board]) {
-                console.log("Board already being processed: ", board)
-                continue;
-            }
-            processTable[board] = true
-            try {
-                await reloadBoard(board)
-            } catch (error) {
-                console.error("Error reloading board: ", board, error)
-            } finally {
-                processTable[board] = false
+    // Triggers reload of all boards with coalescence mechanism
+    // If a reload is in progress and new triggers arrive, they coalesce into a single pending reload
+    const triggerBoardsReload = async () => {
+        if (isReloadingBoards) {
+            pendingBoardsReload = true
+            return
+        }
+
+        isReloadingBoards = true
+        try {
+            const boards = await getBoards()
+            // Reload all boards in parallel
+            await Promise.all(boards.map(async (board) => {
+                try {
+                    await reloadBoard(board)
+                } catch (error) {
+                    console.error("Error reloading board: ", board, error)
+                }
+            }))
+        } finally {
+            isReloadingBoards = false
+            if (pendingBoardsReload) {
+                pendingBoardsReload = false
+                triggerBoardsReload() // Execute once more for coalesced triggers
             }
         }
+    }
+
+    // Subscribe to all state changes and trigger board reload
+    context.events.onEvent(
+        context.mqtt,
+        context,
+        async (event) => {
+            triggerBoardsReload()
+        },
+        "states/#"
+    )
+
+    // Fallback: periodic reload in case MQTT events are missed
+    setInterval(() => {
+        triggerBoardsReload()
     }, BOARD_REFRESH_INTERVAL)
 
     context.events.onEvent(

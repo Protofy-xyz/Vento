@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"ventoagent/internal/agent"
 	"ventoagent/internal/config"
@@ -110,6 +111,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("invalid host %q: %v", cfg.Host, err)
 	}
+
+	// Wait for Vento server to be ready before proceeding
+	log.Printf("waiting for Vento server at %s...", cfg.Host)
+	if err := ventoClient.WaitForReady(ctx, 90*time.Second, 5*time.Second); err != nil {
+		log.Fatalf("server not available: %v", err)
+	}
+	log.Println("server is ready")
 
 	if cfg.Token == "" {
 		password := opts.Password

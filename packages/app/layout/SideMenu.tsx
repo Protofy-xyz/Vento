@@ -9,7 +9,7 @@ export const SideMenu = (props) => {
             <Image
                 key={themeName}
                 style={{ filter: themeName?.startsWith("dark") ? "invert(70%) brightness(10)" : "invert(5%)" }}
-                src={"/public/vento-logo.svg"}
+                src={"/public/vento-logo.png"}
                 alt="Logo"
                 width={90}
                 height={30}
@@ -19,7 +19,7 @@ export const SideMenu = (props) => {
         collapsedLogo={<Image
             key={themeName}
             style={{ filter: themeName?.startsWith("dark") ? "invert(70%) brightness(10)" : "invert(5%)" }}
-            src={"/public/vento-square.svg"}
+            src={"/public/vento-square.png"}
             alt="Logo"
             width={22}
             height={30}

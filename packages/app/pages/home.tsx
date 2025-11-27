@@ -61,7 +61,7 @@ const Home = () => {
             }}
           >
             <img
-              src="/public/vento-logo.svg"
+              src="/public/vento-logo.png"
               alt="Vento logo"
               style={{
                 width: '240px',

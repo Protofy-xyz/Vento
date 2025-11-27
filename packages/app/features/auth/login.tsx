@@ -128,7 +128,7 @@ function SignIn({ darkMode, isClient }: { darkMode: boolean, isClient: boolean }
       <YStack miw={300} maw={320} jc="space-between" p="$2" gap="$4">
         <YStack mb="$4">
           <LogoIcon>
-            <img src="/public/vento-logo.svg" alt="Vento logo" style={logoStyle} />
+            <img src="/public/vento-logo.png" alt="Vento logo" style={logoStyle} />
           </LogoIcon>
         </YStack>
 

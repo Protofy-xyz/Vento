@@ -42,11 +42,41 @@ ventoagent \
   -password secret \
   -device my-go-agent \
   -interval 15 \
+  -token <existing-token> \
   -skip-register-actions \
   -once
 ```
 
+| Flag | Description |
+|------|-------------|
+| `-config` | Path to config file (default: `config.json`) |
+| `-host` | Vento host URL (e.g., `http://localhost:8000`) |
+| `-user` | Vento username |
+| `-password` | Vento password (prompts if empty) |
+| `-device` | Device name override |
+| `-interval` | Monitor interval in seconds |
+| `-token` | Existing Vento token (skips login) |
+| `-skip-register-actions` | Don't trigger `/devices/registerActions` |
+| `-once` | Run monitors once and exit |
+
 Flags override values stored in `config.json`. Leaving the password empty triggers an interactive prompt.
+
+### Headless mode
+
+When both `-host` and `-token` are provided via CLI, the agent runs in **headless mode**:
+- No interactive prompts (username, password)
+- No config file modifications
+- Goes directly to connecting
+
+This is useful for automation, scripts, or running from the Vento CLI:
+
+```bash
+# Run agent without any prompts
+ventoagent -host http://localhost:8000 -token eyJhbGci...
+
+# From Vento CLI, you could integrate like:
+yarn vento run myboard_start_agent -p '{"host": "http://localhost:8000", "token": "..."}'
+```
 
 ### Config file example
 

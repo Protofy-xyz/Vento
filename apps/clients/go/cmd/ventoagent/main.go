@@ -60,8 +60,15 @@ func main() {
 		MonitorInterval: opts.MonitorInterval,
 	})
 
+	// If both host and token are provided via CLI, skip all prompts (headless mode)
+	headlessMode := opts.Host != "" && opts.Token != ""
+
 	prompter := config.NewPrompter(os.Stdin, os.Stdout)
+
 	if cfg.Host == "" {
+		if headlessMode {
+			log.Fatal("host is required in headless mode")
+		}
 		hostDefault := "http://localhost:8000"
 		input, perr := prompter.AskDefault("Vento host (ex: http://localhost:8000)", hostDefault)
 		if perr != nil {
@@ -69,7 +76,9 @@ func main() {
 		}
 		cfg.Host = input
 	}
-	if cfg.Username == "" {
+
+	// Only prompt for username if we need to login (no token provided)
+	if cfg.Username == "" && cfg.Token == "" {
 		userDefault := cfg.Username
 		if userDefault == "" {
 			userDefault = "admin"
@@ -86,8 +95,12 @@ func main() {
 		cfg.DeviceName = config.GenerateDeviceName()
 		log.Printf("generated device name: %s", cfg.DeviceName)
 	}
-	if err := manager.Save(cfg); err != nil {
-		log.Fatalf("failed saving initial config: %v", err)
+
+	// Only save config if not in headless mode (avoid overwriting with partial data)
+	if !headlessMode {
+		if err := manager.Save(cfg); err != nil {
+			log.Fatalf("failed saving initial config: %v", err)
+		}
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -117,7 +130,11 @@ func main() {
 		}
 		log.Println("authenticated successfully")
 	} else {
-		log.Println("using token from config")
+		if headlessMode {
+			log.Println("running in headless mode with provided token")
+		} else {
+			log.Println("using token from config")
+		}
 	}
 
 	if cfg.Token == "" {

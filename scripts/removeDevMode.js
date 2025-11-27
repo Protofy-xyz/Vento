@@ -5,6 +5,7 @@ const dirname = path.join(__dirname, '..')
 
 const packagePath = path.join(dirname, 'package.json');
 const workspaces = [
+    "apps/agent",
     "apps/api",
     "apps/core",
     "apps/mcp",

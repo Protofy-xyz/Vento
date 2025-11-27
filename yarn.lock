@@ -7658,6 +7658,12 @@ __metadata:
   languageName: node
   linkType: hard
 
+"agent@workspace:apps/agent":
+  version: 0.0.0-use.local
+  resolution: "agent@workspace:apps/agent"
+  languageName: unknown
+  linkType: soft
+
 "agentkeepalive@npm:^4.2.1":
   version: 4.3.0
   resolution: "agentkeepalive@npm:4.3.0"

@@ -9,6 +9,7 @@
     "apps/core",
     "apps/mcp",
     "apps/cli",
+    "apps/agent",
     "packages/app",
     "packages/config",
     "packages/protobase",
@@ -74,7 +75,8 @@
     "update-ui": "shx rm -rf data/pages && node prepare.js",
     "assets": "node extensions/assets/scripts/index.js",
     "vento": "node apps/cli/bin/vento.js",
-    "download-agent": "node scripts/download-agent.js"
+    "download-agent": "node scripts/download-agent.js",
+    "setup-agent": "node apps/agent/setup.js"
   },
   "resolutions": {
     "react": "18.2.0",

@@ -29,11 +29,12 @@ export const ThemeToggle = React.forwardRef((props: ButtonProps, ref: any) => {
         <Button
           size="$3"
           onPress={themeSetting.toggle}
-          {...props}
           aria-label="Toggle light/dark color scheme"
           icon={Icon}
           scaleIcon={1.3}
           color="$gray9"
+          focusStyle={{ borderWidth: 0, outlineWidth: 0 }}
+          {...props}
         >
           {/* {theme === 'light' ? <Moon size={12} /> : <SunIcon />} */}
         </Button>

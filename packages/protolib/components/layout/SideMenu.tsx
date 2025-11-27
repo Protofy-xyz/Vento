@@ -1,7 +1,7 @@
 import React from 'react'
 import { YStack, useMedia, Button, Square, XStack, TooltipSimple } from '@my/ui'
 import { useState } from 'react'
-import { PanelLeftOpen, PanelLeftClose, PanelLeft, Globe } from '@tamagui/lucide-icons'
+import { PanelLeftOpen, PanelLeftClose, PanelLeft, Globe, Settings } from '@tamagui/lucide-icons'
 import { SiteConfig } from '@my/config/dist/AppConfig'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { ColorToggleButton } from '../../components/ColorToggleButton'
@@ -9,10 +9,13 @@ import { SessionLogoutButton } from '../../components/SessionLogoutButton'
 import { isElectron } from '../../lib/isElectron'
 import { useAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
+import { Popover } from '../../components/Popover'
 
 export const CollapsedSideMenuAtom = atomWithStorage('collapsedSideMenu', false)
 
 export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher = true, tintSwitcher = true, logo, collapsedLogo, ...props }: any) => {
+    const disableOpenMenu = false
+
     const isXs = useMedia().xs
     const [open, setOpen] = useState(false)
     const [collapsed, setCollapsed] = useAtom(CollapsedSideMenuAtom)
@@ -24,7 +27,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
     const settingsTintSwitcherEnabled = settingsTintSwitcher === undefined ? true : settingsTintSwitcher
     const settingsThemeSwitcherEnabled = settingsTintSwitcher === undefined ? true : settingsThemeSwitcher
 
-    return <YStack id="app-sidemenu" bw={0} bc={sideBarColor} {...props} onDoubleClick={e => { setCollapsed(!collapsed); e.stopPropagation() }}>
+    return <YStack id="app-sidemenu" bw={0} bc={sideBarColor} {...props}>
         <YStack
             animateOnly={["width"]}
             // @ts-ignore
@@ -74,22 +77,57 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                     </TooltipSimple>}
                 </XStack>
             }
-            <YStack
-                onPress={() => setCollapsed(!collapsed)}
-                p="$2"
-                als={collapsed ? "center" : "flex-end"}
-                cursor='pointer'
-                hoverStyle={{ backgroundColor: '$gray4' }}
-                br="$4"
-            >
-                {/* @ts-ignore */}
-                <Square animation="quick" rotate={collapsed ? '180deg' : '0deg'}>
-                    <PanelLeft size={19} color="$gray9" />
-                </Square>
-            </YStack>
+
+            {collapsed ? (
+                <Popover
+                    menuPlacement="right"
+                    color="$background"
+                    trigger={
+                        <YStack
+                            p="$2"
+                            cursor='pointer'
+                            hoverStyle={{ backgroundColor: '$gray4' }}
+                            br="$4"
+                        >
+                            <Settings size={20} color="$gray9" strokeWidth={1.5} />
+                        </YStack>
+                    }
+                >
+                    <XStack p="$2" gap="$1" ai="center">
+                        {themeSwitcher && settingsThemeSwitcherEnabled && <ThemeToggle borderWidth={0} chromeless />}
+                        {tintSwitcher && settingsTintSwitcherEnabled && <ColorToggleButton borderWidth={0} chromeless />}
+                        {!isElectron() && <SessionLogoutButton borderWidth={0} chromeless />}
+                        {isElectron() && (
+                            <TooltipSimple label="Open in browser">
+                                <Button
+                                    size="$3"
+                                    chromeless
+                                    onPress={() => window['electronAPI'].openExternal("http://localhost:8000")}
+                                    icon={Globe}
+                                    scaleIcon={1.3}
+                                    color="$gray9"
+                                />
+                            </TooltipSimple>
+                        )}
+                    </XStack>
+                </Popover>
+            ) : (
+                <YStack
+                    onPress={() => setCollapsed(!collapsed)}
+                    p="$2"
+                    als="flex-end"
+                    cursor='pointer'
+                    hoverStyle={{ backgroundColor: '$gray4' }}
+                    br="$4"
+                >
+                    <Square animation="quick">
+                        <PanelLeft size={19} color="$gray9" />
+                    </Square>
+                </YStack>
+            )}
         </XStack>
         {
-            isXs && <>
+            isXs && !disableOpenMenu && <>
                 <YStack
                     backgroundColor="$background"
                     h="100%"

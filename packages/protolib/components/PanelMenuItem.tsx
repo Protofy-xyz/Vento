@@ -52,7 +52,6 @@ export const PanelMenuItem = React.forwardRef(({ onPress, children, selected, co
               height={36} 
               width={3} 
               backgroundColor="var(--color9)" 
-              borderRadius={2}
             />
           )}
           {icon ? <Stack marginRight={text && !collapsed ? "$3" : "$0"}>
@@ -62,7 +61,8 @@ export const PanelMenuItem = React.forwardRef(({ onPress, children, selected, co
               ...(collapsed ? { 
                 size: 28, 
                 color: selected ? 'var(--gray11)' : 'var(--gray9)', 
-                opacity: selected ? 1 : 0.6
+                opacity: selected ? 1 : 0.6,
+                strokeWidth: 1.5
               } : {})
             })}
           </Stack> : null}

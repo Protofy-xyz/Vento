@@ -20,7 +20,7 @@ jobs:
           node-version: '21'
 
       - name: Install dependencies
-        run: node scripts/enableUiDev.js && yarn
+        run: node scripts/enableUiDev.js && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile
 
       - name: Prepare dev
         run: yarn prepare-dev-ci

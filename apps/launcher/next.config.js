@@ -17,7 +17,7 @@ const boolVals = {
 // Deshabilitar extracción en desarrollo o en CI (donde no hay acceso a data/themes)
 const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
 const disableExtraction =
-  boolVals[process.env.DISABLE_EXTRACTION] ?? isCI ?? process.env.NODE_ENV === 'development'
+  boolVals[process.env.DISABLE_EXTRACTION] ?? (isCI || process.env.NODE_ENV === 'development')
 
 const plugins = [
   withTamagui({

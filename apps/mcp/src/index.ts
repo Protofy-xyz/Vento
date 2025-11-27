@@ -12,8 +12,15 @@
  *   - vento://boards/{board}/values/{card}: Read a value card from a board
  */
 
+import { fileURLToPath } from 'url';
+import path from 'path';
 import dotenv from 'dotenv';
-dotenv.config({ path: '../../.env' });
+
+// Get the directory of this script and load .env from project root
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '../../..'); // apps/mcp/dist -> apps/mcp -> apps -> root
+dotenv.config({ path: path.join(projectRoot, '.env') });
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -283,8 +290,19 @@ async function readResource(uri: string): Promise<string> {
       });
     }
 
-    const value = await res.json();
-    return JSON.stringify(value, null, 2);
+    // Handle empty or null responses
+    const text = await res.text();
+    if (!text || text === 'null' || text.trim() === '') {
+      return JSON.stringify(null);
+    }
+    
+    try {
+      const value = JSON.parse(text);
+      return JSON.stringify(value, null, 2);
+    } catch {
+      // If not valid JSON, return as-is
+      return text;
+    }
   } catch (error) {
     return JSON.stringify({ 
       error: 'Request failed', 

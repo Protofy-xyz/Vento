@@ -7,6 +7,8 @@ const siteDev = {
   script: path.join(currentDir, 'entrypoint.js'),
   windowsHide: true,
   watch: false,
+  treekill: true,
+  kill_timeout: 5000,
   env: {
       NODE_ENV: 'development',
       DOTENV_CONFIG_PATH: path.resolve(__dirname, '../../.env'),

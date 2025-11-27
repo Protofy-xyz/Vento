@@ -13,6 +13,8 @@ const service = {
   interpreter: 'none',
   windowsHide: true,
   watch: false,
+  treekill: true,
+  kill_timeout: 5000,
   cwd: currentDir,
   env: {
     // DENDRITE_HTTP_BIND_ADDRESS: '0.0.0.0:8008'

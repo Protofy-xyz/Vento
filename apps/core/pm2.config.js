@@ -41,6 +41,8 @@ module.exports = {
             watch: false,
             autorestart: true,
             windowsHide: true,
+            treekill: true,
+            kill_timeout: 5000,
             env: {
                 NODE_ENV: 'development',
                 ...commonEnv
@@ -58,6 +60,8 @@ module.exports = {
             watch: false,
             autorestart: true,
             windowsHide: true,
+            treekill: true,
+            kill_timeout: 5000,
             env: {
                 NODE_ENV: 'production',
                 ...commonEnv

@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const { exit } = require('process');
+const kill = require('tree-kill');
 
 if (process.argv.length < 3) {
     console.error('Usage: node run.js <python_script>');
@@ -56,26 +57,45 @@ try {
     console.error(err.message);
 }
 
+// Función para matar el subproceso y todos sus hijos
+function killSubprocess(signal = 'SIGKILL') {
+    if (subprocess && subprocess.pid) {
+        console.log(`Killing subprocess tree (PID: ${subprocess.pid})...`);
+        kill(subprocess.pid, signal, (err) => {
+            if (err) {
+                console.error('Error killing subprocess:', err.message);
+                // Fallback: intentar kill directo
+                try {
+                    subprocess.kill(signal);
+                } catch (e) {}
+            }
+        });
+    }
+}
+
 // Handle process termination and stop the subprocess
 process.on('SIGINT', () => {
     console.log('Received SIGINT. Shutting down...');
-    if (subprocess) {
-        subprocess.kill('SIGINT');
-    }
-    process.exit();
+    killSubprocess('SIGINT');
+    setTimeout(() => process.exit(), 500);
 });
 
 process.on('SIGTERM', () => {
     console.log('Received SIGTERM. Shutting down...');
-    if (subprocess) {
-        subprocess.kill('SIGTERM');
-    }
-    process.exit();
+    killSubprocess('SIGTERM');
+    setTimeout(() => process.exit(), 500);
 });
 
 process.on('exit', (code) => {
-  console.log('Node.js process exiting with code:', code);
-  if (subprocess) {
-      subprocess.kill();
-  }
+    console.log('Node.js process exiting with code:', code);
+    killSubprocess();
+});
+
+// En Windows, escuchar también el evento 'message' de PM2
+process.on('message', (msg) => {
+    if (msg === 'shutdown') {
+        console.log('Received shutdown message from PM2');
+        killSubprocess();
+        setTimeout(() => process.exit(0), 500);
+    }
 });

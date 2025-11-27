@@ -41,8 +41,8 @@
     "status": "pm2 status",
     "monit": "pm2 monit",
     "dashboard": "pm2 plus",
-    "kill": "pm2 kill",
-    "stop": "pm2 stop all",
+    "kill": "pm2 kill && node scripts/cleanup-processes.js --force",
+    "stop": "pm2 stop all && node scripts/cleanup-processes.js",
     "logs": "pm2 logs",
     "fix": "manypkg fix",
     "check-deps": "check-dependency-version-consistency .",
@@ -86,6 +86,7 @@
     "rimraf": "2.6.3",
     "semver": "^7.5.4",
     "tar": "7.4.3",
+    "tree-kill": "^1.2.2",
     "typescript": "5.8.2"
   },
   "packageManager": "yarn@3.5.1",

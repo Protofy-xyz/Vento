@@ -1,4 +1,13 @@
 /* eslint-disable import/first */
+
+// Leer tema de URL ANTES de cualquier redirect - debe ser lo primero
+const THEME_STORAGE_KEY = 'vento_theme_preference';
+const urlParams = new URLSearchParams(window.location.search);
+const themeParam = urlParams.get('theme');
+if (themeParam === 'light' || themeParam === 'dark') {
+  localStorage.setItem(THEME_STORAGE_KEY, themeParam);
+}
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { enableMapSet } from 'immer';

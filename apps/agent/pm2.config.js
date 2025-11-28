@@ -72,7 +72,6 @@ function isAgentEnabled() {
     return true;
 }
 
-const isProduction = process.env.NODE_ENV === 'production';
 const agentBinary = getAgentBinary();
 const configPath = path.join(dataDir, 'agent-config.json');
 const host = getHost();
@@ -91,7 +90,7 @@ if (token) {
 }
 
 const agentConfig = {
-    name: isProduction ? 'agent' : 'agent-dev',
+    name: 'agent',
     script: agentBinary,
     args: args,
     interpreter: 'none',  // It's a binary, not a script
@@ -102,11 +101,11 @@ const agentConfig = {
     kill_timeout: 5000,
     cwd: dataDir,  // Run from data dir
     env: {
-        NODE_ENV: isProduction ? 'production' : 'development'
+        NODE_ENV: 'production'
     },
     log_date_format: "YYYY-MM-DD HH:mm:ss",
-    out_file: path.join(logsDir, `agent${isProduction ? '' : '-dev'}.stdout.log`),
-    error_file: path.join(logsDir, `agent${isProduction ? '' : '-dev'}.stderr.log`),
+    out_file: path.join(logsDir, `agent.stdout.log`),
+    error_file: path.join(logsDir, `agent.stderr.log`),
     vizion: false
 };
 

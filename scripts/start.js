@@ -23,6 +23,9 @@ if (isProd) {
 
 let pm2Process = null;
 let isShuttingDown = false;
+let restartCount = 0;
+const MAX_RESTARTS_PER_MINUTE = 10;
+let restartTimestamps = [];
 
 /**
  * Obtiene los PIDs de PM2
@@ -90,6 +93,78 @@ async function cleanup() {
     process.exit(0);
 }
 
+/**
+ * Verifica si hay demasiados reinicios en poco tiempo
+ */
+function shouldAllowRestart() {
+    const now = Date.now();
+    // Limpiar timestamps viejos (más de 1 minuto)
+    restartTimestamps = restartTimestamps.filter(t => now - t < 60000);
+    
+    if (restartTimestamps.length >= MAX_RESTARTS_PER_MINUTE) {
+        return false;
+    }
+    
+    restartTimestamps.push(now);
+    return true;
+}
+
+/**
+ * Inicia PM2
+ */
+function startPM2() {
+    console.log(`\n🚀 Starting Vento${isProd ? ' (production)' : ''}...\n`);
+    
+    pm2Process = spawn('pm2', ['start', 'ecosystem.config.js', '--no-daemon'], {
+        cwd: rootDir,
+        stdio: 'inherit',
+        shell: true
+    });
+
+    pm2Process.on('close', (code) => {
+        if (isShuttingDown) return;
+        
+        console.log(`\n⚠️  PM2 exited with code ${code}`);
+        
+        // Si el código es 0, fue un cierre normal - no reiniciar
+        if (code === 0) {
+            console.log('PM2 closed normally, shutting down...');
+            cleanup();
+            return;
+        }
+        
+        // Si crasheó, intentar reiniciar automáticamente
+        if (shouldAllowRestart()) {
+            console.log('🔄 Restarting PM2 automatically in 2 seconds...\n');
+            setTimeout(() => {
+                if (!isShuttingDown) {
+                    startPM2();
+                }
+            }, 2000);
+        } else {
+            console.log('❌ Too many restarts in the last minute. Stopping to prevent crash loop.');
+            console.log('   Run the command again manually when ready.\n');
+            cleanup();
+        }
+    });
+
+    pm2Process.on('error', (err) => {
+        console.error('Failed to start PM2:', err);
+        if (!isShuttingDown) {
+            if (shouldAllowRestart()) {
+                console.log('🔄 Retrying in 3 seconds...');
+                setTimeout(() => {
+                    if (!isShuttingDown) {
+                        startPM2();
+                    }
+                }, 3000);
+            } else {
+                cleanup();
+            }
+        }
+    });
+}
+
 // Interceptar señales
 process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
@@ -106,23 +181,4 @@ if (process.platform === 'win32') {
 }
 
 // Iniciar PM2
-console.log(`\n🚀 Starting Vento${isProd ? ' (production)' : ''}...\n`);
-
-pm2Process = spawn('pm2', ['start', 'ecosystem.config.js', '--no-daemon'], {
-    cwd: rootDir,
-    stdio: 'inherit',
-    shell: true
-});
-
-pm2Process.on('close', (code) => {
-    if (!isShuttingDown) {
-        console.log(`\nPM2 exited with code ${code}`);
-        cleanup();
-    }
-});
-
-pm2Process.on('error', (err) => {
-    console.error('Failed to start PM2:', err);
-    process.exit(1);
-});
-
+startPM2();

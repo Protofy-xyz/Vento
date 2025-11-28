@@ -76,8 +76,10 @@
     "assets": "node extensions/assets/scripts/index.js",
     "vento": "node apps/cli/bin/vento.js",
     "download-agent": "node scripts/download-agent.js",
+    "update-agent": "node scripts/download-agent.js --force",
     "build-agent": "node scripts/build-agent.js",
-    "setup-agent": "node apps/agent/setup.js"
+    "setup-agent": "node apps/agent/setup.js",
+    "update": "node scripts/update.js && git fetch origin --tags --force && git pull"
   },
   "resolutions": {
     "react": "18.2.0",

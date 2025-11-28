@@ -124,7 +124,7 @@ export default (_app, context) => {
     if (!deviceData) {
       deviceData = {
         name: deviceName,
-        currentSdk: 'esphome',
+        platform: 'esphome',
         subsystem: [],
         credentials: { mqtt: { username: deviceName, password: getDeviceToken(deviceName, false) } },
         data: {},
@@ -147,7 +147,7 @@ export default (_app, context) => {
       if (!existed) {
         const createPayload = {
           name: deviceName,
-          currentSdk: 'esphome',
+          platform: 'esphome',
           credentials: deviceData.credentials,
           data: deviceData.data,
         };
@@ -219,7 +219,7 @@ export default (_app, context) => {
       {
         data: {
           name: deviceName,
-          currentSdk: 'esphome',
+          platform: 'esphome',
           subsystem: [],
           credentials: { mqtt: { username: deviceName, password: getDeviceToken(deviceName, false) } },
           data: {},

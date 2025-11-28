@@ -21,9 +21,7 @@
     "packages/ui",
     "packages/visualui",
     "extensions/*",
-    "scripts",
-    "apps/adminpanel",
-    "apps/chat"
+    "scripts"
   ],
   "scripts": {
     "dev-service": "FULL_DEV=1 yarn prepare-dev && FULL_DEV=1 yarn start-service-fast",

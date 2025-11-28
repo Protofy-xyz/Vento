@@ -32,8 +32,16 @@ export type RoomViewFollowingProps = {
   room: Room;
 };
 export const RoomViewFollowing = as<'div', RoomViewFollowingProps>(
-  () => {
+  ({ className, ...props }, ref) => {
     // Hidden - "X is following the conversation" message disabled
-    return null;
+    // Return spacer div to maintain bottom margin
+    return (
+      <div
+        ref={ref}
+        className={className}
+        style={{ height: '16px' }}
+        {...props}
+      />
+    );
   }
 );

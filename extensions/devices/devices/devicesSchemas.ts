@@ -6,7 +6,7 @@ export const DevicesSchema = Schema.object({
   substitutions: z.record(z.string().optional(), z.any().optional()).optional().hidden(),
   subsystem: z.array(z.any()).optional().hidden(),
   data: z.record(z.string(), z.any()).optional().hidden(),
-  platform: z.string().generate("esphome"),
+  platform: z.string().search().label("Platform").generate("esphome"),
   location: z.object({
     lat: z.string(),
     long: z.string()

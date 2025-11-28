@@ -15,18 +15,14 @@ import { protoInfraUrls } from "@extensions/protoinfra/utils/protoInfraUrls";
 import { randomUUID } from 'crypto';
 
 const PER_PARAM_ROWS = 1; // tweak as needed (extra grid rows per visible param)
-const PADDING_ICON = 6; // extra padding for icon
 
 const computeCardSize = (paramsObj?: Record<string, any>) => {
     const baseWidth = 2
     const baseHeight = 6
-    const paramCount = Object.keys(paramsObj ?? {}).length > 1
-        ? Object.keys(paramsObj ?? {}).length
-        : 0;
+    const paramCount = Object.keys(paramsObj ?? {}).length;
 
     const width = baseWidth;
-    const height =
-        paramCount > 0 ? baseHeight + paramCount * PER_PARAM_ROWS + PADDING_ICON : baseHeight;
+    const height = baseHeight + paramCount * PER_PARAM_ROWS;
 
     return { width, height };
 };
@@ -743,7 +739,7 @@ const registerActions = async () => {
                         return {
                             label: action.label,
                             width: cardWidth,
-                            height: cardHeight * (action.mode === 'request-reply' ? 2 : 1),
+                            height: cardHeight + (action.mode === 'request-reply' ? 2 : 0),
                             icon: iconFromAction,
                             name: deviceInfo.data.name + ' ' + subsystem.name + ' ' + action.name,
                             description: action.description ?? '',

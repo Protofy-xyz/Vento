@@ -492,32 +492,10 @@ const getDB = (path, req, session) => {
 
         async put(key, value) {
             const filePath = dataDir(getRoot(req)) + key + ".json"
-            const ymlPath = dataDir(getRoot(req)) + key +  "/config.yaml"
             // if folder does not exist, create it
             await promisesFs.mkdir(dataDir(getRoot(req)) + key, { recursive: true })
             try{
-                const defaultYamlContent = `esphome:
-  platformio_options:
-    board_build.flash_mode: dio
-    board_build.arduino.memory_type: opi_opi
-    board_upload.maximum_ram_size: 524288
-    build_flags:
-      - '-DBOARD_HAS_PSRAM'
-      - '-DARDUINO_USB_CDC_ON_BOOT=1'
-      - '-mfix-esp32-psram-cache-issue'
-  name: ${key}
-esp32:
-  board: esp32-s3-devkitc-1
-  variant: esp32s3
-  flash_size: 16Mb
-  framework:
-    type: arduino
-logger: {}
-`
                 await promisesFs.writeFile(filePath, value)
-                if (!fs.existsSync(ymlPath)) {
-                    await promisesFs.writeFile(ymlPath, defaultYamlContent)
-                }
             }catch(error){
                 console.error("Error creating file: " + filePath, error)
             }

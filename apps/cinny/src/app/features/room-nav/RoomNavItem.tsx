@@ -35,7 +35,7 @@ import { useRoomTypingMember } from '../../hooks/useRoomTypingMembers';
 import { TypingIndicator } from '../../components/typing-indicator';
 import { stopPropagation } from '../../utils/keyboard';
 import { getMatrixToRoom } from '../../plugins/matrix-to';
-import { getCanonicalAliasOrRoomId, isRoomAlias } from '../../utils/matrix';
+import { getCanonicalAliasOrRoomId, isRoomAlias, guessDmRoomUserId } from '../../utils/matrix';
 import { getViaServers } from '../../plugins/via-servers';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { useSetting } from '../../state/hooks/settings';
@@ -221,6 +221,9 @@ export function RoomNavItem({
   };
 
   const optionsVisible = hover || !!menuAnchor;
+  
+  // For DMs, get the other user's ID to use for consistent color
+  const dmUserId = direct ? guessDmRoomUserId(room, mx.getSafeUserId()) : undefined;
 
   return (
     <NavItem
@@ -240,6 +243,7 @@ export function RoomNavItem({
               {showAvatar ? (
                 <RoomAvatar
                   roomId={room.roomId}
+                  colorId={dmUserId}
                   src={
                     direct
                       ? getDirectRoomAvatarUrl(mx, room, 96, useAuthentication)

@@ -79,6 +79,7 @@ import { MemberPowerTag, StateEvent } from '../../../../types/matrix/room';
 import { PowerIcon } from '../../../components/power';
 import colorMXID from '../../../../util/colorMXID';
 import { getPowerTagIconSrc } from '../../../hooks/useMemberPowerTag';
+import { nameInitials } from '../../../utils/common';
 
 export type ReactionHandler = (keyOrMxc: string, shortcode: string) => void;
 
@@ -790,6 +791,8 @@ export const Message = as<'div', MessageProps>(
       </Box>
     );
 
+    const isSelf = senderId === mx.getUserId();
+    
     const avatarJSX = !collapse && messageLayout !== MessageLayout.Compact && (
       <AvatarBase
         className={messageLayout === MessageLayout.Bubble ? css.BubbleAvatarBase : undefined}
@@ -809,7 +812,16 @@ export const Message = as<'div', MessageProps>(
                 : undefined
             }
             alt={senderDisplayName}
-            renderFallback={() => <Icon size="200" src={Icons.User} filled />}
+            isSelf={isSelf}
+            renderFallback={() => 
+              isSelf ? (
+                <Icon size="200" src={Icons.User} />
+              ) : (
+                <Text as="span" size="H6">
+                  {nameInitials(senderDisplayName)}
+                </Text>
+              )
+            }
           />
         </Avatar>
       </AvatarBase>

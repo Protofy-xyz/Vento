@@ -6,7 +6,7 @@ import { color } from 'folds';
 // --background, --backgroundHover, etc. son los fondos
 const ventoThemeBase = {
   Background: {
-    Container: 'var(--bgContent, var(--background, #1A1A1A))',
+    Container: 'var(--bgPanel, var(--backgroundHover, #262626))',
     ContainerHover: 'var(--backgroundHover, #262626)',
     ContainerActive: 'var(--backgroundPress, #333333)',
     ContainerLine: 'var(--borderColor, #404040)',

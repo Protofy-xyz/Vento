@@ -58,6 +58,7 @@ import { UserAvatar } from '../../../components/user-avatar';
 import { getMemberDisplayName } from '../../../utils/room';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { useOpenUserRoomProfile } from '../../../state/hooks/userRoomProfile';
+import { nameInitials } from '../../../utils/common';
 
 type HomeMenuProps = {
   requestClose: () => void;
@@ -264,42 +265,48 @@ export function Home() {
     openUserRoomProfile(ventoRoom.roomId, undefined, userId, btn.getBoundingClientRect(), 'Left');
   };
 
+  // Settings state
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  
+  // Detect if running in iframe
+  const isInIframe = typeof window !== 'undefined' && window !== window.parent;
+
+  const handleOpenSettings = () => {
+    // Notify parent that settings is opening
+    window.parent.postMessage({ type: 'cinny-settings-open' }, '*');
+    setSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    // Notify parent that settings is closing
+    window.parent.postMessage({ type: 'cinny-settings-close' }, '*');
+    setSettingsOpen(false);
+  };
+
   return (
     <PageNav>
-      <HomeHeader />
       {noRoomToDisplay ? (
         <HomeEmpty />
       ) : (
         <PageNavContent scrollRef={scrollRef}>
           <Box direction="Column" gap="300">
-            <NavCategory>
-              <NavItem variant="Background" radii="400" aria-selected={searchSelected}>
-                <NavLink to={getHomeSearchPath()}>
-                  <NavItemContent>
-                    <Box as="span" grow="Yes" alignItems="Center" gap="200">
-                      <Avatar size="200" radii="400">
-                        <Icon src={Icons.Search} size="100" filled={searchSelected} />
-                      </Avatar>
-                      <Box as="span" grow="Yes">
-                        <Text as="span" size="Inherit" truncate>
-                          Message Search
-                        </Text>
-                      </Box>
-                    </Box>
-                  </NavItemContent>
-                </NavLink>
-              </NavItem>
-            </NavCategory>
             {sortedRooms.length > 0 && (
               <NavCategory>
                 <NavCategoryHeader>
-                  <RoomNavCategoryButton
-                    closed={closedCategories.has(DEFAULT_CATEGORY_ID)}
-                    data-category-id={DEFAULT_CATEGORY_ID}
-                    onClick={handleCategoryClick}
-                  >
-                    Rooms
-                  </RoomNavCategoryButton>
+                  <Box grow="Yes" alignItems="Center" justifyContent="SpaceBetween">
+                    <RoomNavCategoryButton
+                      closed={closedCategories.has(DEFAULT_CATEGORY_ID)}
+                      data-category-id={DEFAULT_CATEGORY_ID}
+                      onClick={handleCategoryClick}
+                    >
+                      Rooms
+                    </RoomNavCategoryButton>
+                    {!isInIframe && (
+                      <IconButton variant="Background" onClick={handleOpenSettings} size="300">
+                        <Icon src={Icons.Setting} size="100" style={{ opacity: 0.6 }} />
+                      </IconButton>
+                    )}
+                  </Box>
                 </NavCategoryHeader>
                 {!closedCategories.has(DEFAULT_CATEGORY_ID) && sortedRooms.map((roomId) => {
                   const room = mx.getRoom(roomId);
@@ -329,7 +336,7 @@ export function Home() {
                     data-category-id={DIRECT_CATEGORY_ID}
                     onClick={handleCategoryClick}
                   >
-                    Direct Messages
+                    Conversations
                   </RoomNavCategoryButton>
                 </NavCategoryHeader>
                 {!closedCategories.has(DIRECT_CATEGORY_ID) && sortedDirects.map((roomId) => {
@@ -393,7 +400,11 @@ export function Home() {
                                 userId={member.userId}
                                 src={avatarUrl}
                                 alt={name}
-                                renderFallback={() => <Icon src={Icons.User} size="100" />}
+                                renderFallback={() => (
+                                  <Text as="span" size="H6">
+                                    {nameInitials(name)}
+                                  </Text>
+                                )}
                               />
                             </Avatar>
                             <span
@@ -423,6 +434,11 @@ export function Home() {
             )}
           </Box>
         </PageNavContent>
+      )}
+      {settingsOpen && (
+        <Modal500 requestClose={handleCloseSettings}>
+          <Settings requestClose={handleCloseSettings} />
+        </Modal500>
       )}
     </PageNav>
   );

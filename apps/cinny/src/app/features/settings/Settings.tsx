@@ -102,7 +102,8 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
   const screenSize = useScreenSizeContext();
   const [activePage, setActivePage] = useState<SettingsPages | undefined>(() => {
     if (initialPage) return initialPage;
-    return screenSize === ScreenSize.Mobile ? undefined : SettingsPages.GeneralPage;
+    // Always default to General page
+    return SettingsPages.GeneralPage;
   });
   const menuItems = useSettingsMenuItems();
 

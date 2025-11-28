@@ -42,6 +42,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { TypingIndicator } from '../../components/typing-indicator';
 import { getMemberDisplayName, getMemberSearchStr } from '../../utils/room';
 import { getMxIdLocalPart } from '../../utils/matrix';
+import { nameInitials } from '../../utils/common';
 import { useSetSetting, useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { ScrollTopContainer } from '../../components/scroll-top-container';
@@ -160,7 +161,11 @@ function MemberItem({
               userId={member.userId}
               src={avatarUrl ?? undefined}
               alt={name}
-              renderFallback={() => <Icon size="50" src={Icons.User} filled />}
+              renderFallback={() => (
+                <Text as="span" size="T300">
+                  {nameInitials(name)}
+                </Text>
+              )}
             />
           </Avatar>
         </AvatarPresence>

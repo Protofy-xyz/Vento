@@ -55,7 +55,8 @@ export type PageNavHeaderVariants = RecipeVariants<typeof PageNavHeader>;
 export const PageNavContent = style({
   minHeight: '100%',
   padding: config.space.S200,
-  paddingLeft: 0,
+  paddingLeft: config.space.S100,
+  paddingTop: config.space.S500,
   paddingBottom: config.space.S700,
 });
 

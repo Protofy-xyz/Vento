@@ -1,4 +1,4 @@
-// https://github.com/cloudrac3r/cadencegq/blob/master/pug/mxid.pug
+// Uses Tamagui tint color variables for avatar colors
 
 function hashCode(str) {
   let hash = 0;
@@ -17,9 +17,12 @@ function hashCode(str) {
   return Math.abs(hash);
 }
 
+// Tamagui tint colors (from packages/protolib/lib/Tints.tsx)
+const tintColors = ['gray', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
+
 export function cssColorMXID(userId) {
-  const colorNumber = hashCode(userId) % 8;
-  return `--mx-uc-${colorNumber + 1}`;
+  const colorIndex = hashCode(userId) % tintColors.length;
+  return `--${tintColors[colorIndex]}8`;
 }
 
 export default function colorMXID(userId) {

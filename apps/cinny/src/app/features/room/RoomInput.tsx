@@ -582,6 +582,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               </div>
             )
           }
+          /* TEMPORARILY DISABLED: File attachment button - will be re-enabled soon
           before={
             <IconButton
               onClick={() => pickFile('*')}
@@ -592,10 +593,11 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               <Icon src={Icons.PlusCircle} />
             </IconButton>
           }
+          */
           after={
             <>
               <IconButton
-                variant="SurfaceVariant"
+                variant="Background"
                 size="300"
                 radii="300"
                 onClick={() => setToolbar(!toolbar)}
@@ -635,6 +637,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                       />
                     }
                   >
+                    {/* TEMPORARILY DISABLED: Sticker button - will be re-enabled soon
                     {!hideStickerBtn && (
                       <IconButton
                         aria-pressed={emojiBoardTab === EmojiBoardTab.Sticker}
@@ -649,13 +652,14 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                         />
                       </IconButton>
                     )}
+                    */}
                     <IconButton
                       ref={emojiBtnRef}
                       aria-pressed={
                         hideStickerBtn ? !!emojiBoardTab : emojiBoardTab === EmojiBoardTab.Emoji
                       }
                       onClick={() => setEmojiBoardTab(EmojiBoardTab.Emoji)}
-                      variant="SurfaceVariant"
+                      variant="Background"
                       size="300"
                       radii="300"
                     >
@@ -669,7 +673,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                   </PopOut>
                 )}
               </UseStateProvider>
-              <IconButton onClick={submit} variant="SurfaceVariant" size="300" radii="300">
+              <IconButton onClick={submit} variant="Background" size="300" radii="300">
                 <Icon src={Icons.Send} />
               </IconButton>
             </>

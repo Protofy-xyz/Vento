@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { onDarkFontWeight, onLightFontWeight } from '../../config.css';
 import { ventoDarkTheme, ventoLightTheme } from '../../colors.css';
 
@@ -67,6 +67,40 @@ function getStoredTheme(): ThemeKind {
   return ThemeKind.Dark;
 }
 
+// Función para aplicar tema al DOM
+function applyThemeToDOM(theme: Theme) {
+  const html = document.documentElement;
+  html.classList.remove('t_dark', 't_light');
+  html.classList.add(theme.tamaguiClass);
+  
+  // También actualizar body classes
+  const { configClass, varsClass } = require('folds');
+  document.body.className = '';
+  document.body.classList.add(configClass, varsClass);
+  document.body.classList.add(...theme.classNames);
+}
+
+// Global theme state con listeners
+let currentThemeKind: ThemeKind = typeof window !== 'undefined' ? getStoredTheme() : ThemeKind.Dark;
+const themeListeners = new Set<(theme: ThemeKind) => void>();
+
+function setGlobalTheme(newTheme: ThemeKind) {
+  currentThemeKind = newTheme;
+  localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+  themeListeners.forEach(listener => listener(newTheme));
+}
+
+// Escuchar mensajes de Vento una sola vez (global)
+if (typeof window !== 'undefined') {
+  window.addEventListener('message', (event: MessageEvent) => {
+    if (event.data?.type === 'vento-theme-change') {
+      const newTheme = event.data.theme === 'light' ? ThemeKind.Light : ThemeKind.Dark;
+      setGlobalTheme(newTheme);
+      applyThemeToDOM(newTheme === ThemeKind.Light ? VentoLightTheme : VentoDarkTheme);
+    }
+  });
+}
+
 export const useThemes = (): Theme[] => [VentoDarkTheme, VentoLightTheme];
 
 export const useThemeNames = (): Record<string, string> => ({
@@ -77,7 +111,19 @@ export const useThemeNames = (): Record<string, string> => ({
 export const useSystemThemeKind = (): ThemeKind => getStoredTheme();
 
 export const useActiveTheme = (): Theme => {
-  const themeKind = getStoredTheme();
+  const [themeKind, setThemeKind] = useState<ThemeKind>(currentThemeKind);
+  
+  // Suscribirse a cambios globales de tema
+  useEffect(() => {
+    const listener = (newTheme: ThemeKind) => {
+      setThemeKind(newTheme);
+    };
+    themeListeners.add(listener);
+    return () => {
+      themeListeners.delete(listener);
+    };
+  }, []);
+  
   return themeKind === ThemeKind.Light ? VentoLightTheme : VentoDarkTheme;
 };
 

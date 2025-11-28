@@ -10,8 +10,9 @@ type RoomAvatarProps = {
   src?: string;
   alt?: string;
   renderFallback: () => ReactNode;
+  colorId?: string; // Optional: use this ID for color calculation instead of roomId (useful for DMs)
 };
-export function RoomAvatar({ roomId, src, alt, renderFallback }: RoomAvatarProps) {
+export function RoomAvatar({ roomId, src, alt, renderFallback, colorId }: RoomAvatarProps) {
   const [error, setError] = useState(false);
 
   const handleLoad: ReactEventHandler<HTMLImageElement> = (evt) => {
@@ -21,7 +22,7 @@ export function RoomAvatar({ roomId, src, alt, renderFallback }: RoomAvatarProps
   if (!src || error) {
     return (
       <AvatarFallback
-        style={{ backgroundColor: colorMXID(roomId ?? ''), color: color.Surface.Container }}
+        style={{ backgroundColor: colorMXID(colorId ?? roomId ?? ''), color: color.Surface.Container }}
         className={css.RoomAvatar}
       >
         {renderFallback()}

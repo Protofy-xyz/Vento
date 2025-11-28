@@ -25,10 +25,41 @@
     />
     <meta name="theme-color" content="#000000" />
 
-    <link id="favicon" rel="shortcut icon" href="./public/favicon.ico" />
+    <!-- Detectar tema PRIMERO -->
+    <script>
+      (function() {
+        var urlParams = new URLSearchParams(window.location.search);
+        var urlTheme = urlParams.get('theme');
+        var stored = localStorage.getItem('vento_theme_preference');
+        var systemIsDark = !window.matchMedia || window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = true;
+        
+        if (urlTheme === 'light') isDark = false;
+        else if (urlTheme === 'dark') isDark = true;
+        else if (stored === 'vento-light-theme') isDark = false;
+        else if (stored === 'vento-dark-theme') isDark = true;
+        else isDark = systemIsDark;
+        
+        document.documentElement.classList.add(isDark ? 't_dark' : 't_light');
+      })();
+    </script>
+    
+    <!-- CSS de Tamagui PRIMERO - bloqueante -->
+    <link rel="stylesheet" href="/chat/tamagui-theme.css" />
+    
+    <!-- Estilos base -->
+    <style id="initial-styles">
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+      }
+      /* Ocultar hasta que el tema de Folds esté aplicado */
+      html:not(.vento-ready) {
+        visibility: hidden;
+      }
+    </style>
 
-    <!-- Tema de Tamagui - Sincroniza colores con el resto de Vento -->
-    <link id="tamagui-theme" rel="stylesheet" href="/tamagui-theme.css" />
+    <link id="favicon" rel="shortcut icon" href="./public/favicon.ico" />
 
     <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -89,11 +120,10 @@
     />
   </head>
   <body id="appBody">
-    <script>
-      window.global ||= window;
-    </script>
+    <script>window.global ||= window;</script>
     <div id="root"></div>
     <div id="portalContainer"></div>
     <script type="module" src="./src/index.tsx"></script>
   </body>
 </html>
+

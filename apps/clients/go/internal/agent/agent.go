@@ -89,7 +89,7 @@ func (a *Agent) ensureDevice(ctx context.Context) error {
 	log.Printf("device %s not found, registering...", a.cfg.DeviceName)
 	createPayload := map[string]any{
 		"name":       payload.Name,
-		"platform": payload.platform,
+		"platform": payload.Platform,
 	}
 	if err := a.http.RegisterDevice(ctx, a.cfg.Token, createPayload); err != nil {
 		return err

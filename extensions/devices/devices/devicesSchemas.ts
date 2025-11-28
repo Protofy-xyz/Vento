@@ -2,11 +2,11 @@ import { ProtoModel, SessionDataType, API, Schema, z } from 'protobase'
 
 export const DevicesSchema = Schema.object({
   name: z.string().hint("Device name").static().regex(/^[a-z0-9_]+$/, "Only lower case chars, numbers or _").id().search().label("Name"),
-  deviceDefinition: z.string().label("Definition").optional(),
+  deviceDefinition: z.string().label("Template").optional(),
   substitutions: z.record(z.string().optional(), z.any().optional()).optional().hidden(),
   subsystem: z.array(z.any()).optional().hidden(),
   data: z.record(z.string(), z.any()).optional().hidden(),
-  currentSdk: z.string().hidden().generate("esphome"),
+  platform: z.string().generate("esphome"),
   location: z.object({
     lat: z.string(),
     long: z.string()
@@ -128,14 +128,14 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
   }
 
   getConfigFile(){
-    if(this.data?.currentSdk == "esphome"){
+    if(this.data?.platform == "esphome"){
       return this.getConfigDir() + "/config.yaml"
     }
     return null
   }
 
   async getManifestUrl(compileSessionId){
-    if(this.data.currentSdk == "esphome") {
+    if(this.data.platform == "esphome") {
       return "http://localhost:8000/api/v1/esphome/" + this.data.name + "/" + compileSessionId + "/manifest"
     }else{
       throw new Error("Unsupported SDK for manifest URL")

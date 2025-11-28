@@ -3,7 +3,7 @@ package vento
 // DevicePayload represents the device registration payload.
 type DevicePayload struct {
 	Name       string      `json:"name"`
-	CurrentSDK string      `json:"currentSdk"`
+	platform string      `json:"platform"`
 	Subsystem  []Subsystem `json:"subsystem,omitempty"`
 }
 
@@ -66,7 +66,7 @@ const (
 func BuildDevicePayload(deviceName string, subs []Subsystem) DevicePayload {
 	return DevicePayload{
 		Name:       deviceName,
-		CurrentSDK: "ventoagent",
+		platform: "ventoagent",
 		Subsystem:  subs,
 	}
 }

@@ -13,7 +13,7 @@ const onAfterCreate = async (data, session?, req?) => {
     if (data.device && session) {
         const objectDevice = DevicesModel.load({
             name: data.name + "1",
-            currentSdk: data.sdk,
+            platform: data.sdk,
             deviceDefinition: data.name,
             environment: data.environment,
         })

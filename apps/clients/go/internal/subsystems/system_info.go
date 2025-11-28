@@ -89,7 +89,7 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					ConnectionType: "mqtt",
 					Ephemeral:      false,
 					CardProps: map[string]any{
-						"icon":  "grid",
+						"icon":  "layout-grid",
 						"color": "$purple10",
 					},
 				},

@@ -50,7 +50,7 @@ export default {
         text: "Edit config file",
         icon: Pencil,
         action: (element) => { replace('editFile', element.getConfigFile()) },
-        isVisible: (element) => true
+        isVisible: (element) => element.getConfigFile()
       },
       {
         text: "Upload config file",
@@ -66,7 +66,7 @@ export default {
         action: async (element) => {
           await viewLogs(element)
         },
-        isVisible: (element) => true
+        isVisible: (element) => element.getLogs()
       },
       {
         text: "Download firmware binary",
@@ -137,7 +137,7 @@ export default {
             <XStack cursor="pointer" hoverStyle={{ opacity: 0.8 }} onPress={() => router.push('/deviceDefinitions')}>
               <Paragraph>
                 <Text fontSize="$9" fontWeight="600" color="$color8">
-                  Definitions
+                  Templates
                 </Text>
               </Paragraph>
             </XStack>
@@ -225,8 +225,14 @@ export default {
           </CardBody>
         }}
         dataTableListProps={{
-          onEditItem: (item) => replace('editFile', item.getConfigFile())
-        }}
+          disableRowIcon: true,
+          onEditItem: (item) => { 
+            if(item.data.platform == "esphome") {
+            replace('editFile', item.getConfigFile()) 
+          }else{
+            return null
+          }
+        }}}
         extraMenuActions={extraMenuActions}
       />
     </AdminPage>)

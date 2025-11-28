@@ -10,7 +10,6 @@ import {
   MenuItem,
   PopOut,
   RectCords,
-  Spinner,
   Text,
 } from 'folds';
 import { HttpApiEvent, HttpApiEventHandlerMap, MatrixClient } from 'matrix-js-sdk';
@@ -35,13 +34,14 @@ import { stopPropagation } from '../../utils/keyboard';
 import { SyncStatus } from './SyncStatus';
 import { AuthMetadataProvider } from '../../hooks/useAuthMetadata';
 import { getFallbackSession } from '../../state/sessions';
+import { VentoSpinner } from '../../components/VentoSpinner';
 
 function ClientRootLoading() {
   return (
     <SplashScreen>
       <Box direction="Column" grow="Yes" alignItems="Center" justifyContent="Center" gap="400">
-        <Spinner variant="Secondary" size="600" />
-        <Text>Heating up</Text>
+        <VentoSpinner size={48} />
+        <Text style={{ color: 'var(--color, #F2F2F2)' }}>Heating up</Text>
       </Box>
     </SplashScreen>
   );

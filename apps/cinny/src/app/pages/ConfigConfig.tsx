@@ -1,13 +1,14 @@
-import { Box, Button, Dialog, Spinner, Text, color, config } from 'folds';
+import { Box, Button, Dialog, Text, color, config } from 'folds';
 import React from 'react';
 import { SplashScreen } from '../components/splash-screen';
+import { VentoSpinner } from '../components/VentoSpinner';
 
 export function ConfigConfigLoading() {
   return (
     <SplashScreen>
       <Box grow="Yes" direction="Column" gap="400" alignItems="Center" justifyContent="Center">
-        <Spinner variant="Secondary" size="600" />
-        <Text>Heating up</Text>
+        <VentoSpinner size={48} />
+        <Text style={{ color: 'var(--color, #F2F2F2)' }}>Heating up</Text>
       </Box>
     </SplashScreen>
   );

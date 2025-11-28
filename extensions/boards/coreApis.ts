@@ -689,6 +689,45 @@ export default async (app, context) => {
 
     BoardsAutoAPI(app, context)
 
+    app.get('/api/core/v1/boards/:boardId/graphlayout', requireAdmin(), async (req, res) => {
+        try {
+            const filePath = getBoardFilePath(req.params.boardId);
+            await acquireLock(filePath);
+            try {
+                const fileContent = await fs.readFile(filePath, 'utf8');
+                const parsed = JSON.parse(fileContent);
+                res.send({ graphLayout: parsed?.graphLayout ?? {} });
+            } finally {
+                releaseLock(filePath);
+            }
+        } catch (error) {
+            const code = (error as any)?.code;
+            logger.error({ error }, "Error getting board graph layout");
+            res.status(code === 'ENOENT' ? 404 : 500).send({ error: "Error getting graph layout" });
+        }
+    });
+
+    app.post('/api/core/v1/boards/:boardId/graphlayout', requireAdmin(), async (req, res) => {
+        try {
+            const incomingLayout = req.body?.graphLayout ?? req.body ?? {};
+            const filePath = getBoardFilePath(req.params.boardId);
+            await acquireLock(filePath);
+            try {
+                const fileContent = await fs.readFile(filePath, 'utf8');
+                const parsed = JSON.parse(fileContent);
+                parsed.graphLayout = incomingLayout ?? {};
+                await fs.writeFile(filePath, JSON.stringify(parsed, null, 4));
+                res.send({ graphLayout: parsed.graphLayout ?? {} });
+            } finally {
+                releaseLock(filePath);
+            }
+        } catch (error) {
+            const code = (error as any)?.code;
+            logger.error({ error }, "Error saving board graph layout");
+            res.status(code === 'ENOENT' ? 404 : 500).send({ error: "Error saving graph layout" });
+        }
+    });
+
     app.get('/api/core/v1/autopilot/actions', requireAdmin(), async (req, res) => {
         res.send(await getActions(context));
     });

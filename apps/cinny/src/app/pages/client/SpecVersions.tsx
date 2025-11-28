@@ -1,8 +1,9 @@
 import React, { ReactNode } from 'react';
-import { Box, Dialog, config, Text, Button, Spinner } from 'folds';
+import { Box, Dialog, config, Text, Button } from 'folds';
 import { SpecVersionsLoader } from '../../components/SpecVersionsLoader';
 import { SpecVersionsProvider } from '../../hooks/useSpecVersions';
 import { SplashScreen } from '../../components/splash-screen';
+import { VentoSpinner } from '../../components/VentoSpinner';
 
 export function SpecVersions({ baseUrl, children }: { baseUrl: string; children: ReactNode }) {
   return (
@@ -11,8 +12,8 @@ export function SpecVersions({ baseUrl, children }: { baseUrl: string; children:
       fallback={() => (
         <SplashScreen>
           <Box direction="Column" grow="Yes" alignItems="Center" justifyContent="Center" gap="400">
-            <Spinner variant="Secondary" size="600" />
-            <Text>Connecting to server</Text>
+            <VentoSpinner size={48} />
+            <Text style={{ color: 'var(--color, #F2F2F2)' }}>Connecting to server</Text>
           </Box>
         </SplashScreen>
       )}

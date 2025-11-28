@@ -120,7 +120,7 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					Ephemeral:      false,
 					CardProps: map[string]any{
 						"icon":  "monitor",
-						"color": "$cyan10",
+						"color": "$orange10",
 					},
 				},
 				Boot: t.publishOSVersion,

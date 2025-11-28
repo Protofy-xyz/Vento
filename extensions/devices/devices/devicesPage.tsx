@@ -149,6 +149,7 @@ export default {
         name="device"
         columns={DataTable2.columns(
           DataTable2.column("name", row => row.name, "name"),
+          DataTable2.column("platform", row => row.platform, "platform"),
           DataTable2.column("device definition", row => row.deviceDefinition, "deviceDefinition"),
           DataTable2.column("config", row => row.config, false, (row) => {
             const device = DevicesModel.load(row);

@@ -892,6 +892,7 @@ export default (app, context) => {
             console.log("Registering device platform: ", platform)
             devicePlatforms[platform.name] = platform.data || {}
         }
+        }
     }
 
     

@@ -71,7 +71,7 @@ export class VentoClient {
         method: 'POST',
         body: JSON.stringify({
           name: payload.name,
-          currentSdk: payload.currentSdk,
+          platform: payload.platform,
         }),
       }, token);
     }

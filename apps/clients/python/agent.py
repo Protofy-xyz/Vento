@@ -59,7 +59,7 @@ class Agent:
             return
 
         LOG.info("device %s not found, registering...", self.cfg.device_name)
-        create_payload = {"name": payload.name, "currentSdk": payload.current_sdk}
+        create_payload = {"name": payload.name, "platform": payload.current_sdk}
         self.http.register_device(self.cfg.token, create_payload)
         self.http.update_device(self.cfg.token, self.cfg.device_name, payload.to_dict())
         if not self.skip_register_actions:

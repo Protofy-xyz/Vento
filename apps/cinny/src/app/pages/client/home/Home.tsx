@@ -126,12 +126,7 @@ function HomeHeader() {
   return (
     <>
       <PageNavHeader>
-        <Box alignItems="Center" grow="Yes" gap="300">
-          <Box grow="Yes">
-            <Text size="H4" truncate>
-              Vento Chat
-            </Text>
-          </Box>
+        <Box alignItems="Center" grow="Yes" gap="300" justifyContent="End">
           <Box>
             <IconButton aria-pressed={!!menuAnchor} variant="Background" onClick={handleOpenMenu}>
               <Icon src={Icons.VerticalDots} size="200" />

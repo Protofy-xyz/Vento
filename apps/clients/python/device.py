@@ -130,7 +130,7 @@ class DevicePayload:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
-            "currentSdk": self.current_sdk,
+            "platform": self.current_sdk,
             "subsystem": [s.to_payload() for s in self.subsystem],
         }
 

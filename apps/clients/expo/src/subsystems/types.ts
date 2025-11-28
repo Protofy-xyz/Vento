@@ -61,7 +61,7 @@ export interface SubsystemDefinition {
 
 export interface DevicePayload {
   name: string;
-  currentSdk: string;
+  platform: string;
   subsystem: Array<{
     name: string;
     type: string;

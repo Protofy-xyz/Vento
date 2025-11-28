@@ -38,7 +38,7 @@ export function buildSubsystems(): SubsystemDefinition[] {
 export function buildDevicePayload(deviceName: string, subsystems: SubsystemDefinition[]): DevicePayload {
   return {
     name: deviceName,
-    currentSdk: 'vento-mobile',
+    platform: 'vento-mobile',
     subsystem: subsystems.map((sub) => ({
       name: sub.name,
       type: sub.type,

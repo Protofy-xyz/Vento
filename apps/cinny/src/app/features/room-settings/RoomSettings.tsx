@@ -91,6 +91,7 @@ export function RoomSettings({ initialPage, requestClose }: RoomSettingsProps) {
 
   return (
     <PageRoot
+      navPosition="left"
       nav={
         screenSize === ScreenSize.Mobile && activePage !== undefined ? undefined : (
           <PageNav size="300">

@@ -116,6 +116,7 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
 
   return (
     <PageRoot
+      navPosition="left"
       nav={
         screenSize === ScreenSize.Mobile && activePage !== undefined ? undefined : (
           <PageNav size="300">

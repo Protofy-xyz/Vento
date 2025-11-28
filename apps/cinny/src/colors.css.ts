@@ -2,6 +2,8 @@ import { createTheme } from '@vanilla-extract/css';
 import { color } from 'folds';
 
 // Tema base que usa variables CSS de Tamagui
+// En Tamagui: --color1 a --color12 son los colores del tema (purple, blue, etc.)
+// --background, --backgroundHover, etc. son los fondos
 const ventoThemeBase = {
   Background: {
     Container: 'var(--bgContent, var(--background, #1A1A1A))',
@@ -20,24 +22,24 @@ const ventoThemeBase = {
   },
 
   SurfaceVariant: {
-    Container: 'var(--backgroundPress, #333333)',
-    ContainerHover: 'var(--backgroundFocus, #404040)',
-    ContainerActive: 'var(--color5, #4D4D4D)',
-    ContainerLine: 'var(--borderColorHover, #595959)',
+    Container: 'var(--bgPanel, #353244)',
+    ContainerHover: 'var(--bgContent, #292636)',
+    ContainerActive: 'var(--backgroundPress, #333333)',
+    ContainerLine: 'var(--borderColor, #404040)',
     OnContainer: 'var(--color, #F2F2F2)',
   },
 
   Primary: {
-    Main: 'var(--purple9, var(--blue9, #BDB6EC))',
-    MainHover: 'var(--purple10, var(--blue10, #B2AAE9))',
-    MainActive: 'var(--purple8, var(--blue8, #ADA3E8))',
-    MainLine: 'var(--purple7, var(--blue7, #A79DE6))',
-    OnMain: 'var(--purple1, #2C2843)',
-    Container: 'var(--purple4, var(--blue4, #413C65))',
-    ContainerHover: 'var(--purple5, var(--blue5, #494370))',
-    ContainerActive: 'var(--purple6, var(--blue6, #50497B))',
-    ContainerLine: 'var(--purple7, var(--blue7, #575086))',
-    OnContainer: 'var(--purple12, var(--blue12, #E3E1F7))',
+    Main: 'var(--color9, #BDB6EC)',
+    MainHover: 'var(--color10, #B2AAE9)',
+    MainActive: 'var(--color8, #ADA3E8)',
+    MainLine: 'var(--color7, #A79DE6)',
+    OnMain: 'var(--color1, #2C2843)',
+    Container: 'var(--color4, #413C65)',
+    ContainerHover: 'var(--color5, #494370)',
+    ContainerActive: 'var(--color6, #50497B)',
+    ContainerLine: 'var(--color7, #575086)',
+    OnContainer: 'var(--color12, #E3E1F7)',
   },
 
   Secondary: {
@@ -47,9 +49,9 @@ const ventoThemeBase = {
     MainLine: 'var(--color11, #CCCCCC)',
     OnMain: 'var(--background, #1A1A1A)',
     Container: 'var(--backgroundFocus, #404040)',
-    ContainerHover: 'var(--color5, #4D4D4D)',
-    ContainerActive: 'var(--color6, #595959)',
-    ContainerLine: 'var(--color7, #666666)',
+    ContainerHover: 'var(--backgroundPress, #4D4D4D)',
+    ContainerActive: 'var(--backgroundHover, #595959)',
+    ContainerLine: 'var(--borderColor, #666666)',
     OnContainer: 'var(--color, #F2F2F2)',
   },
 

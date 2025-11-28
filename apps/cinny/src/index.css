@@ -129,3 +129,42 @@ textarea {
 audio:not([controls]) {
   display: none !important;
 }
+
+/* Custom scrollbar - sutil, sin track, solo visible al hacer scroll */
+* {
+  scrollbar-width: thin !important;
+  scrollbar-color: transparent transparent !important;
+}
+
+*:hover {
+  scrollbar-color: var(--color7, #424242) transparent !important;
+}
+
+*::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: none !important;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: transparent !important;
+  border-radius: 10px !important;
+  border: none !important;
+  transition: background-color 0.2s ease !important;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color7, #424242) !important;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color8, #494949) !important;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent !important;
+}

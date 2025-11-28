@@ -8,18 +8,31 @@ import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 type PageRootProps = {
   nav: ReactNode;
   children: ReactNode;
+  navPosition?: 'left' | 'right';
 };
 
-export function PageRoot({ nav, children }: PageRootProps) {
+export function PageRoot({ nav, children, navPosition = 'right' }: PageRootProps) {
   const screenSize = useScreenSizeContext();
+
+  if (navPosition === 'left') {
+    return (
+      <Box grow="Yes" className={ContainerColor({ variant: 'Background' })}>
+        {nav}
+        {screenSize !== ScreenSize.Mobile && (
+          <Line variant="Background" size="300" direction="Vertical" />
+        )}
+        {children}
+      </Box>
+    );
+  }
 
   return (
     <Box grow="Yes" className={ContainerColor({ variant: 'Background' })}>
-      {nav}
+      {children}
       {screenSize !== ScreenSize.Mobile && (
         <Line variant="Background" size="300" direction="Vertical" />
       )}
-      {children}
+      {nav}
     </Box>
   );
 }

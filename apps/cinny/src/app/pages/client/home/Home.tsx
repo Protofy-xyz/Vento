@@ -29,7 +29,7 @@ import {
   getHomeRoomPath,
   getHomeSearchPath,
 } from '../../pathUtils';
-import { getCanonicalAliasOrRoomId } from '../../../utils/matrix';
+import { getCanonicalAliasOrRoomId, getMxIdLocalPart } from '../../../utils/matrix';
 import { useSelectedRoom } from '../../../hooks/router/useSelectedRoom';
 import { useHomeSearchSelected } from '../../../hooks/router/useHomeSelected';
 import { useHomeRooms } from './useHomeRooms';
@@ -53,6 +53,11 @@ import {
 } from '../../../hooks/useRoomsNotificationPreferences';
 import { Settings } from '../../../features/settings';
 import { Modal500 } from '../../../components/Modal500';
+import { useRoomMembers } from '../../../hooks/useRoomMembers';
+import { UserAvatar } from '../../../components/user-avatar';
+import { getMemberDisplayName } from '../../../utils/room';
+import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
+import { useOpenUserRoomProfile } from '../../../state/hooks/userRoomProfile';
 
 type HomeMenuProps = {
   requestClose: () => void;
@@ -189,6 +194,8 @@ function HomeEmpty() {
 
 const DEFAULT_CATEGORY_ID = makeNavCategoryId('home', 'room');
 const DIRECT_CATEGORY_ID = makeNavCategoryId('home', 'direct');
+const NETWORK_CATEGORY_ID = makeNavCategoryId('home', 'network');
+const VENTO_ROOM_ALIAS = '#vento:vento.local';
 
 export function Home() {
   const mx = useMatrixClient();
@@ -198,11 +205,36 @@ export function Home() {
   const directs = useDirectRooms();
   const notificationPreferences = useRoomsNotificationPreferencesContext();
   const roomToUnread = useAtomValue(roomToUnreadAtom);
+  const useAuthentication = useMediaAuthentication();
 
   const selectedRoomId = useSelectedRoom();
   const searchSelected = useHomeSearchSelected();
   const noRoomToDisplay = rooms.length === 0 && directs.length === 0;
   const [closedCategories, setClosedCategories] = useAtom(useClosedNavCategoriesAtom());
+
+  // Get the #vento room for network members
+  const ventoRoom = useMemo(() => {
+    const roomByAlias = mx.getRooms().find(r => r.getCanonicalAlias() === VENTO_ROOM_ALIAS);
+    return roomByAlias;
+  }, [mx]);
+  
+  const ventoRoomId = ventoRoom?.roomId ?? '';
+  const networkMembers = useRoomMembers(mx, ventoRoomId);
+  const myUserId = mx.getUserId();
+  
+  // Filter and sort network members (exclude self, sort by presence)
+  const sortedNetworkMembers = useMemo(() => {
+    if (!ventoRoom) return [];
+    return networkMembers
+      .filter(m => m.userId !== myUserId && m.membership === 'join')
+      .sort((a, b) => {
+        const presenceA = mx.getUser(a.userId)?.presence;
+        const presenceB = mx.getUser(b.userId)?.presence;
+        const weightA = presenceA === 'online' ? 0 : presenceA === 'unavailable' ? 1 : 2;
+        const weightB = presenceB === 'online' ? 0 : presenceB === 'unavailable' ? 1 : 2;
+        return weightA - weightB;
+      });
+  }, [networkMembers, ventoRoom, mx, myUserId]);
 
   const sortedRooms = useMemo(() => {
     const items = Array.from(rooms).sort(
@@ -227,6 +259,15 @@ export function Home() {
   const handleCategoryClick = useCategoryHandler(setClosedCategories, (categoryId) =>
     closedCategories.has(categoryId)
   );
+
+  const openUserRoomProfile = useOpenUserRoomProfile();
+  
+  const handleMemberClick: MouseEventHandler<HTMLButtonElement> = (evt) => {
+    const btn = evt.currentTarget as HTMLButtonElement;
+    const userId = btn.getAttribute('data-user-id');
+    if (!userId || !ventoRoom) return;
+    openUserRoomProfile(ventoRoom.roomId, undefined, userId, btn.getBoundingClientRect(), 'Left');
+  };
 
   return (
     <PageNav>
@@ -314,6 +355,73 @@ export function Home() {
                         room.roomId
                       )}
                     />
+                  );
+                })}
+              </NavCategory>
+            )}
+            {sortedNetworkMembers.length > 0 && (
+              <NavCategory>
+                <NavCategoryHeader>
+                  <RoomNavCategoryButton
+                    closed={closedCategories.has(NETWORK_CATEGORY_ID)}
+                    data-category-id={NETWORK_CATEGORY_ID}
+                    onClick={handleCategoryClick}
+                  >
+                    Network
+                  </RoomNavCategoryButton>
+                </NavCategoryHeader>
+                {!closedCategories.has(NETWORK_CATEGORY_ID) && sortedNetworkMembers.map((member) => {
+                  const name = getMemberDisplayName(ventoRoom!, member.userId) ?? getMxIdLocalPart(member.userId) ?? member.userId;
+                  const avatarMxcUrl = member.getMxcAvatarUrl();
+                  const avatarUrl = avatarMxcUrl
+                    ? mx.mxcUrlToHttp(avatarMxcUrl, 100, 100, 'crop', undefined, false, useAuthentication) ?? undefined
+                    : undefined;
+                  const presence = mx.getUser(member.userId)?.presence;
+                  const isOnline = presence === 'online';
+                  const isAway = presence === 'unavailable';
+
+                  return (
+                    <NavItem 
+                      key={member.userId} 
+                      variant="Background" 
+                      radii="400"
+                      as="button"
+                      data-user-id={member.userId}
+                      onClick={handleMemberClick}
+                      style={{ cursor: 'pointer', width: '100%', textAlign: 'left' }}
+                    >
+                      <NavItemContent>
+                        <Box as="span" grow="Yes" alignItems="Center" gap="200">
+                          <Box as="span" style={{ position: 'relative', display: 'inline-flex' }}>
+                            <Avatar size="200" radii="400">
+                              <UserAvatar
+                                userId={member.userId}
+                                src={avatarUrl}
+                                alt={name}
+                                renderFallback={() => <Icon src={Icons.User} size="100" />}
+                              />
+                            </Avatar>
+                            <span
+                              style={{
+                                position: 'absolute',
+                                bottom: -1,
+                                right: -1,
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                backgroundColor: isOnline ? 'var(--green9)' : isAway ? 'var(--orange9)' : 'var(--color6)',
+                                border: '2px solid var(--bgPanel)',
+                              }}
+                            />
+                          </Box>
+                          <Box as="span" grow="Yes">
+                            <Text as="span" size="Inherit" truncate>
+                              {name}
+                            </Text>
+                          </Box>
+                        </Box>
+                      </NavItemContent>
+                    </NavItem>
                   );
                 })}
               </NavCategory>

@@ -253,8 +253,6 @@ export function RoomViewHeader() {
     ? mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined
     : undefined;
 
-  const [peopleDrawer, setPeopleDrawer] = useSetting(settingsAtom, 'isPeopleDrawer');
-
   const handleSearchClick = () => {
     const searchParams: _SearchPathSearchParams = {
       rooms: room.roomId,
@@ -421,23 +419,6 @@ export function RoomViewHeader() {
               </FocusTrap>
             }
           />
-          {screenSize === ScreenSize.Desktop && (
-            <TooltipProvider
-              position="Bottom"
-              offset={4}
-              tooltip={
-                <Tooltip>
-                  <Text>{peopleDrawer ? 'Hide Members' : 'Show Members'}</Text>
-                </Tooltip>
-              }
-            >
-              {(triggerRef) => (
-                <IconButton ref={triggerRef} onClick={() => setPeopleDrawer((drawer) => !drawer)}>
-                  <Icon size="400" src={Icons.User} />
-                </IconButton>
-              )}
-            </TooltipProvider>
-          )}
           <TooltipProvider
             position="Bottom"
             align="End"

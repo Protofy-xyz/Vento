@@ -79,7 +79,7 @@
     "update-agent": "node scripts/download-agent.js --force",
     "build-agent": "node scripts/build-agent.js",
     "setup-agent": "node apps/agent/setup.js",
-    "update": "yarn download-agent && yarn update-agent && git fetch origin --tags --force && git pull"
+    "update": "node scripts/update.js && git fetch origin --tags --force && git pull"
   },
   "resolutions": {
     "react": "18.2.0",

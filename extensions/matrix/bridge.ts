@@ -354,15 +354,19 @@ async function setTypingIndicator(agent: VentoAgent, roomId: string, typing: boo
 
 /**
  * Send an error message as an agent
+ * Only shows a simple message in chat - full error details are logged to stdout
  */
 async function sendErrorAsAgent(agent: VentoAgent, roomId: string, error: Error | string): Promise<void> {
+    // Log full error to stdout for debugging
     const errorMessage = typeof error === 'string' ? error : error.message;
-    const errorStack = typeof error === 'object' && error.stack ? `\n\`\`\`\n${error.stack}\n\`\`\`` : '';
+    const errorStack = typeof error === 'object' && error.stack ? error.stack : '';
+    logger.error({ agent: agent.boardId, roomId, error: errorMessage, stack: errorStack }, 'Agent error details');
     
+    // Only show simple message in chat
     await sendMessageAsAgent(
         agent, 
         roomId, 
-        `❌ **Error communicating with agent:**\n${errorMessage}${errorStack}`
+        `❌ Error communicating with agent`
     );
 }
 

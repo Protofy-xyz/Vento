@@ -8,7 +8,7 @@ import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { ErrorCode } from '../../cs-errorcode';
 import { millisecondsToMinutes } from '../../utils/common';
 import { useAlive } from '../../hooks/useAlive';
-import { getDirectRoomPath } from '../../pages/pathUtils';
+import { getHomeRoomPath } from '../../pages/pathUtils';
 
 type CreateChatProps = {
   defaultUserId?: string;
@@ -60,7 +60,7 @@ export function CreateChat({ defaultUserId }: CreateChatProps) {
     create(userId).then((roomId) => {
       if (alive()) {
         userIdInput.value = '';
-        navigate(getDirectRoomPath(roomId));
+        navigate(getHomeRoomPath(roomId));
       }
     });
   };

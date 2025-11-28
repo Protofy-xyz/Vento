@@ -1,7 +1,6 @@
-import React, { memo, useEffect, useRef } from "react"
+import React from "react"
 import { Panel, PanelGroup } from "react-resizable-panels"
 import SPanel from 'react-sliding-side-panel'
-import { useWindowSize } from 'usehooks-ts'
 import CustomPanelResizeHandle from './CustomPanelResizeHandle'
 
 type Props = {
@@ -19,11 +18,12 @@ type Props = {
     rightPanelSize?: number
     setRightPanelSize?: any
     borderLess?: boolean
+    onResizeDragging?: (isDragging: boolean) => void
 }
 
 export const MainPanel = ({
     borderLess,
-    rightPanelSize,
+    rightPanelSize = 15,
     setRightPanelSize,
     rightPanelStyle = {},
     rightPanelWidth = 0,
@@ -36,28 +36,10 @@ export const MainPanel = ({
     openPanel,
     setOpenPanel = () => { },
     height = "100vh",
+    onResizeDragging,
 }: Props) => {
-    const rightRef = useRef<any>()
-    const size = useWindowSize()
-
-    const getLeftWidth = () => {
-        const totalWidth = Math.max(400, size.width)
-        let percentage = (350 / totalWidth) * 100
-        return percentage
-    }
-
-    const getRightWidth = () => {
-        if (rightPanelSize) return rightPanelSize
-        const totalWidth = Math.max(400, size.width)
-        let percentage = (400 / totalWidth) * 100
-        return percentage
-    }
-
-    useEffect(() => {
-        if (rightRef.current) {
-            rightRef.current.resize(rightPanelWidth ? rightPanelWidth : getRightWidth(), "percentages")
-        }
-    }, [rightPanelResizable])
+    // Fixed sidebar width for left panel
+    const sidebarWidth = 25; // 25% for left sidebar
 
     return (
         <div style={{ flex: 1, display: 'flex', maxWidth: '100%' }}>
@@ -68,7 +50,7 @@ export const MainPanel = ({
                         flex: 1,
                         display: openPanel ? 'flex' : 'none',
                         position: 'absolute',
-                        width: getLeftWidth(),
+                        width: `${sidebarWidth}%`,
                         zIndex: 99999999,
                     }}
                 >
@@ -76,7 +58,7 @@ export const MainPanel = ({
                         key="sidebar"
                         type={'left'}
                         isOpen={true}
-                        size={getLeftWidth()}
+                        size={sidebarWidth}
                         backdropClicked={() => setOpenPanel(false)}
                     >
                         {leftPanelContent}
@@ -98,8 +80,12 @@ export const MainPanel = ({
                     {actionContent}
                 </div>
             )}
-            <PanelGroup direction="horizontal" style={{ height: '100%', display: 'flex' }}>
-                <Panel>
+            <PanelGroup 
+                direction="horizontal" 
+                style={{ height: '100%', display: 'flex' }}
+                autoSaveId="vento-chat-layout"
+            >
+                <Panel defaultSize={100 - rightPanelSize}>
                     <div style={{ display: 'flex', flex: 1, height: height }}>
                         {centerPanelContent}
                     </div>
@@ -109,12 +95,11 @@ export const MainPanel = ({
                     borderLess={borderLess}
                     visible={rightPanelVisible}
                     resizable={rightPanelResizable}
+                    onDragging={onResizeDragging}
                 />
                 <Panel
-                    onResize={(size) => (setRightPanelSize ? setRightPanelSize(size) : null)}
-                    ref={rightRef}
+                    defaultSize={rightPanelSize}
                     maxSize={80}
-                    defaultSize={rightPanelWidth ? rightPanelWidth : getRightWidth()}
                     style={{
                         position: rightPanelVisible ? "relative" : "absolute",
                         zIndex: rightPanelVisible ? 100000 : -10,
@@ -131,4 +116,4 @@ export const MainPanel = ({
     )
 }
 
-export default memo(MainPanel)
+export default MainPanel

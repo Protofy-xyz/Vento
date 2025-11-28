@@ -1,4 +1,4 @@
-import React, { memo, useRef } from "react"
+import React, { useRef } from "react"
 import { PanelResizeHandle } from "react-resizable-panels"
 
 type Props = {
@@ -7,9 +7,10 @@ type Props = {
     borderColor?: string
     visible?: boolean
     resizable?: boolean
+    onDragging?: (isDragging: boolean) => void
 }
 
-const CustomPanelResizeHandle = ({ direction, borderLess = true, visible = true, resizable = true, borderColor = "#252526" }: Props) => {
+const CustomPanelResizeHandle = ({ direction, borderLess = true, visible = true, resizable = true, borderColor = "#252526", onDragging }: Props) => {
     const resizerRef = useRef<any>()
     const resizerBarRef = useRef<any>()
     const hoverTimer = useRef<any>(null)
@@ -39,6 +40,7 @@ const CustomPanelResizeHandle = ({ direction, borderLess = true, visible = true,
             onDragging={(isDragging) => {
                 if (resizerRef.current) resizerRef.current.isDragging = isDragging
                 if (!isDragging) onHoverLeave()
+                onDragging?.(isDragging)
             }}
         >
             <div

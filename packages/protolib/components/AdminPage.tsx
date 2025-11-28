@@ -41,7 +41,7 @@ export const AdminPage = forwardRef(({ pageSession, title, children, integratedC
   const workspaceData = typeof workspaces[currentWorkspace] === 'function' ? workspaces[currentWorkspace]({ pages: [] }) : workspaces[currentWorkspace]
 
   const settingsAssistant = workspaceData?.assistant
-  const settingsAssistantEnabled = settingsAssistant === undefined ? true : settingsAssistant
+  const settingsAssistantEnabled = false // settingsAssistant === undefined ? true : settingsAssistant
 
   usePrompt(() => `The user is browsing an admin page in the admin panel. The title of the admin page is: "${title}"`)
 

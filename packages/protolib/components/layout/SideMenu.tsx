@@ -1,7 +1,7 @@
 import React from 'react'
 import { YStack, useMedia, Button, Square, XStack, TooltipSimple } from '@my/ui'
 import { useState } from 'react'
-import { PanelLeftOpen, PanelLeftClose, PanelLeft, Globe, Settings } from '@tamagui/lucide-icons'
+import { PanelLeftOpen, PanelLeftClose, PanelLeft, Globe, Settings, MessageCircle } from '@tamagui/lucide-icons'
 import { SiteConfig } from '@my/config/dist/AppConfig'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { ColorToggleButton } from '../../components/ColorToggleButton'
@@ -10,6 +10,7 @@ import { isElectron } from '../../lib/isElectron'
 import { useAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { Popover } from '../../components/Popover'
+import { AppState } from '../AdminPanel'
 
 export const CollapsedSideMenuAtom = atomWithStorage('collapsedSideMenu', false)
 
@@ -20,6 +21,11 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
     const [open, setOpen] = useState(false)
     const [collapsed, setCollapsed] = useState(true) //useAtom(CollapsedSideMenuAtom)
     const width = collapsed ? 64 : 260
+    const [appState, setAppState] = useAtom(AppState)
+
+    const toggleChatExpand = () => {
+        setAppState(prev => ({ ...prev, chatExpanded: !prev.chatExpanded }))
+    }
 
     const settingsTintSwitcher = SiteConfig.ui?.tintSwitcher
     const settingsThemeSwitcher = SiteConfig.ui?.themeSwitcher
@@ -79,37 +85,55 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
             }
 
             {collapsed ? (
-                <Popover
-                    menuPlacement="right"
-                    color="$background"
-                    trigger={
+                <YStack gap="$2" ai="center">
+                    <TooltipSimple label={appState.chatExpanded ? "Collapse chat" : "Expand chat"}>
                         <YStack
                             p="$2"
                             cursor='pointer'
                             br="$4"
+                            hoverStyle={{ backgroundColor: '$backgroundHover' }}
+                            pressStyle={{ backgroundColor: '$backgroundPress' }}
+                            onPress={toggleChatExpand}
                         >
-                            <Settings size={28} color="$gray9" strokeWidth={1.5} />
+                            <MessageCircle 
+                                size={28} 
+                                color={appState.chatExpanded ? '$color9' : '$gray9'} 
+                                strokeWidth={1.5} 
+                            />
                         </YStack>
-                    }
-                >
-                    <XStack p="$2" gap="$1" ai="center">
-                        {themeSwitcher && settingsThemeSwitcherEnabled && <ThemeToggle borderWidth={0} chromeless />}
-                        {tintSwitcher && settingsTintSwitcherEnabled && <ColorToggleButton borderWidth={0} chromeless />}
-                        {!isElectron() && <SessionLogoutButton borderWidth={0} chromeless />}
-                        {isElectron() && (
-                            <TooltipSimple label="Open in browser">
-                                <Button
-                                    size="$3"
-                                    chromeless
-                                    onPress={() => window['electronAPI'].openExternal("http://localhost:8000")}
-                                    icon={Globe}
-                                    scaleIcon={1.3}
-                                    color="$gray9"
-                                />
-                            </TooltipSimple>
-                        )}
-                    </XStack>
-                </Popover>
+                    </TooltipSimple>
+                    <Popover
+                        menuPlacement="right"
+                        color="$background"
+                        trigger={
+                            <YStack
+                                p="$2"
+                                cursor='pointer'
+                                br="$4"
+                            >
+                                <Settings size={28} color="$gray9" strokeWidth={1.5} />
+                            </YStack>
+                        }
+                    >
+                        <XStack p="$2" gap="$1" ai="center">
+                            {themeSwitcher && settingsThemeSwitcherEnabled && <ThemeToggle borderWidth={0} chromeless />}
+                            {tintSwitcher && settingsTintSwitcherEnabled && <ColorToggleButton borderWidth={0} chromeless />}
+                            {!isElectron() && <SessionLogoutButton borderWidth={0} chromeless />}
+                            {isElectron() && (
+                                <TooltipSimple label="Open in browser">
+                                    <Button
+                                        size="$3"
+                                        chromeless
+                                        onPress={() => window['electronAPI'].openExternal("http://localhost:8000")}
+                                        icon={Globe}
+                                        scaleIcon={1.3}
+                                        color="$gray9"
+                                    />
+                                </TooltipSimple>
+                            )}
+                        </XStack>
+                    </Popover>
+                </YStack>
             ) : (
                 <YStack
                     onPress={() => setCollapsed(!collapsed)}

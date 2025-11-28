@@ -154,6 +154,7 @@ const Subtabs = ({ subtabs, collapsed, shortedMatch }: any) => {
                         </a>
                     )
                 }
+
                 return (
                     <Link href={healthCheckLinkRoute(href)} key={index}>
                         {content}

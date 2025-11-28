@@ -184,7 +184,7 @@ function Widget(card) {
 
     try {
         const cards: any[] = [];
-        type Sized = { i: string; w: number; h: number; id: string; device: string; subsystem: string; };
+        type Sized = { i: string; w: number; h: number; id: string; device: string; subsystem: string; order?: number; };
         const buckets = {
             lg: new Map<string, Sized[]>(),
             md: new Map<string, Sized[]>(),
@@ -266,11 +266,12 @@ function Widget(card) {
                     console.log('🤖 ~ generateDeviceBoard ~ subsystem: misc', { deviceName, id, storedId: src?.id, humanName: d?.name });
                 }
                 const groupKey = `${deviceName}::${subsystem}`;
+                const orderValue = d.order;
                 // push sizes per breakpoint
-                ensureBucket('lg', groupKey).push({ i: key, w: size.lg.w, h: size.lg.h, id, device: deviceName, subsystem });
-                ensureBucket('md', groupKey).push({ i: key, w: size.md.w, h: size.md.h, id, device: deviceName, subsystem });
-                ensureBucket('sm', groupKey).push({ i: key, w: size.sm.w, h: size.sm.h, id, device: deviceName, subsystem });
-                ensureBucket('xs', groupKey).push({ i: key, w: size.xs.w, h: size.xs.h, id, device: deviceName, subsystem });
+                ensureBucket('lg', groupKey).push({ i: key, w: size.lg.w, h: size.lg.h, id, device: deviceName, subsystem, order: orderValue });
+                ensureBucket('md', groupKey).push({ i: key, w: size.md.w, h: size.md.h, id, device: deviceName, subsystem, order: orderValue });
+                ensureBucket('sm', groupKey).push({ i: key, w: size.sm.w, h: size.sm.h, id, device: deviceName, subsystem, order: orderValue });
+                ensureBucket('xs', groupKey).push({ i: key, w: size.xs.w, h: size.xs.h, id, device: deviceName, subsystem, order: orderValue });
             }
         }
 
@@ -337,8 +338,15 @@ function Widget(card) {
             for (const gk of groupKeys) {
                 const items = buckets[bp].get(gk)!;
 
+                // Sort items by order if available (items without order go last)
+                const sortedItems = [...items].sort((a, b) => {
+                    const orderA = a.order ?? Infinity;
+                    const orderB = b.order ?? Infinity;
+                    return orderA - orderB;
+                });
+
                 // Pack this group's cards locally (origin at 0,0)
-                const local = pack(items.map(({ i, w, h }) => ({ i, w, h })), cols);
+                const local = pack(sortedItems.map(({ i, w, h }) => ({ i, w, h })), cols);
 
                 // Measure this group's footprint
                 const gW = Math.min(groupWidth(local), cols);   // cols occupied
@@ -535,6 +543,7 @@ const registerActions = async () => {
                 const iconFromValue = monitor.cardProps?.icon ?? "scan-eye";
                 const colorFromValue = monitor.cardProps?.color;
                 const htmlFromValue = monitor.cardProps?.html;
+                const orderFromValue = monitor.cardProps?.order;
                 const { width, height } = computeCardSize({});
                 const cardWidth = monitor.cardProps?.width || width;
                 const cardHeight = monitor.cardProps?.height || height;
@@ -556,6 +565,7 @@ const registerActions = async () => {
                             icon: iconFromValue,
                             ...(colorFromValue ? { color: colorFromValue } : {}),
                             ...(htmlFromValue ? { html: htmlFromValue } : {}),
+                            ...(orderFromValue !== undefined ? { order: orderFromValue } : {}),
                             width: cardWidth,
                             height: cardHeight
                         },
@@ -577,6 +587,7 @@ const registerActions = async () => {
                             icon: iconFromValue,
                             ...(colorFromValue ? { color: colorFromValue } : {}),
                             ...(htmlFromValue ? { html: htmlFromValue } : {}),
+                            ...(orderFromValue !== undefined ? { order: orderFromValue } : {}),
                             width: width,
                             height: height
                         },

@@ -33,6 +33,76 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 		Name: "system",
 		Type: "virtual",
 		Monitors: []MonitorConfig{
+			// === SISTEMA ===
+			{
+				Monitor: vento.Monitor{
+					Name:           "os_version",
+					Label:          "Operating system",
+					Description:    "Host OS and version",
+					Endpoint:       "/system/monitors/os_version",
+					ConnectionType: "mqtt",
+					Ephemeral:      false,
+					CardProps: map[string]any{
+						"icon":  "monitor",
+						"color": "$blue10",
+						"html":  cards.Text,
+						"order": 1,
+					},
+				},
+				Boot: t.publishOSVersion,
+			},
+			// === CPU ===
+			{
+				Monitor: vento.Monitor{
+					Name:           "cpu_model",
+					Label:          "CPU model",
+					Description:    "CPU name/model",
+					Endpoint:       "/system/monitors/cpu_model",
+					ConnectionType: "mqtt",
+					Ephemeral:      false,
+					CardProps: map[string]any{
+						"icon":  "cpu",
+						"color": "$orange10",
+						"html":  cards.Text,
+						"order": 2,
+					},
+				},
+				Boot: t.publishCPUModel,
+			},
+			{
+				Monitor: vento.Monitor{
+					Name:           "cpu_cores",
+					Label:          "CPU cores",
+					Description:    "Number of logical CPU cores",
+					Endpoint:       "/system/monitors/cpu_cores",
+					ConnectionType: "mqtt",
+					Ephemeral:      false,
+					CardProps: map[string]any{
+						"icon":  "layout-grid",
+						"color": "$orange9",
+						"order": 3,
+					},
+				},
+				Boot: t.publishCPUCores,
+			},
+			{
+				Monitor: vento.Monitor{
+					Name:           "cpu_frequency",
+					Label:          "CPU frequency",
+					Description:    "Current CPU frequency (MHz)",
+					Endpoint:       "/system/monitors/cpu_frequency",
+					ConnectionType: "mqtt",
+					Ephemeral:      false,
+					CardProps: map[string]any{
+						"icon":  "activity",
+						"color": "$red10",
+						"html":  cards.Frequency,
+						"order": 4,
+					},
+				},
+				Boot: t.publishCPUFrequency,
+			},
+			// === MEMORIA ===
 			{
 				Monitor: vento.Monitor{
 					Name:           "memory_total",
@@ -46,6 +116,7 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 						"icon":  "database",
 						"color": "$green10",
 						"html":  cards.Bytes,
+						"order": 5,
 					},
 				},
 				Boot: t.publishTotalMemory,
@@ -61,72 +132,13 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					Ephemeral:      true,
 					CardProps: map[string]any{
 						"icon":  "activity",
-						"color": "$blue10",
+						"color": "$green9",
 						"html":  cards.Bytes,
+						"order": 6,
 					},
 				},
 				Interval: 5 * time.Second,
 				Tick:     t.publishUsedMemory,
-			},
-			{
-				Monitor: vento.Monitor{
-					Name:           "cpu_model",
-					Label:          "CPU model",
-					Description:    "CPU name/model",
-					Endpoint:       "/system/monitors/cpu_model",
-					ConnectionType: "mqtt",
-					Ephemeral:      false,
-					CardProps: map[string]any{
-						"icon":  "cpu",
-						"color": "$orange10",
-					},
-				},
-				Boot: t.publishCPUModel,
-			},
-			{
-				Monitor: vento.Monitor{
-					Name:           "cpu_cores",
-					Label:          "CPU cores",
-					Description:    "Number of logical CPU cores",
-					Endpoint:       "/system/monitors/cpu_cores",
-					ConnectionType: "mqtt",
-					Ephemeral:      false,
-					CardProps: map[string]any{
-						"icon":  "layout-grid",
-						"color": "$purple10",
-					},
-				},
-				Boot: t.publishCPUCores,
-			},
-			{
-				Monitor: vento.Monitor{
-					Name:           "cpu_frequency",
-					Label:          "CPU frequency",
-					Description:    "Current CPU frequency (MHz)",
-					Endpoint:       "/system/monitors/cpu_frequency",
-					ConnectionType: "mqtt",
-					Ephemeral:      false,
-					CardProps: map[string]any{
-						"icon":  "activity",
-						"color": "$pink10",
-					},
-				},
-				Boot: t.publishCPUFrequency,
-			},
-			{
-				Monitor: vento.Monitor{
-					Name:           "os_version",
-					Label:          "Operating system",
-					Description:    "Host OS and version",
-					Endpoint:       "/system/monitors/os_version",
-					ConnectionType: "mqtt",
-					Ephemeral:      false,
-					CardProps: map[string]any{
-						"icon":  "monitor",
-						"color": "$orange10",
-					},
-				},
-				Boot: t.publishOSVersion,
 			},
 		},
 		Actions: []ActionConfig{

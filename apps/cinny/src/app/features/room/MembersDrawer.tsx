@@ -44,7 +44,6 @@ import { getMemberDisplayName, getMemberSearchStr } from '../../utils/room';
 import { getMxIdLocalPart } from '../../utils/matrix';
 import { useSetSetting, useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
-import { millify } from '../../plugins/millify';
 import { ScrollTopContainer } from '../../components/scroll-top-container';
 import { UserAvatar } from '../../components/user-avatar';
 import { useRoomTypingMember } from '../../hooks/useRoomTypingMembers';
@@ -72,8 +71,8 @@ function MemberDrawerHeader({ room }: MemberDrawerHeaderProps) {
     <Header className={css.MembersDrawerHeader} variant="Background" size="600">
       <Box grow="Yes" alignItems="Center" gap="200">
         <Box grow="Yes" alignItems="Center" gap="200">
-          <Text title={`${room.getJoinedMemberCount()} Members`} size="H5" truncate>
-            {`${millify(room.getJoinedMemberCount())} Members`}
+          <Text size="H5" truncate>
+            Members
           </Text>
         </Box>
         <Box shrink="No" alignItems="Center">
@@ -236,8 +235,10 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
   const typingMembers = useRoomTypingMember(room.roomId);
 
   // ⭐ Orden correcto por presencia
+  const myUserId = mx.getUserId();
   const filteredMembers = useMemo(() => {
     return members
+      .filter((m) => m.userId !== myUserId) // Exclude current user
       .filter(membershipFilter.filterFn)
       .map((m) => ({
         member: m,
@@ -253,6 +254,7 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
     memberSort,
     memberPowerSort,
     mx,
+    myUserId,
   ]);
 
   const [result, search, resetSearch] = useAsyncSearch(

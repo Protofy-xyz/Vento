@@ -154,11 +154,33 @@ async function matrixRequest(method: string, endpoint: string, body?: any, asUse
 }
 
 /**
+ * Set presence status for an agent (online/offline)
+ */
+async function setAgentPresence(agent: VentoAgent, presence: 'online' | 'offline' | 'unavailable' = 'online'): Promise<void> {
+    try {
+        await matrixRequest(
+            'PUT',
+            `/_matrix/client/v3/presence/${encodeURIComponent(agent.matrixUserId)}/status`,
+            {
+                presence: presence,
+                status_msg: presence === 'online' ? 'Available' : undefined,
+            },
+            agent.matrixUserId
+        );
+        logger.debug({ agent: agent.boardId, presence }, 'Set agent presence');
+    } catch (error: any) {
+        logger.warn({ error: error.message, agent: agent.boardId }, 'Failed to set presence');
+    }
+}
+
+/**
  * Register a virtual user in Matrix for an agent
  */
 async function registerAgentUser(agent: VentoAgent): Promise<void> {
     if (createdMatrixUsers.has(agent.matrixUserId)) {
         logger.debug({ agent: agent.boardId }, 'Agent already registered, skipping');
+        // Still update presence even if already registered
+        await setAgentPresence(agent, 'online');
         return;
     }
 
@@ -181,12 +203,17 @@ async function registerAgentUser(agent: VentoAgent): Promise<void> {
             agent.matrixUserId
         );
 
+        // Set presence to online
+        await setAgentPresence(agent, 'online');
+
         createdMatrixUsers.add(agent.matrixUserId);
         logger.info({ agent: agent.boardId, matrixId: agent.matrixUserId }, 'Registered agent in Matrix');
     } catch (error: any) {
         logger.warn({ error: error.message, agent: agent.boardId, localpart }, 'Register error (may be OK if user exists)');
         // User might already exist - still mark as created so we try to join
         createdMatrixUsers.add(agent.matrixUserId);
+        // Try to set presence anyway
+        await setAgentPresence(agent, 'online');
     }
 }
 
@@ -599,6 +626,15 @@ export async function handleUserQuery(userId: string): Promise<boolean> {
     }
 
     return false;
+}
+
+/**
+ * Update presence for all registered agents (call periodically)
+ */
+export async function updateAllAgentsPresence(): Promise<void> {
+    for (const [, agent] of registeredAgents) {
+        await setAgentPresence(agent, 'online');
+    }
 }
 
 // Export config for status endpoint

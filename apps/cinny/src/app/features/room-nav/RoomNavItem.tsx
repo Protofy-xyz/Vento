@@ -51,6 +51,7 @@ import { RoomNotificationModeSwitcher } from '../../components/RoomNotificationS
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../hooks/useRoomPermissions';
 import { InviteUserPrompt } from '../../components/invite-user-prompt';
+import { isSpecialRoom } from '../../utils/specialRooms';
 
 type RoomNavItemMenuProps = {
   room: Room;
@@ -71,6 +72,9 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
     const space = useSpaceOptionally();
 
     const [invitePrompt, setInvitePrompt] = useState(false);
+    
+    // Check if this is a special/protected room (restricted menu)
+    const isVentoRoom = isSpecialRoom(room);
 
     const handleMarkAsRead = () => {
       markAsRead(mx, room.roomId, hideActivity);
@@ -138,72 +142,76 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
             )}
           </RoomNotificationModeSwitcher>
         </Box>
-        <Line variant="Surface" size="300" />
-        <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-          <MenuItem
-            onClick={handleInvite}
-            variant="Primary"
-            fill="None"
-            size="300"
-            after={<Icon size="100" src={Icons.UserPlus} />}
-            radii="300"
-            aria-pressed={invitePrompt}
-            disabled={!canInvite}
-          >
-            <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-              Invite
-            </Text>
-          </MenuItem>
-          <MenuItem
-            onClick={handleCopyLink}
-            size="300"
-            after={<Icon size="100" src={Icons.Link} />}
-            radii="300"
-          >
-            <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-              Copy Link
-            </Text>
-          </MenuItem>
-          <MenuItem
-            onClick={handleRoomSettings}
-            size="300"
-            after={<Icon size="100" src={Icons.Setting} />}
-            radii="300"
-          >
-            <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-              Room Settings
-            </Text>
-          </MenuItem>
-        </Box>
-        <Line variant="Surface" size="300" />
-        <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-          <UseStateProvider initial={false}>
-            {(promptLeave, setPromptLeave) => (
-              <>
-                <MenuItem
-                  onClick={() => setPromptLeave(true)}
-                  variant="Critical"
-                  fill="None"
-                  size="300"
-                  after={<Icon size="100" src={Icons.ArrowGoLeft} />}
-                  radii="300"
-                  aria-pressed={promptLeave}
-                >
-                  <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-                    Leave Room
-                  </Text>
-                </MenuItem>
-                {promptLeave && (
-                  <LeaveRoomPrompt
-                    roomId={room.roomId}
-                    onDone={requestClose}
-                    onCancel={() => setPromptLeave(false)}
-                  />
+        {!isVentoRoom && (
+          <>
+            <Line variant="Surface" size="300" />
+            <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+              <MenuItem
+                onClick={handleInvite}
+                variant="Primary"
+                fill="None"
+                size="300"
+                after={<Icon size="100" src={Icons.UserPlus} />}
+                radii="300"
+                aria-pressed={invitePrompt}
+                disabled={!canInvite}
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Invite
+                </Text>
+              </MenuItem>
+              <MenuItem
+                onClick={handleCopyLink}
+                size="300"
+                after={<Icon size="100" src={Icons.Link} />}
+                radii="300"
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Copy Link
+                </Text>
+              </MenuItem>
+              <MenuItem
+                onClick={handleRoomSettings}
+                size="300"
+                after={<Icon size="100" src={Icons.Setting} />}
+                radii="300"
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Room Settings
+                </Text>
+              </MenuItem>
+            </Box>
+            <Line variant="Surface" size="300" />
+            <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+              <UseStateProvider initial={false}>
+                {(promptLeave, setPromptLeave) => (
+                  <>
+                    <MenuItem
+                      onClick={() => setPromptLeave(true)}
+                      variant="Critical"
+                      fill="None"
+                      size="300"
+                      after={<Icon size="100" src={Icons.ArrowGoLeft} />}
+                      radii="300"
+                      aria-pressed={promptLeave}
+                    >
+                      <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                        Leave Room
+                      </Text>
+                    </MenuItem>
+                    {promptLeave && (
+                      <LeaveRoomPrompt
+                        roomId={room.roomId}
+                        onDone={requestClose}
+                        onCancel={() => setPromptLeave(false)}
+                      />
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </UseStateProvider>
-        </Box>
+              </UseStateProvider>
+            </Box>
+          </>
+        )}
       </Menu>
     );
   }

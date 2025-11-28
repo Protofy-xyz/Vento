@@ -29,7 +29,6 @@ import { Notifications } from './notifications';
 import { Devices } from './devices';
 import { EmojisStickers } from './emojis-stickers';
 import { DeveloperTools } from './developer-tools';
-import { About } from './about';
 import { UseStateProvider } from '../../components/UseStateProvider';
 import { stopPropagation } from '../../utils/keyboard';
 import { LogoutDialog } from '../../components/LogoutDialog';
@@ -41,7 +40,6 @@ export enum SettingsPages {
   DevicesPage,
   EmojisStickersPage,
   DeveloperToolsPage,
-  AboutPage,
 }
 
 type SettingsMenuItem = {
@@ -82,11 +80,6 @@ const useSettingsMenuItems = (): SettingsMenuItem[] =>
         page: SettingsPages.DeveloperToolsPage,
         name: 'Developer Tools',
         icon: Icons.Terminal,
-      },
-      {
-        page: SettingsPages.AboutPage,
-        name: 'About',
-        icon: Icons.Info,
       },
     ],
     []
@@ -228,7 +221,6 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
       {activePage === SettingsPages.DeveloperToolsPage && (
         <DeveloperTools requestClose={handlePageRequestClose} />
       )}
-      {activePage === SettingsPages.AboutPage && <About requestClose={handlePageRequestClose} />}
     </PageRoot>
   );
 }

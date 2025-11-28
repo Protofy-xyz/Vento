@@ -37,7 +37,7 @@ import { useRoom } from '../../hooks/useRoom';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { useSpaceOptionally } from '../../hooks/useSpace';
-import { getHomeSearchPath, getSpaceSearchPath, withSearchParam } from '../../pages/pathUtils';
+import { getHomeRoomPath, getHomeSearchPath, getSpaceSearchPath, withSearchParam } from '../../pages/pathUtils';
 import { getCanonicalAliasOrRoomId, isRoomAlias, mxcUrlToHttp } from '../../utils/matrix';
 import { _SearchPathSearchParams } from '../../pages/paths';
 import * as css from './RoomViewHeader.css';
@@ -69,12 +69,14 @@ import { useRoomNavigate } from '../../hooks/useRoomNavigate';
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../hooks/useRoomPermissions';
 import { InviteUserPrompt } from '../../components/invite-user-prompt';
+import { isSpecialRoom } from '../../utils/specialRooms';
 
 type RoomMenuProps = {
   room: Room;
   requestClose: () => void;
+  onLeaveRoom?: () => void;
 };
-const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose }, ref) => {
+const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose, onLeaveRoom }, ref) => {
   const mx = useMatrixClient();
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
   const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
@@ -88,6 +90,9 @@ const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose
   const { navigateRoom } = useRoomNavigate();
 
   const [invitePrompt, setInvitePrompt] = useState(false);
+  
+  // Check if this is a special/protected room (restricted menu)
+  const isVentoRoom = isSpecialRoom(room);
 
   const handleMarkAsRead = () => {
     markAsRead(mx, room.roomId, hideActivity);
@@ -157,99 +162,109 @@ const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose
           )}
         </RoomNotificationModeSwitcher>
       </Box>
-      <Line variant="Surface" size="300" />
-      <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-        <MenuItem
-          onClick={handleInvite}
-          variant="Primary"
-          fill="None"
-          size="300"
-          after={<Icon size="100" src={Icons.UserPlus} />}
-          radii="300"
-          aria-pressed={invitePrompt}
-          disabled={!canInvite}
-        >
-          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-            Invite
-          </Text>
-        </MenuItem>
-        <MenuItem
-          onClick={handleCopyLink}
-          size="300"
-          after={<Icon size="100" src={Icons.Link} />}
-          radii="300"
-        >
-          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-            Copy Link
-          </Text>
-        </MenuItem>
-        <MenuItem
-          onClick={handleOpenSettings}
-          size="300"
-          after={<Icon size="100" src={Icons.Setting} />}
-          radii="300"
-        >
-          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-            Room Settings
-          </Text>
-        </MenuItem>
-        <UseStateProvider initial={false}>
-          {(promptJump, setPromptJump) => (
-            <>
-              <MenuItem
-                onClick={() => setPromptJump(true)}
-                size="300"
-                after={<Icon size="100" src={Icons.RecentClock} />}
-                radii="300"
-                aria-pressed={promptJump}
-              >
-                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-                  Jump to Time
-                </Text>
-              </MenuItem>
-              {promptJump && (
-                <JumpToTime
-                  onSubmit={(eventId) => {
-                    setPromptJump(false);
-                    navigateRoom(room.roomId, eventId);
-                    requestClose();
-                  }}
-                  onCancel={() => setPromptJump(false)}
-                />
+      {!isVentoRoom && (
+        <>
+          <Line variant="Surface" size="300" />
+          <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+            <MenuItem
+              onClick={handleInvite}
+              variant="Primary"
+              fill="None"
+              size="300"
+              after={<Icon size="100" src={Icons.UserPlus} />}
+              radii="300"
+              aria-pressed={invitePrompt}
+              disabled={!canInvite}
+            >
+              <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                Invite
+              </Text>
+            </MenuItem>
+            <MenuItem
+              onClick={handleCopyLink}
+              size="300"
+              after={<Icon size="100" src={Icons.Link} />}
+              radii="300"
+            >
+              <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                Copy Link
+              </Text>
+            </MenuItem>
+            <MenuItem
+              onClick={handleOpenSettings}
+              size="300"
+              after={<Icon size="100" src={Icons.Setting} />}
+              radii="300"
+            >
+              <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                Room Settings
+              </Text>
+            </MenuItem>
+            <UseStateProvider initial={false}>
+              {(promptJump, setPromptJump) => (
+                <>
+                  <MenuItem
+                    onClick={() => setPromptJump(true)}
+                    size="300"
+                    after={<Icon size="100" src={Icons.RecentClock} />}
+                    radii="300"
+                    aria-pressed={promptJump}
+                  >
+                    <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                      Jump to Time
+                    </Text>
+                  </MenuItem>
+                  {promptJump && (
+                    <JumpToTime
+                      onSubmit={(eventId) => {
+                        setPromptJump(false);
+                        navigateRoom(room.roomId, eventId);
+                        requestClose();
+                      }}
+                      onCancel={() => setPromptJump(false)}
+                    />
+                  )}
+                </>
               )}
-            </>
-          )}
-        </UseStateProvider>
-      </Box>
-      <Line variant="Surface" size="300" />
-      <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-        <UseStateProvider initial={false}>
-          {(promptLeave, setPromptLeave) => (
-            <>
-              <MenuItem
-                onClick={() => setPromptLeave(true)}
-                variant="Critical"
-                fill="None"
-                size="300"
-                after={<Icon size="100" src={Icons.ArrowGoLeft} />}
-                radii="300"
-                aria-pressed={promptLeave}
-              >
-                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-                  Leave Room
-                </Text>
-              </MenuItem>
-              {promptLeave && (
-                <LeaveRoomPrompt
-                  roomId={room.roomId}
-                  onDone={requestClose}
-                  onCancel={() => setPromptLeave(false)}
-                />
+            </UseStateProvider>
+          </Box>
+          <Line variant="Surface" size="300" />
+          <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+            <UseStateProvider initial={false}>
+              {(promptLeave, setPromptLeave) => (
+                <>
+                  <MenuItem
+                    onClick={() => setPromptLeave(true)}
+                    variant="Critical"
+                    fill="None"
+                    size="300"
+                    after={<Icon size="100" src={Icons.ArrowGoLeft} />}
+                    radii="300"
+                    aria-pressed={promptLeave}
+                  >
+                    <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                      Leave Room
+                    </Text>
+                  </MenuItem>
+                  {promptLeave && (
+                    <LeaveRoomPrompt
+                      roomId={room.roomId}
+                      onDone={() => {
+                        requestClose();
+                        // Small delay to ensure leave completes before navigation
+                        setTimeout(() => {
+                          onLeaveRoom?.();
+                        }, 300);
+                      }}
+                      onCancel={() => setPromptLeave(false)}
+                    />
+                  )}
+                </>
               )}
-            </>
-          )}
-        </UseStateProvider>
-      </Box>
+            </UseStateProvider>
+          </Box>
+        </>
+      )}
     </Menu>
   );
 });
@@ -492,7 +507,23 @@ export function RoomViewHeader() {
                   escapeDeactivates: stopPropagation,
                 }}
               >
-                <RoomMenu room={room} requestClose={() => setMenuAnchor(undefined)} />
+                <RoomMenu 
+                  room={room} 
+                  requestClose={() => setMenuAnchor(undefined)}
+                  onLeaveRoom={() => {
+                    // Navigate to #vento room after leaving
+                    const ventoRoom = mx.getRooms().find(r => {
+                      const alias = r.getCanonicalAlias();
+                      return alias && alias.startsWith('#vento:');
+                    });
+                    if (ventoRoom) {
+                      navigate(getHomeRoomPath(ventoRoom.roomId));
+                    } else {
+                      // Fallback to home
+                      navigate('/home');
+                    }
+                  }}
+                />
               </FocusTrap>
             }
           />

@@ -8,7 +8,7 @@ import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { PowerLevelsContextProvider, usePowerLevels } from '../../hooks/usePowerLevels';
-import { useRoom } from '../../hooks/useRoom';
+import { useRoom, useIsDirectRoom } from '../../hooks/useRoom';
 import { useKeyDown } from '../../hooks/useKeyDown';
 import { markAsRead } from '../../utils/notifications';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
@@ -18,6 +18,7 @@ export function Room() {
   const { eventId } = useParams();
   const room = useRoom();
   const mx = useMatrixClient();
+  const isDirect = useIsDirectRoom();
 
   const [isDrawer] = useSetting(settingsAtom, 'isPeopleDrawer');
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
@@ -37,11 +38,14 @@ export function Room() {
     )
   );
 
+  // Hide members drawer for direct messages (only 2 people)
+  const showDrawer = screenSize === ScreenSize.Desktop && isDrawer && !isDirect;
+
   return (
     <PowerLevelsContextProvider value={powerLevels}>
       <Box grow="Yes">
         <RoomView room={room} eventId={eventId} />
-        {screenSize === ScreenSize.Desktop && isDrawer && (
+        {showDrawer && (
           <>
             <Line variant="Background" direction="Vertical" size="300" />
             <MembersDrawer key={room.roomId} room={room} members={members} />

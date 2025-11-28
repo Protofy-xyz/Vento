@@ -14,6 +14,7 @@ import {
     validateHsToken,
     handleTransaction,
     handleUserQuery,
+    updateAllAgentsPresence,
     APPSERVICE_CONFIG,
 } from './bridge';
 
@@ -33,6 +34,15 @@ export default async (app: any, context: any) => {
             logger.error({ error: (error as Error).message, stack: (error as Error).stack }, 'Initial agent sync failed');
         }
     }, 10000);
+
+    // Update agent presence periodically (every 30 seconds)
+    setInterval(async () => {
+        try {
+            await updateAllAgentsPresence();
+        } catch (error) {
+            logger.warn({ error: (error as Error).message }, 'Failed to update agent presence');
+        }
+    }, 30000);
 
     // Hook into board updates to sync agents
     context.events?.onEvent?.(

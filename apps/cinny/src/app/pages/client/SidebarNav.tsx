@@ -11,12 +11,10 @@ import {
   HomeTab,
   SpaceTabs,
   InboxTab,
-  ExploreTab,
   SettingsTab,
   UnverifiedTab,
   SearchTab,
 } from './sidebar';
-import { CreateTab } from './sidebar/CreateTab';
 
 export function SidebarNav() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -28,14 +26,8 @@ export function SidebarNav() {
           <Scroll ref={scrollRef} variant="Background" size="0">
             <SidebarStack>
               <HomeTab />
-              {/* DirectTab moved inside Home as "Conversations" section */}
             </SidebarStack>
             <SpaceTabs scrollRef={scrollRef} />
-            <SidebarStackSeparator />
-            <SidebarStack>
-              <ExploreTab />
-              <CreateTab />
-            </SidebarStack>
           </Scroll>
         }
         sticky={

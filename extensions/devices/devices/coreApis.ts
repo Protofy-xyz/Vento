@@ -196,9 +196,7 @@ function Widget(card) {
 
         const treeResp = await API.get(`/api/core/v1/cards?token=${token}`);
         const cardsArray = Array.isArray(treeResp?.data?.items) ? treeResp.data.items : [];
-        console.log('🤖 ~ generateDeviceBoard ~ cardsArray:', cardsArray)
         const deviceCardsArray = cardsArray.filter((card: any) => card?.group === 'devices');
-        console.log('🤖 ~ generateDeviceBoard ~ deviceCardsArray:', deviceCardsArray)
 
         const devicesMap = new Map<string, any[]>();
         for (const card of deviceCardsArray) {
@@ -209,13 +207,11 @@ function Widget(card) {
             devicesMap.get(tag)!.push(card);
         }
 
-        console.log('🤖 ~ generateDeviceBoard ~ devicesMap:', devicesMap)
 
         const deviceEntries = deviceName
             ? (devicesMap.has(deviceName) ? [[deviceName, devicesMap.get(deviceName)!]] : [])
             : Array.from(devicesMap.entries());
 
-        console.log('🤖 ~ generateDeviceBoard ~ deviceEntries:', deviceEntries)
 
         for (const [deviceName, deviceCards] of deviceEntries) {
             for (const cardEntry of deviceCards) {

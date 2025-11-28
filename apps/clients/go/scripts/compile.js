@@ -6,12 +6,13 @@ const { join } = require("node:path");
 
 async function main() {
   const rootDir = join(__dirname, "..");
-  const distDir = join(rootDir, "dist");
-  await mkdir(distDir, { recursive: true });
+  const projectRoot = join(rootDir, "..", "..", "..");
+  const binDir = join(projectRoot, "bin");
+  await mkdir(binDir, { recursive: true });
 
   const isWindows = process.platform.startsWith("win");
   const binName = isWindows ? "ventoagent.exe" : "ventoagent";
-  const outputPath = join(distDir, binName);
+  const outputPath = join(binDir, binName);
 
   console.log(`Compiling to ${outputPath} ...`);
   await new Promise((resolve, reject) => {

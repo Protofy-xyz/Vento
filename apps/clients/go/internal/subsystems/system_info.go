@@ -252,7 +252,7 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 						},
 					},
 					CardProps: map[string]any{
-						"icon":  "edit",
+						"icon":  "pencil",
 						"color": "$yellow10",
 						"order": 13,
 					},

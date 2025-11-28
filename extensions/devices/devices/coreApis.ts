@@ -880,6 +880,30 @@ export default (app, context) => {
 
     registerActions()
 
+    const devicePlatforms = {}
+    const getDevicePlatforms = () => Object.keys(devicePlatforms)
+    
+    const addDevicePlatform = (platform) => {
+        const platforms = getDevicePlatforms()
+        if(platform && !platform.name) {{
+            console.log("Skip platform addition: ", platform)
+        }
+        if(!platforms.includes(platform.name)){
+            console.log("Registering device platform: ", platform)
+            devicePlatforms[platform.name] = platform.data || {}
+        }
+    }
+
+    
+    app.post('/api/core/v1/devices/platform', handler(async (req, res, session) => {
+        if(!session || !session.user.admin) {
+            res.status(401).send({error: "Unauthorized"})
+            return
+        }
+        addDevicePlatform(req.body.platform)
+        res.send({message: 'Register platform devices'})
+    }))
+
     app.get('/api/core/v1/devices/registerActions', handler(async (req, res, session) => {
         if(!session || !session.user.admin) {
             res.status(401).send({error: "Unauthorized"})

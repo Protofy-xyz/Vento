@@ -3,34 +3,147 @@ import { YStack, ScrollView, Text, Input, XStack, Button, Label, Accordion, Squa
 import CustomPanelResizeHandle from "../MainPanel/CustomPanelResizeHandle";
 import { JSONView } from "../JSONView";
 import { useCallback, useMemo, useState } from "react";
-import { AlignLeft, Braces, ChevronDown, Copy, Globe, LayoutDashboard, Search } from "@tamagui/lucide-icons";
+import { AlignLeft, Braces, ChevronDown, Copy, Globe, Diamond, LayoutDashboard, Search } from "@tamagui/lucide-icons";
 import { TabBar } from "../TabBar";
 import { generateActionCode, generateStateCode } from "@extensions/boards/utils/ActionsAndStates"
 import { Tinted } from "../Tinted";
 
-function flattenObject(obj, prefix = "", maxDepth = undefined, currentDepth = 1) {
-    let result = [];
-    for (let key in obj) {
-        if (!obj.hasOwnProperty(key)) continue;
+const getLayerOrder = (board) => {
+    const layerSet = new Set<string>(["base"]);
+    (board?.cards ?? []).forEach((card: any) => layerSet.add(card?.layer ?? "base"));
+    return Array.from(layerSet).sort((a, b) =>
+        a === "base" ? -1 : b === "base" ? 1 : a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+};
 
-        const value = obj[key];
-        const newPath = prefix ? prefix + " -> " + key : key;
+const getCardLayerMap = (board) => {
+    const layerMap = new Map<string, string>();
+    (board?.cards ?? []).forEach((card: any) => {
+        if (card?.name) layerMap.set(card.name, card.layer ?? "base");
+    });
+    return layerMap;
+};
 
-        if (typeof value === "object" && value !== null && currentDepth < maxDepth) {
-            if (Object.keys(value).length > 0) {
-                const nested = flattenObject(value, prefix, maxDepth, currentDepth + 1);
-                result.push(...nested);
-            } else {
-                result.push([[newPath], JSON.stringify(newPath)]);
-            }
+const groupByLayer = (
+    items,
+    layerOrder: string[] = [],
+    layerResolver: (key: string, value: any) => string = () => "base"
+) => {
+    const grouped = new Map<string, Record<string, any>>();
+    const seen = new Set<string>(layerOrder);
 
-        } else {
-            result.push([[newPath], newPath]);
-        }
+    for (const [key, value] of Object.entries(items ?? {})) {
+        const layer = layerResolver(key, value) || "base";
+        seen.add(layer);
+        if (!grouped.has(layer)) grouped.set(layer, {});
+        grouped.get(layer)![key] = value;
     }
 
-    return result;
-}
+    const finalOrder =
+        layerOrder && layerOrder.length
+            ? layerOrder
+            : Array.from(seen).sort((a, b) =>
+                a === "base" ? -1 : b === "base" ? 1 : a.localeCompare(b, undefined, { sensitivity: "base" })
+            );
+
+    const ordered: Record<string, any> = {};
+    finalOrder.forEach((layer) => {
+        if (grouped.has(layer)) ordered[layer] = grouped.get(layer);
+    });
+    for (const [layer, value] of grouped.entries()) {
+        if (!(layer in ordered)) ordered[layer] = value;
+    }
+
+    return { data: ordered, order: finalOrder };
+};
+
+const buildOrderedLayers = (data, layerOrder: string[] = []) => {
+    const ordered = [];
+    layerOrder.forEach((layer) => {
+        if (data?.[layer]) ordered.push([layer, data[layer]]);
+    });
+    for (const [layer, value] of Object.entries(data ?? {})) {
+        if (!layerOrder.includes(layer)) ordered.push([layer, value]);
+    }
+    return ordered;
+};
+
+const useCopyFlash = () => {
+    const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+    const triggerCopy = useCallback((key: string, text?: string) => {
+        if (!text) return;
+        navigator.clipboard.writeText(text);
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(null), 700);
+    }, []);
+
+    return { copiedKey, triggerCopy };
+};
+
+const CopyActionButton = ({ label, isCopied, onPress }) => (
+    <Tinted>
+        <Button
+            bc={isCopied ? "transparent" : "$bgPanel"}
+            alignSelf="flex-start"
+            width="auto"
+            size="$2"
+            iconAfter={<Copy color={isCopied ? "transparent" : "$color8"} />}
+            hoverStyle={{ backgroundColor: isCopied ? "transparent" : "$color5" }}
+            onPress={onPress}
+        >
+            {isCopied
+                ? <Text numberOfLines={1} overflow="visible" fos="$4" color="$color">copied to clipboard!</Text>
+                : <Text fos="$4">{label}</Text>
+            }
+        </Button>
+    </Tinted>
+);
+
+const LayerAccordion = ({ items, renderBody }) => (
+    <Accordion type="multiple" defaultValue={items.map(([layer]) => layer)} width="100%" gap="$2">
+        {items.map(([layer, content]: any) => (
+            <Accordion.Item key={layer} value={layer} boc="$gray6" w="100%">
+                <Accordion.Trigger bc="$bgPanel" unstyled p="$3" flexDirection="row" ai="center" br="$4" w="100%">
+                    {({ open }) => (
+                        <XStack flex={1} flexDirection="row" ai="center" jc="space-between">
+                            <XStack ai="center" gap="$2">
+                                <Diamond col="$gray9" size="$1" />
+                                <Text fos="$4" fow={100}>{layer}</Text>
+                            </XStack>
+                            <Square o={0.8} animation="quick" rotate={open ? '180deg' : '0deg'} mr="$1.5">
+                                <ChevronDown size="$1" />
+                            </Square>
+                        </XStack>
+                    )}
+                </Accordion.Trigger>
+                <Accordion.Content bc="transparent" p="$2" pt="$1" w="100%">
+                    {renderBody(content, layer)}
+                </Accordion.Content>
+            </Accordion.Item>
+        ))}
+    </Accordion>
+);
+
+const SearchField = ({ value, onChange }) => (
+    <XStack gap="$2">
+        <Search pos="absolute" left="$3" top={14} size={16} />
+        <Input
+            bg="$bgPanel"
+            color="$gray12"
+            paddingLeft="$7"
+            bw={0}
+            h="47px"
+            boc="$gray6"
+            w="100%"
+            placeholder="search..."
+            placeholderTextColor="$gray9"
+            outlineColor="$gray8"
+            value={value}
+            onChangeText={onChange}
+        />
+    </XStack>
+);
 
 const StatesBoardsView = ({ data, boardName }) => {
     const [selectedBoard, setSelectedBoard] = useState(boardName)
@@ -67,18 +180,21 @@ const BoardsAccordion = ({ boards, children, selectedBoard, onSelectBoard }) => 
         boardsList.map((category => {
             return <XStack key={category} f={1}>
                 <Accordion value={selectedBoard} onValueChange={onSelectBoard} collapsible onPress={(e) => e.stopPropagation()} type="single" flex={1}>
-                    <Accordion.Item value={category} boc="$gray6">
-                        <Accordion.Trigger bc="$gray2" unstyled p={"$3"} flexDirection="row" ai="center" br="$4">
+                    <Accordion.Item value={category} >
+                        <Accordion.Trigger bc="$bgPanel" unstyled p="$3" flexDirection="row" ai="center" br="$4" w="100%">
                             {({ open }) => (
                                 <XStack flex={1} flexDirection="row" ai="center" jc="space-between">
-                                    <Text fos="$4" ml={"$2"} fow={100}>{category}</Text>
+                                    <XStack ai="center" gap={"$2"}>
+                                        <Globe col="$gray9" size="$1" />
+                                        <Text fos="$4" ml={"$2"} fow={100}>{category}</Text>
+                                    </XStack>
                                     <Square o={0.8} animation="quick" rotate={open ? '180deg' : '0deg'} mr={"$1.5"}>
                                         <ChevronDown size="$1" />
                                     </Square>
                                 </XStack>
                             )}
                         </Accordion.Trigger>
-                        <Accordion.Content bc="transparent" p={0}>
+                        <Accordion.Content bc="transparent" p="$2">
                             {children}
                         </Accordion.Content>
                     </Accordion.Item>
@@ -89,69 +205,73 @@ const BoardsAccordion = ({ boards, children, selectedBoard, onSelectBoard }) => 
     </YStack>
 }
 
-const ActionsList = ({ maxDepth = 1, copyIndex = 1, displayIndex = 1, data, hideValue = false, onCopy = (text) => text }) => {
-    const [showCopied, setShowCopied] = useState<number | null>(null)
+const ActionsList = ({ data, onCopy }) => {
+    const { copiedKey, triggerCopy } = useCopyFlash();
 
-    const list = useMemo(() => {
-        if (!data || typeof data !== 'object') return [];
-        return flattenObject(data, "", maxDepth);
-    }, [data, maxDepth]);
+    const actions = useMemo(() => {
+        const out: Array<[string, any]> = [];
+        const walk = (obj: any) => {
+            if (!obj || typeof obj !== "object") return;
+            for (const [key, val] of Object.entries(obj)) {
+                if (val && typeof val === "object" && (val as any).url) {
+                    const label = (val as any).name || key;
+                    out.push([label, val]);
+                } else {
+                    walk(val);
+                }
+            }
+        };
+        walk(data);
+        return out.sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: "base" }));
+    }, [data]);
 
-    const handleCopy = useCallback((text: string, index: number) => {
-        const copiedText = onCopy(text)
-        navigator.clipboard.writeText(copiedText)
-        setShowCopied(index)
-        setTimeout(() => setShowCopied(null), 700)
-    }, [onCopy])
+    const handleCopy = useCallback((val: any, key: string) => {
+        triggerCopy(key, onCopy(val));
+    }, [onCopy, triggerCopy]);
 
+    if (!actions.length) return <Text fos="$4" col="$gray8">No actions found</Text>;
 
     return (
-        <YStack width={"100%"} gap="$2" p="$3">
-            {list.map((line, index) => {
-                const isCopied = showCopied === index
-                const keyLabel = line[0]
-                const value = line[copyIndex]
-
-                return (
-                    <Tinted>
-                        <Button
-                            key={keyLabel + index}
-                            bc={isCopied ? "transparent" : "$bgPanel"}
-                            alignSelf="flex-start"
-                            width="auto"
-                            size="$2"
-                            iconAfter={<Copy color={isCopied ? "transparent" : "$color8"} />}
-                            hoverStyle={{ backgroundColor: isCopied ? "transparent" : "$color5" }}
-                            onPress={() => handleCopy(value, index)}
-                        >
-                            {isCopied
-                                && <Text numberOfLines={1} overflow="visible" fos="$4" color="$color">
-                                    copied to clipboard!
-                                </Text>
-                            }
-                            <XStack opacity={isCopied ? 0 : 1}>
-                                <Text fos="$4">
-                                    {keyLabel + (hideValue ? '' : ' : ')}
-                                </Text>
-                                {!hideValue && (
-                                    <Text fos="$4" color="$color7">
-                                        {line[displayIndex] || value}
-                                    </Text>
-                                )}
-                            </XStack>
-                        </Button>
-                    </Tinted>
-                )
+        <YStack width={"100%"} gap="$2">
+            {actions.map(([key, val]) => {
+                const isCopied = copiedKey === key;
+                return <CopyActionButton key={key} label={key} isCopied={isCopied} onPress={() => handleCopy(val, key)} />
             })}
         </YStack>
-    )
-}
+    );
+};
 
-const FormattedView = ({ maxDepth = 1, copyIndex = 1, displayIndex = 1, data, hideValue = false, copyMode = "rules", format = "actions", boardName = "", type = "" }) => {
+const LayeredActionsView = ({ data, layerOrder, onCopy }) => {
+    const { copiedKey, triggerCopy } = useCopyFlash();
+
+    const layers = useMemo(() => buildOrderedLayers(data, layerOrder), [data, layerOrder]);
+
+    return (
+        <LayerAccordion
+            items={layers}
+            renderBody={(actions, layer) => (
+                <YStack gap="$1.5">
+                    {Object.entries(actions ?? {}).map(([key, val]: any) => {
+                        const compoundKey = `${layer}:${key}`;
+                        return (
+                            <CopyActionButton
+                                key={key}
+                                label={key}
+                                isCopied={copiedKey === compoundKey}
+                                onPress={() => triggerCopy(compoundKey, onCopy(val))}
+                            />
+                        )
+                    })}
+                </YStack>
+            )}
+        />
+    );
+};
+
+const FormattedView = ({ data, copyMode = "rules", format = "actions", boardName = "", type = "", layerOrder = [] }) => {
     const [selectedBoard, setSelectedCategory] = useState(boardName)
 
-    const copy = (text) => {
-        const val = format === "boards" ? data?.[selectedBoard]?.[text] : data?.[text];
+    const copy = (val) => {
         if (!val || !val.url) return '';
         const targetBoard = getBoardIdFromActionUrl(val.url);
         let copyVal = val.url;
@@ -168,7 +288,7 @@ const FormattedView = ({ maxDepth = 1, copyIndex = 1, displayIndex = 1, data, hi
             return generateActionCode(copyVal, val.params ?? {}, type)
         }
 
-        return text
+        return ''
     }
 
     return (
@@ -177,15 +297,11 @@ const FormattedView = ({ maxDepth = 1, copyIndex = 1, displayIndex = 1, data, hi
                 format === "boards"
                     ? <BoardsAccordion boards={data} selectedBoard={selectedBoard} onSelectBoard={setSelectedCategory} >
                         <ActionsList
-                            maxDepth={maxDepth}
-                            copyIndex={copyIndex}
-                            displayIndex={displayIndex}
                             data={data?.[selectedBoard] ?? {}}
-                            hideValue={hideValue}
                             onCopy={copy}
                         />
                     </BoardsAccordion>
-                    : <ActionsList maxDepth={maxDepth} copyIndex={copyIndex} displayIndex={displayIndex} data={data} hideValue={hideValue} onCopy={copy} />
+                    : <LayeredActionsView data={data} layerOrder={layerOrder} onCopy={copy} />
             }
         </YStack>
     )
@@ -229,6 +345,41 @@ function filterObjectBySearch(data, search) {
     return Object.keys(result).length > 0 ? result : undefined;
 }
 
+const filterActionsBySearch = (data, search) => {
+    if (!search) return data;
+    const lower = search.toLowerCase();
+
+    const recurse = (obj) => {
+        if (!obj || typeof obj !== 'object') return undefined;
+
+        if (obj.url) {
+            const text = [
+                obj.name,
+                obj.description,
+                obj.url,
+                JSON.stringify(obj.params ?? {})
+            ].filter(Boolean).join(' ').toLowerCase();
+            return text.includes(lower) ? obj : undefined;
+        }
+
+        const next = {};
+        for (const [key, val] of Object.entries(obj)) {
+            const keyMatch = key.toLowerCase().includes(lower);
+            const child = recurse(val);
+            if (keyMatch) {
+                next[key] = val;
+                continue;
+            }
+            if (child !== undefined && (typeof child !== 'object' || Object.keys(child).length > 0)) {
+                next[key] = child;
+            }
+        }
+        return Object.keys(next).length > 0 ? next : undefined;
+    };
+
+    return recurse(data) ?? {};
+};
+
 export const ActionsAndStatesPanel = ({ board, type, panels = ["actions", "states"], actions, states, copyMode, showActionsTabs = false, showStatesTabs = false }) => {
     const [inputMode, setInputMode] = useState<"json" | "formatted">("formatted")
     const [search, setSearch] = useState('')
@@ -237,20 +388,69 @@ export const ActionsAndStatesPanel = ({ board, type, panels = ["actions", "state
     const [selectedActionsTab, setSelectedActionsTab] = useState(board.name)
     //console.log("ActionsAndStatesPanel:", { actions, states });
 
+    const layerOrder = useMemo(() => getLayerOrder(board), [board?.cards]);
+    const layerPriority = useMemo(() => {
+        const priority = new Map<string, number>();
+        layerOrder.forEach((layer, idx) => priority.set(layer, idx));
+        return priority;
+    }, [layerOrder]);
+    const cardLayerMap = useMemo(() => getCardLayerMap(board), [board?.cards]);
+
+    const sortObjectByLayer = useCallback((obj) => {
+        if (!obj || typeof obj !== 'object') return obj;
+        const fallbackIndex = layerOrder.length;
+        const ordered = Object.entries(obj).sort(([a], [b]) => {
+            const layerA = cardLayerMap.get(a);
+            const layerB = cardLayerMap.get(b);
+            const idxA = layerA ? (layerPriority.get(layerA) ?? fallbackIndex) : fallbackIndex;
+            const idxB = layerB ? (layerPriority.get(layerB) ?? fallbackIndex) : fallbackIndex;
+            if (idxA !== idxB) return idxA - idxB;
+            return a.localeCompare(b, undefined, { sensitivity: "base" });
+        });
+        return Object.fromEntries(ordered);
+    }, [cardLayerMap, layerOrder, layerPriority]);
+
     const cleanedActions = useMemo(() => {
         const cleaned = {};
         if (!actions || typeof actions !== 'object') return cleaned;
         for (const [level1Key, level1Value] of Object.entries(actions)) {
             if (!level1Value || typeof level1Value !== 'object') continue;
+            const boardActions = {};
             for (const [level2Key, level2Value] of Object.entries(level1Value)) {
                 if (!level2Value || typeof level2Value !== 'object') continue;
-                const { name, description, params, url } = level2Value;
-                if (!cleaned[level1Key]) cleaned[level1Key] = {};
-                cleaned[level1Key][level2Key] = { name, description, params, url };
+                const { name, description, params, url, layer: actionLayer } = level2Value as any;
+                boardActions[level2Key] = { name, description, params, url, layer: actionLayer };
+            }
+            if (level1Key === board?.name) {
+                cleaned[level1Key] = groupByLayer(
+                    sortObjectByLayer(boardActions),
+                    layerOrder,
+                    (key) => cardLayerMap.get(key) ?? "base"
+                ).data;
+            } else {
+                cleaned[level1Key] = groupByLayer(boardActions, [],
+                    (_key, val) => {
+                        const v: any = val;
+                        return v?.layer || "base"
+                    }
+                ).data;
             }
         }
         return cleaned;
-    }, [actions]);
+    }, [actions, board?.name, sortObjectByLayer, layerOrder, cardLayerMap]);
+
+    const orderedStates = useMemo(() => {
+        if (!states || typeof states !== 'object') return {};
+        const next = { ...states };
+        if (board?.name && states?.[board.name] && typeof states[board.name] === 'object') {
+            next[board.name] = groupByLayer(
+                sortObjectByLayer(states[board.name]),
+                layerOrder,
+                (key) => cardLayerMap.get(key) ?? "base"
+            ).data;
+        }
+        return next;
+    }, [states, board?.name, sortObjectByLayer, layerOrder, cardLayerMap]);
 
     const filteredActionData = useMemo(() => {
         const visibleActions = selectedActionsTab === "otherBoards"
@@ -259,50 +459,75 @@ export const ActionsAndStatesPanel = ({ board, type, panels = ["actions", "state
                 .sort(([a], [b]) => a.localeCompare(b))
                 .reduce((acc, [id, content]) => ({ ...acc, [id]: content }), {})
             : cleanedActions?.[selectedActionsTab]
-        const filtered = filterObjectBySearch(visibleActions ?? {}, search)
-        return filtered
-    }, [cleanedActions, search, selectedActionsTab]);
+        return filterActionsBySearch(visibleActions ?? {}, search)
+    }, [cleanedActions, search, selectedActionsTab, board?.name]);
 
     const filteredStateData = useMemo(() => {
         const visibleStates = selectedStatesTab === "otherBoards"
-            ? Object.entries(states ?? {})
+            ? Object.entries(orderedStates ?? {})
                 .filter(([boardId]) => boardId !== board?.name)
                 .reduce((acc, [id, content]) => ({ ...acc, [id]: content }), {})
-            : states?.[selectedStatesTab]
+            : orderedStates?.[selectedStatesTab]
         const filtered = filterObjectBySearch(visibleStates ?? {}, stateSearch)
         return filtered
-    }, [states, stateSearch, selectedStatesTab]);
+    }, [orderedStates, stateSearch, selectedStatesTab, board?.name]);
 
+
+    const normalizeNamespace = useCallback((ns: string[] = []) => {
+        if (!Array.isArray(ns)) return [];
+        if (ns.length && layerOrder.includes(ns[0])) return ns.slice(1);
+        return ns;
+    }, [layerOrder]);
+
+    const renderActionsContent = useCallback((format: "boards" | "actions" = "actions") => (
+        <YStack gap="$2" ai="flex-start" f={1}>
+            {inputMode === "formatted" &&
+                <FormattedView
+                    type={type}
+                    data={filteredActionData}
+                    format={format}
+                    copyMode={copyMode}
+                    boardName={board?.name}
+                    layerOrder={layerOrder}
+                />
+            }
+            {inputMode === "json" && <JSONView collapsed={3} style={{ backgroundColor: 'transparent' }} src={filteredActionData} />}
+        </YStack>
+    ), [board?.name, copyMode, filteredActionData, inputMode, layerOrder, type]);
 
     const statesPanel = useMemo(() => {
-        return <YStack gap="$2" ai="flex-start" f={1} >
-            {
-                filteredStateData
-                    ? <JSONView collapsed={1} style={{ backgroundColor: 'transparent' }} src={filteredStateData} collapseStringsAfterLength={100} enableClipboard={(copy) => {
-                        const path = generateStateCode(copy.namespace, "state")
-                        navigator.clipboard.writeText(path)
-                        return false
-                    }} />
-                    : <YStack f={1} w="100%" ai="center" mt="$10">
-                        <Text fos="$4" col="$gray8">No states found</Text>
-                    </YStack>
-            }
-        </YStack>
-    }, [filteredStateData, board?.name, copyMode]);
+        const layers = buildOrderedLayers(filteredStateData, layerOrder);
 
-    const actionsPanel = useMemo(() => {
-        return <YStack gap="$2" ai="flex-start" f={1}>
-            {inputMode === "formatted" && <FormattedView type={type} hideValue={true} data={filteredActionData} copyMode={copyMode} boardName={board?.name} />}
-            {inputMode == "json" && <JSONView collapsed={3} style={{ backgroundColor: 'transparent' }} src={filteredActionData} />}
-        </YStack>
-    }, [filteredActionData, filteredActionData, inputMode, board?.name, copyMode]);
+        if (!filteredStateData || layers.length === 0) {
+            return <YStack f={1} w="100%" ai="center" mt="$10">
+                <Text fos="$4" col="$gray8">No states found</Text>
+            </YStack>
+        }
 
-    const otherBoardsPanel = useMemo(() => {
-        return <YStack gap="$2" ai="flex-start" f={1}>
-            {inputMode === "formatted" && <FormattedView type={type} hideValue={true} data={filteredActionData} format={"boards"} copyMode={copyMode} boardName={board?.name} />}
-            {inputMode == "json" && <JSONView collapsed={3} style={{ backgroundColor: 'transparent' }} src={filteredActionData} />}
-        </YStack>
-    }, [filteredActionData, filteredActionData, inputMode, board?.name, copyMode]);
+        return (
+            <LayerAccordion
+                items={layers}
+                renderBody={(layerContent) => (
+                    <JSONView
+                        collapsed={1}
+                        style={{ backgroundColor: 'transparent' }}
+                        src={layerContent ?? {}}
+                        collapseStringsAfterLength={100}
+                        enableClipboard={(copy) => {
+                            const ns = normalizeNamespace(copy.namespace);
+                            const path = generateStateCode(ns, "state");
+                            navigator.clipboard.writeText(path);
+                            return false;
+                        }}
+                    />
+                )}
+            />
+        )
+    }, [filteredStateData, layerOrder, normalizeNamespace]);
+
+    const actionsPanel = useMemo(() => renderActionsContent("actions"), [renderActionsContent]);
+
+    const otherBoardsPanel = useMemo(() => renderActionsContent("boards"), [renderActionsContent]);
 
     const statesOtherBoardsPanel = useMemo(() => {
         return <StatesBoardsView data={filteredStateData ?? {}} boardName={board?.name} />
@@ -332,7 +557,7 @@ export const ActionsAndStatesPanel = ({ board, type, panels = ["actions", "state
     return <Panel defaultSize={30}>
         <PanelGroup direction="vertical">
             {panels && panels?.includes('actions') && <Panel defaultSize={50} minSize={20} maxSize={80} >
-                <YStack flex={1} height="100%" p="$3" gap="$2" overflow="hidden">
+                <YStack flex={1} height="100%" px="$3" gap="$2" overflow="hidden">
                     <Tinted>
                         <XStack jc="space-between" width="100%">
                             <Label pl="$3" lineHeight={"$4"} fontSize="$5" color="$gray9" >Actions</Label>
@@ -356,23 +581,7 @@ export const ActionsAndStatesPanel = ({ board, type, panels = ["actions", "state
                             </XStack>
                         </XStack>
                     </Tinted>
-                    <XStack gap="$2">
-                        <Search pos="absolute" left="$3" top={14} size={16} />
-                        <Input
-                            bg="$bgPanel"
-                            color="$gray12"
-                            paddingLeft="$7"
-                            bw={0}
-                            h="47px"
-                            boc="$gray6"
-                            w="100%"
-                            placeholder="search..."
-                            placeholderTextColor="$gray9"
-                            outlineColor={"$gray8"}
-                            value={search}
-                            onChangeText={setSearch}
-                        />
-                    </XStack>
+                    <SearchField value={search} onChange={setSearch} />
                     {
                         showActionsTabs
                             ? <>
@@ -381,14 +590,14 @@ export const ActionsAndStatesPanel = ({ board, type, panels = ["actions", "state
                                     selectedId={selectedActionsTab}
                                     onSelect={setSelectedActionsTab}
                                 />
-                                <ScrollView flex={1} width="100%" height="100%" overflow="auto">
-                                    <XStack mt="$2">
+                                <ScrollView flex={1} width="100%" height="100%">
+                                    <XStack mt="$1">
                                         {selectedAction?.content ?? null}
                                     </XStack>
                                 </ScrollView>
                             </>
-                            : <ScrollView flex={1} width="100%" height="100%" overflow="auto">
-                                <XStack mt="$2">
+                            : <ScrollView flex={1} width="100%" height="100%">
+                                <XStack mt="$1">
                                     {selectedAction?.content ?? null}
                                 </XStack>
                             </ScrollView>
@@ -400,23 +609,7 @@ export const ActionsAndStatesPanel = ({ board, type, panels = ["actions", "state
             <Panel defaultSize={50} minSize={20} maxSize={80}>
                 <YStack flex={1} height="100%" borderRadius="$3" p="$3" gap="$2" overflow="hidden" >
                     <Label pl="$3" lineHeight={"$4"} fontSize="$5" color="$gray9">States</Label>
-                    <XStack>
-                        <Search pos="absolute" left="$3" top={14} size={16} />
-                        <Input
-                            bg={"$bgPanel"}
-                            color={"$gray12"}
-                            paddingLeft="$7"
-                            bw={0}
-                            h="47px"
-                            boc="$gray6"
-                            w="100%"
-                            placeholder="search..."
-                            placeholderTextColor="$gray9"
-                            outlineColor={"$gray8"}
-                            value={stateSearch}
-                            onChangeText={setStateSearch}
-                        />
-                    </XStack>
+                    <SearchField value={stateSearch} onChange={setStateSearch} />
                     {
                         showStatesTabs
                             ? <>
@@ -426,13 +619,13 @@ export const ActionsAndStatesPanel = ({ board, type, panels = ["actions", "state
                                     onSelect={setSelectedStatesTab}
                                 />
                                 <ScrollView flex={1} width="100%" height="100%" overflow="auto">
-                                    <XStack mt="$2" f={1}>
+                                    <XStack mt="$1">
                                         {selectedState?.content ?? null}
                                     </XStack>
                                 </ScrollView>
                             </>
                             : <ScrollView flex={1} width="100%" height="100%" overflow="auto">
-                                <XStack mt="$2" f={1}>
+                                <XStack mt="$1">
                                     {selectedState?.content ?? null}
                                 </XStack>
                             </ScrollView>

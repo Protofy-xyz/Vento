@@ -110,11 +110,6 @@ export function UserHeroName({ displayName, userId }: UserHeroNameProps) {
           {displayName ?? username ?? userId}
         </Text>
       </Box>
-      <Box alignItems="Center" gap="100" wrap="Wrap">
-        <Text size="T200" className={classNames(BreakWord, LineClamp3)} title={username}>
-          @{username}
-        </Text>
-      </Box>
     </Box>
   );
 }

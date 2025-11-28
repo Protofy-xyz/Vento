@@ -21,7 +21,7 @@ export type PageNavVariants = RecipeVariants<typeof PageNav>;
 
 export const PageNavHeader = recipe({
   base: {
-    padding: `0 ${config.space.S200} 0 ${config.space.S300}`,
+    padding: `0 ${config.space.S300} 0 ${config.space.S200}`,
     flexShrink: 0,
     selectors: {
       'button&': {
@@ -55,19 +55,19 @@ export type PageNavHeaderVariants = RecipeVariants<typeof PageNavHeader>;
 export const PageNavContent = style({
   minHeight: '100%',
   padding: config.space.S200,
-  paddingRight: 0,
+  paddingLeft: 0,
   paddingBottom: config.space.S700,
 });
 
 export const PageHeader = recipe({
   base: {
-    paddingLeft: config.space.S400,
-    paddingRight: config.space.S200,
+    paddingLeft: config.space.S200,
+    paddingRight: config.space.S400,
   },
   variants: {
     balance: {
       true: {
-        paddingLeft: config.space.S200,
+        paddingRight: config.space.S200,
       },
     },
     outlined: {
@@ -87,7 +87,7 @@ export const PageContent = style([
   {
     paddingTop: config.space.S400,
     paddingLeft: config.space.S400,
-    paddingRight: 0,
+    paddingRight: config.space.S400,
     paddingBottom: toRem(100),
   },
 ]);

@@ -9,6 +9,38 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'fs';
 import path from 'path';
+
+// Plugin para servir el tema de Tamagui desde data/public/themes/
+function serveTamaguiTheme() {
+  const themeCssPath = path.resolve(__dirname, '../../data/public/themes/adminpanel.css');
+  
+  return {
+    name: 'vite-plugin-serve-tamagui-theme',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        // Manejar tanto /tamagui-theme.css como /chat/tamagui-theme.css
+        const isTamaguiTheme = req.url === '/tamagui-theme.css' || 
+                               req.url === '/chat/tamagui-theme.css' ||
+                               req.url?.endsWith('/tamagui-theme.css');
+        
+        if (isTamaguiTheme) {
+          if (fs.existsSync(themeCssPath)) {
+            res.setHeader('Content-Type', 'text/css');
+            res.setHeader('Cache-Control', 'no-cache');
+            const fileStream = fs.createReadStream(themeCssPath);
+            fileStream.pipe(res);
+          } else {
+            // Fallback: CSS vacío si no existe el archivo
+            res.setHeader('Content-Type', 'text/css');
+            res.end('/* Tamagui theme not found - using defaults */');
+          }
+        } else {
+          next();
+        }
+      });
+    },
+  };
+}
 import buildConfig from './build.config';
 
 const copyFiles = {
@@ -80,6 +112,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    serveTamaguiTheme(),
     serverMatrixSdkCryptoWasm(buildConfig.base+'node_modules/.vite/deps/pkg/matrix_sdk_crypto_wasm_bg.wasm'),
     topLevelAwait({
       // The export name of top-level await promise for each chunk module

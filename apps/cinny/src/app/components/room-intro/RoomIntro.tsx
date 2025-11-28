@@ -27,8 +27,9 @@ export const RoomIntro = as<'div', RoomIntroProps>(({ room, ...props }, ref) => 
   const { navigateRoom } = useRoomNavigate();
   const mDirects = useAtomValue(mDirectAtom);
 
+  const isDM = mDirects.has(room.roomId);
   const createEvent = getStateEvent(room, StateEvent.RoomCreate);
-  const avatarMxc = useRoomAvatar(room, mDirects.has(room.roomId));
+  const avatarMxc = useRoomAvatar(room, isDM);
   const name = useRoomName(room);
   const topic = useRoomTopic(room);
   const avatarHttpUrl = avatarMxc ? mxcUrlToHttp(mx, avatarMxc, useAuthentication) : undefined;
@@ -45,6 +46,17 @@ export const RoomIntro = as<'div', RoomIntroProps>(({ room, ...props }, ref) => 
   );
 
   const [hour24Clock] = useSetting(settingsAtom, 'hour24Clock');
+
+  // Simple intro for DMs
+  if (isDM) {
+    return (
+      <Box direction="Column" grow="Yes" alignItems="Center" justifyContent="Center" gap="200" {...props} ref={ref}>
+        <Text size="T300" priority="400" style={{ opacity: 0.6 }}>
+          Chat with {name}
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <Box direction="Column" grow="Yes" gap="500" {...props} ref={ref}>

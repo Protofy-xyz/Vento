@@ -1616,6 +1616,20 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
               </>
             ))}
 
+          {/* DM intro message - show at the start of the conversation */}
+          {direct && !canPaginateBack && rangeAtStart && (
+            <Box 
+              direction="Column" 
+              alignItems="Center" 
+              justifyContent="Center" 
+              style={{ padding: `${config.space.S700} 0 ${config.space.S400} 0` }}
+            >
+              <Text size="T300" priority="400" style={{ opacity: 0.5 }}>
+                Chat with {room.name}
+              </Text>
+            </Box>
+          )}
+
           {getItems().map(eventRenderer)}
 
           {(!liveTimelineLinked || !rangeAtEnd) &&

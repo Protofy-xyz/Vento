@@ -2,13 +2,9 @@ import { Box, Button, config, Icon, Icons, Spinner, Text } from 'folds';
 import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Preset, Visibility } from 'matrix-js-sdk';
-import { UserHero, UserHeroName } from './UserHero';
-import { addRoomIdToMDirect, mxcUrlToHttp } from '../../utils/matrix';
-import { getMemberAvatarMxc, getMemberDisplayName } from '../../utils/room';
+import { addRoomIdToMDirect } from '../../utils/matrix';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { useRoom } from '../../hooks/useRoom';
-import { useUserPresence } from '../../hooks/useUserPresence';
 import { useCloseUserRoomProfile } from '../../state/hooks/userRoomProfile';
 import { getHomeRoomPath } from '../../pages/pathUtils';
 import { useDirectRooms } from '../../pages/client/direct/useDirectRooms';
@@ -18,7 +14,6 @@ type UserRoomProfileProps = {
 };
 export function UserRoomProfile({ userId }: UserRoomProfileProps) {
   const mx = useMatrixClient();
-  const useAuthentication = useMediaAuthentication();
   const navigate = useNavigate();
   const closeUserRoomProfile = useCloseUserRoomProfile();
   const directRooms = useDirectRooms();
@@ -26,12 +21,6 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
 
   const room = useRoom();
   const myUserId = mx.getSafeUserId();
-
-  const displayName = getMemberDisplayName(room, userId);
-  const avatarMxc = getMemberAvatarMxc(room, userId);
-  const avatarUrl = (avatarMxc && mxcUrlToHttp(mx, avatarMxc, useAuthentication)) ?? undefined;
-
-  const presence = useUserPresence(userId);
 
   // Check if we already have a DM with this user
   const existingDM = directRooms.find((roomId) => {
@@ -88,34 +77,21 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
   }, [mx, userId, existingDM, navigate, closeUserRoomProfile]);
 
   return (
-    <Box direction="Column">
-      <UserHero
-        userId={userId}
-        avatarUrl={avatarUrl}
-        presence={presence && presence.lastActiveTs !== 0 ? presence : undefined}
-      />
-      <Box direction="Column" gap="500" style={{ padding: config.space.S400 }}>
-        <Box direction="Column" gap="400">
-          <Box gap="400" alignItems="Start">
-            <UserHeroName displayName={displayName} userId={userId} />
-            {userId !== myUserId && (
-              <Box shrink="No">
-                <Button
-                  size="300"
-                  variant="Primary"
-                  fill="Solid"
-                  radii="300"
-                  before={creatingDM ? <Spinner size="50" variant="Primary" fill="Solid" /> : <Icon size="50" src={Icons.Message} filled />}
-                  onClick={handleMessage}
-                  disabled={creatingDM}
-                >
-                  <Text size="B300">Message</Text>
-                </Button>
-              </Box>
-            )}
-          </Box>
-        </Box>
-      </Box>
+    <Box style={{ padding: config.space.S300 }}>
+      {userId !== myUserId && (
+        <Button
+          size="300"
+          variant="Primary"
+          fill="Solid"
+          radii="300"
+          style={{ paddingLeft: '25px', paddingRight: '25px' }}
+          before={creatingDM ? <Spinner size="50" variant="Primary" fill="Solid" /> : <Icon size="50" src={Icons.Message} filled />}
+          onClick={handleMessage}
+          disabled={creatingDM}
+        >
+          <Text size="B300">Message</Text>
+        </Button>
+      )}
     </Box>
   );
 }

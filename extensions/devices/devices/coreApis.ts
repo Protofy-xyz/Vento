@@ -224,7 +224,8 @@ function Widget(card) {
 
                 const type: 'value' | 'action' = (d.type === 'action') ? 'action' : 'value';
 
-                const humanName = id
+                // Use label from card defaults if available, otherwise format the id
+                const humanName = d.label || id
                     .replace(/_/g, ' ')
                     .replace(/\b\w/g, c => c.toUpperCase());
                 const key = makeKey(`${deviceName}__${id}`, type);
@@ -568,6 +569,7 @@ const registerActions = async () => {
                         templateName: deviceInfo.data.name + ' ' + subsystem.name + ' device value',
                         name: subsystem.name,
                         defaults: {
+                            label: monitor.label,
                             name: deviceInfo.data.name + ' ' + subsystem.name,
                             description: monitor.description ?? "",
                             rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
@@ -587,6 +589,7 @@ const registerActions = async () => {
                         templateName: deviceInfo.data.name + ' ' + monitor.name + ' device value',
                         name: monitor.name,
                         defaults: {
+                            label: monitor.label,
                             name: deviceInfo.data.name + ' ' + monitor.name,
                             description: monitor.description ?? "",
                             rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
@@ -741,6 +744,7 @@ const registerActions = async () => {
                         const paramsForDefaults = action.payload?.value ? {} : getParams(params);
 
                         return {
+                            label: action.label,
                             width: cardWidth,
                             height: cardHeight * (action.mode === 'request-reply' ? 2 : 1),
                             icon: iconFromAction,

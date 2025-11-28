@@ -133,6 +133,13 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
     }
     return null
   }
+  
+  getLogs(){
+    if(this.data?.platform == "esphome"){
+      return true
+    }
+    return false
+  }
 
   async getManifestUrl(compileSessionId){
     if(this.data.platform == "esphome") {

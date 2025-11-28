@@ -9,7 +9,7 @@ import { DashboardGrid, gridSizes, getCurrentBreakPoint } from 'protolib/compone
 import { LogPanel } from 'protolib/components/LogPanel';
 import { AlertDialog } from 'protolib/components/AlertDialog';
 import { CenterCard, HTMLView } from '@extensions/services/widgets'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { useEffectOnce, useUpdateEffect } from 'usehooks-ts'
 import { Tinted } from 'protolib/components/Tinted'
 import { useProtoStates } from '@extensions/protomemdb/lib/useProtoStates'
@@ -118,6 +118,18 @@ const FileWidget = dynamic<any>(() =>
   import('protolib/adminpanel/features/components/FilesWidget').then(module => module.FileWidget),
   { loading: () => <Tinted><Center><Spinner size='small' color="$color7" scale={4} /></Center></Tinted> }
 );
+
+// Memoized ActionCard to prevent unnecessary re-renders
+const GraphActionCard = memo(ActionCard, (prev, next) => {
+  return prev.data === next.data
+    && prev.value === next.value
+    && prev.states === next.states
+    && prev.html === next.html
+    && prev.displayResponse === next.displayResponse
+    && prev.name === next.name
+    && prev.color === next.color
+    && prev.icon === next.icon;
+});
 
 const getExecuteAction = (board, rawActions) => {
   const actions = []
@@ -296,13 +308,38 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
 
   const [items, setItems] = useState(board.cards && board.cards.length ? board.cards : []);
   const [boardCode, setBoardCode] = useState(JSON.stringify(board))
+  const [graphLayout, setGraphLayout] = useState(board?.graphLayout ?? {});
+  const graphLayoutRef = useRef(graphLayout);
+  const graphLayoutBoardRef = useRef<string | null>(board?.name ?? null);
+  const layoutsEqual = useCallback((a: any, b: any) => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const k of aKeys) {
+      const av = a[k]; const bv = b[k];
+      if (!bv) return false;
+      if (av.x !== bv.x || av.y !== bv.y || av.layer !== bv.layer || av.parent !== bv.parent || av.type !== bv.type) return false;
+    }
+    return true;
+  }, []);
 
   useEffect(() => {
-    console.log('board changed, updating items', board)
     setItems(board.cards && board.cards.length ? board.cards : []);
     setBoardCode(JSON.stringify(board));
+    const incomingLayout = board?.graphLayout ?? {};
+    const boardChanged = graphLayoutBoardRef.current !== board?.name;
+    const hasLocalLayout = Object.keys(graphLayoutRef.current || {}).length > 0;
+    if (boardChanged || !hasLocalLayout) {
+      if (!layoutsEqual(graphLayoutRef.current, incomingLayout)) {
+        setGraphLayout(incomingLayout);
+        graphLayoutRef.current = incomingLayout;
+      }
+    }
+    graphLayoutBoardRef.current = board?.name ?? null;
     window['board'] = board;
-  }, [board])
+  }, [board, layoutsEqual])
 
   const [availableLayers, setLayers] = useLayers();
   const [activeLayer, setActiveLayer] = useBoardLayer();
@@ -484,6 +521,11 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
   }, [items])
 
   useEffect(() => {
+    boardRef.current.graphLayout = graphLayout
+    graphLayoutRef.current = graphLayout
+  }, [graphLayout])
+
+  useEffect(() => {
     boardRef.current = board;
   }, [board]);
 
@@ -518,6 +560,32 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     setCurrentCard(null)
   }
 
+  const deleteCardsByName = useCallback(async (targets: string[]) => {
+    if (!targets.length) return;
+
+    const newItems = items.filter((item) => !targets.includes(item.name));
+    if (newItems.length === items.length) return;
+
+    setItems(newItems);
+    boardRef.current.cards = newItems;
+
+    const nextLayout = { ...(graphLayoutRef.current || {}) };
+    let layoutChanged = false;
+    targets.forEach((name) => {
+      if (nextLayout[name]) {
+        delete nextLayout[name];
+        layoutChanged = true;
+      }
+    });
+    if (layoutChanged) {
+      setGraphLayout(nextLayout);
+      graphLayoutRef.current = nextLayout;
+      boardRef.current.graphLayout = nextLayout;
+    }
+
+    await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
+  }, [items, board.name, setBoardVersion, refresh]);
+
   const layouts = useMemo(() => {
     // return {
     //   lg: computeLayout(items, { totalCols: 24, normalW: 8, normalH: 6, doubleW: 8, doubleH: 6 }, { layout: board?.layouts?.lg }),
@@ -549,7 +617,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     }
 
     const uniqueKey = card.type + '_' + Date.now();
-    const newCard = { ...card, key: uniqueKey, layer: card.layer ?? activeLayer }
+    const newCard = { ...card, key: uniqueKey, layer: card.layer ?? activeLayer ?? 'base' }
     const newItems = [...boardRef.current?.cards, newCard].filter(item => item.key !== 'addwidget');
     setItems(newItems)
     boardRef.current.cards = newItems;
@@ -592,6 +660,21 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     }
   }
 
+  const persistGraphLayout = useCallback((nextLayout) => {
+    const safeLayout = nextLayout || {};
+    if (layoutsEqual(safeLayout, graphLayoutRef.current)) return;
+    if (__currentBoardVersion !== boardRef.current?.version) {
+      console.error("Cannot save graph layout, the board version has changed, please refresh the board.");
+      return;
+    }
+    graphLayoutRef.current = safeLayout;
+    setGraphLayout(safeLayout);
+    boardRef.current.graphLayout = safeLayout;
+    API.post(`/api/core/v1/boards/${board.name}/graphlayout`, { graphLayout: safeLayout }).catch((error) => {
+      console.error('Error saving graph layout:', error);
+    });
+  }, [board.name, layoutsEqual]);
+
   //fill items with react content, addWidget should be the last item
   const cards = (items || []).map((item) => {
     if (item.type == 'addWidget') {
@@ -622,7 +705,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     } else {
       return {
         ...item,
-        content: <ActionCard
+        content: <GraphActionCard
           board={board}
           data={item}
           states={states?.boards?.[board.name]?.[item.name]}
@@ -772,10 +855,20 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     const newItems = items.map(item =>
       item.key === currentCard.key ? editedCard : item
     );
+    const nameChanged = currentCard?.name && editedCard?.name && currentCard.name !== editedCard.name;
 
     try {
       await checkCard(newItems, editedCard);
       setErrors([]);
+
+      if (nameChanged && graphLayoutRef.current?.[currentCard.name]) {
+        const preservedLayout = graphLayoutRef.current[currentCard.name];
+        const nextLayout = { ...graphLayoutRef.current };
+        delete nextLayout[currentCard.name];
+        nextLayout[editedCard.name] = { ...preservedLayout, layer: editedCard.layer ?? preservedLayout.layer };
+        persistGraphLayout(nextLayout);
+      }
+
       setItems(newItems);
       boardRef.current.cards = newItems;
       await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
@@ -968,61 +1061,66 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
                   formatOnType: true
                 }}
               />
-              : isGraphView ? <GraphView cards={cards} /> : <YStack f={1} p={"$6"}>{cards.length > 0 && items !== null ? <DashboardGrid
-                extraScrollSpace={50}
-                items={cards}
-                settings={board.settings}
-                layouts={boardRef.current.layouts}
-                onWidthChange={(newLayoutWidth) => {
-                  breakpointRef.current = getCurrentBreakPoint(newLayoutWidth)
-                }}
-                onLayoutChange={(layout, layouts) => {
-                  if (breakpointCancelRef.current == breakpointRef.current) {
-                    console.log('Layout change cancelled for breakpoint: ', breakpointRef.current, breakpointCancelRef.current)
-                    breakpointCancelRef.current = null
-                    return
-                  }
+              : isGraphView
+                ? <GraphView
+                  cards={cards}
+                  layout={graphLayout}
+                  onLayoutChange={persistGraphLayout}
+                  activeLayer={activeLayer}
+                  onSelectLayer={(layer) => setActiveLayer(layer)}
+                  onDeleteNodes={deleteCardsByName}
+                />
+                : <YStack f={1} p={"$6"}>{
+                  cards.length > 0 && items !== null
+                    ? <DashboardGrid
+                      extraScrollSpace={50}
+                      items={cards}
+                      settings={board.settings}
+                      layouts={boardRef.current.layouts}
+                      onWidthChange={(newLayoutWidth) => {
+                        breakpointRef.current = getCurrentBreakPoint(newLayoutWidth)
+                      }}
+                      onLayoutChange={(layout, layouts) => {
+                        if (breakpointCancelRef.current == breakpointRef.current) {
+                          breakpointCancelRef.current = null
+                          return
+                        }
 
-                  //small dedup to avoid multiple saves in a short time
-                  if (JSON.stringify(boardRef.current.layouts[breakpointRef.current]) == JSON.stringify(layout)) {
-                    console.log('Layout not changed, skipping save')
-                    return
-                  }
+                        //small dedup to avoid multiple saves in a short time
+                        if (JSON.stringify(boardRef.current.layouts[breakpointRef.current]) == JSON.stringify(layout)) {
+                          return
+                        }
 
-                  console.log('programming layout change: ', breakpointRef.current)
-                  clearTimeout(dedupRef.current)
-                  dedupRef.current = setTimeout(() => {
-                    console.log('Layout changed: ', breakpointRef.current)
-                    console.log('Prev layout: ', boardRef.current.layouts[breakpointRef.current])
-                    console.log('New layout: ', layout)
-                    const bp = breakpointRef.current;
-                    const prev = boardRef.current.layouts[bp] || [];
-                    const next = layout;
-                    const merged = [
-                      ...prev.filter((oldItem) => !next.find((newItem) => newItem.i === oldItem.i)),
-                      ...next,
-                    ];
-                    boardRef.current.layouts[bp] = merged;
+                        clearTimeout(dedupRef.current)
+                        dedupRef.current = setTimeout(() => {
+                          const bp = breakpointRef.current;
+                          const prev = boardRef.current.layouts[bp] || [];
+                          const next = layout;
+                          const merged = [
+                            ...prev.filter((oldItem) => !next.find((newItem) => newItem.i === oldItem.i)),
+                            ...next,
+                          ];
+                          boardRef.current.layouts[bp] = merged;
 
 
-                    saveBoard(board.name, boardRef.current, setBoardVersion, refresh, { bumpVersion: false })
-                  }, 100)
-                }}
-                onBreakpointChange={(bp) => {
-                  clearInterval(dedupRef.current)
-                  console.log('Breakpoint changed to: ', bp)
-                  breakpointRef.current = bp
-                  //after changing breakpoint a onLaoutChange is triggered but its not necessary to save the layout
-                  breakpointCancelRef.current = bp
-                  setTimeout(() => {
-                    breakpointCancelRef.current = null //reset the cancel flag after 1 second
-                  }, 1000)
-                }}
-              /> : (items !== null ? <YStack f={1} top={-100} ai="center" jc="center" gap="$5" o={0.1} className="no-drag">
-                {/* <Scan size="$15" /> */}
-                <H1>{board.name} is empty</H1>
-                <H3>Click on the + button to add a new card</H3>
-              </YStack> : null)}</YStack>
+                          saveBoard(board.name, boardRef.current, setBoardVersion, refresh, { bumpVersion: false })
+                        }, 100)
+                      }}
+                      onBreakpointChange={(bp) => {
+                        clearInterval(dedupRef.current)
+                        console.log('Breakpoint changed to: ', bp)
+                        breakpointRef.current = bp
+                        //after changing breakpoint a onLaoutChange is triggered but its not necessary to save the layout
+                        breakpointCancelRef.current = bp
+                        setTimeout(() => {
+                          breakpointCancelRef.current = null //reset the cancel flag after 1 second
+                        }, 1000)
+                      }}
+                    /> : (items !== null ? <YStack f={1} top={-100} ai="center" jc="center" gap="$5" o={0.1} className="no-drag">
+                      {/* <Scan size="$15" /> */}
+                      <H1>{board.name} is empty</H1>
+                      <H3>Click on the + button to add a new card</H3>
+                    </YStack> : null)}</YStack>
           }
         </YStack>
         <HTMLView
@@ -1179,7 +1277,6 @@ export const BoardView = ({ workspace, pageState, initialItems, itemData, pageSe
   usePendingEffect((s) => { API.get({ url: `/api/core/v1/boards/${params.board}/` }, s) }, setBoardData, board)
   useEffect(() => {
     refresh(true)
-    console.log('Board param changed, refreshing board version*************************')
   }, [params.board])
 
   const [iconsData, setIconsData] = useState(icons ?? getPendingResult('pending'))

@@ -112,18 +112,20 @@ const shiftY = (layout: any[], offsetY: number) =>
 const sectionHeight = (layout: any[]) =>
     layout.reduce((m, l) => Math.max(m, l.y + l.h), 0);
 
+// Tamaños dinámicos basados en el grid: 6 tarjetas por fila
+const CARDS_PER_ROW = 6;
 const SIZE = {
     value: {
-        lg: { w: GRID.lg.normalW, h: GRID.lg.normalH },
-        md: { w: GRID.md.normalW, h: GRID.md.normalH },
+        lg: { w: Math.floor(GRID.lg.totalCols / CARDS_PER_ROW), h: GRID.lg.normalH },
+        md: { w: Math.floor(GRID.md.totalCols / CARDS_PER_ROW), h: GRID.md.normalH },
         sm: { w: GRID.sm.normalW, h: GRID.sm.normalH },
         xs: { w: GRID.xs.normalW, h: GRID.xs.normalH },
     },
     action: {
-        lg: { w: GRID.lg.normalW, h: GRID.lg.normalH },
-        md: { w: GRID.md.normalW, h: GRID.md.normalH },
-        sm: { w: GRID.sm.normalW, h: GRID.sm.normalH },
-        xs: { w: GRID.xs.normalW, h: GRID.xs.normalH },
+        lg: { w: Math.floor(GRID.lg.totalCols / CARDS_PER_ROW), h: GRID.lg.normalH + 4 },
+        md: { w: Math.floor(GRID.md.totalCols / CARDS_PER_ROW), h: GRID.md.normalH + 4 },
+        sm: { w: GRID.sm.normalW, h: GRID.sm.normalH + 4 },
+        xs: { w: GRID.xs.normalW, h: GRID.xs.normalH + 4 },
     },
 };
 
@@ -221,7 +223,10 @@ function Widget(card) {
                 const d = src.defaults || {};
 
                 const type: 'value' | 'action' = (d.type === 'action') ? 'action' : 'value';
-                const humanName = `${id}`;
+
+                const humanName = id
+                    .replace(/_/g, ' ')
+                    .replace(/\b\w/g, c => c.toUpperCase());
                 const key = makeKey(`${deviceName}__${id}`, type);
                 const size = SIZE[type];
 
@@ -374,7 +379,7 @@ function Widget(card) {
         const payload = {
             name: boardName,
             version: Date.now(),
-            layouts: emptyLayouts,
+            layouts,
             cards,
             rules: [],
             network: "core",

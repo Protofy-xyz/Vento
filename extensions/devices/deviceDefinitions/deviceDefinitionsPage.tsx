@@ -117,7 +117,7 @@ export default {
               <XStack cursor="pointer" hoverStyle={{ opacity: 0.8 }} onPress={() => router.push('/deviceDefinitions')}>
                 <Paragraph>
                   <Text fontSize="$9" fontWeight="600" color="$color11">
-                    Definitions
+                    Templates
                   </Text>
                 </Paragraph>
               </XStack>

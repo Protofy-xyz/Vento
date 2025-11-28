@@ -286,19 +286,20 @@ function Widget(card) {
         }
 
         // --- after you've finished filling `buckets` (lg/md/sm/xs) ---
-        const groupWeights = new Map<string, number>();
+        // Calculate the minimum order for each group (for sorting groups by their first card's order)
+        const groupMinOrder = new Map<string, number>();
 
         // Use lg bucket as canonical — membership is identical across breakpoints
         for (const [gk, items] of buckets.lg.entries()) {
-            const weight = items.length; // monitors + actions -> #cards in group
-            groupWeights.set(gk, weight);
+            const minOrder = Math.min(...items.map(it => it.order ?? Infinity));
+            groupMinOrder.set(gk, minOrder);
         }
 
-        // Pretty log of all weights once
-        console.groupCollapsed('[devices_board] Subsystem weights');
-        for (const [gk, weight] of groupWeights.entries()) {
+        // Pretty log of all group orders once
+        console.groupCollapsed('[devices_board] Subsystem minOrder');
+        for (const [gk, minOrder] of groupMinOrder.entries()) {
             const [device, subsystem] = gk.split('::');
-            console.log(`- ${device} :: ${subsystem} -> weight=${weight}`);
+            console.log(`- ${device} :: ${subsystem} -> minOrder=${minOrder}`);
         }
         console.groupEnd();
 
@@ -310,12 +311,14 @@ function Widget(card) {
         const groupWidth = (layout: any[]) =>
             layout.reduce((m, l) => Math.max(m, l.x + l.w), 0);
 
-        // --- after computing groupWeights + the weights log ---
+        // --- after computing groupMinOrder + the order log ---
         const buildGroupedLayout = (bp: 'lg' | 'md' | 'sm' | 'xs', cols: number) => {
+            // Sort groups by their minimum order (so cards appear in the order defined by their 'order' field)
             const groupKeys = Array.from(buckets[bp].keys()).sort((a, b) => {
-                const wa = groupWeights.get(a) ?? buckets[bp].get(a)?.length ?? 0;
-                const wb = groupWeights.get(b) ?? buckets[bp].get(b)?.length ?? 0;
-                if (wa !== wb) return wa - wb;
+                const orderA = groupMinOrder.get(a) ?? Infinity;
+                const orderB = groupMinOrder.get(b) ?? Infinity;
+                if (orderA !== orderB) return orderA - orderB;
+                // Fallback: alphabetical by subsystem name
                 const [da, sa] = a.split('::');
                 const [db, sb] = b.split('::');
                 return da === db ? sa.localeCompare(sb) : da.localeCompare(db);
@@ -325,8 +328,8 @@ function Widget(card) {
             console.groupCollapsed(`[devices_board] Order @ ${bp} (cols=${cols})`);
             groupKeys.forEach((gk, i) => {
                 const [device, subsystem] = gk.split('::');
-                const w = groupWeights.get(gk) ?? buckets[bp].get(gk)?.length ?? 0;
-                console.log(`${i + 1}. ${device} :: ${subsystem} (weight=${w})`);
+                const minOrd = groupMinOrder.get(gk) ?? Infinity;
+                console.log(`${i + 1}. ${device} :: ${subsystem} (minOrder=${minOrd})`);
             });
             console.groupEnd();
 
@@ -723,6 +726,7 @@ const registerActions = async () => {
                 const iconFromAction = action.cardProps?.icon ?? "rocket";
                 const colorFromAction = action.cardProps?.color;
                 const htmlFromAction = action.cardProps?.html;
+                const orderFromAction = action.cardProps?.order;
                 const { width, height } = computeCardSize(params); // use config params to size
                 const cardWidth = action.cardProps?.width || width;
                 const cardHeight = action.cardProps?.height || height;
@@ -749,6 +753,7 @@ const registerActions = async () => {
                             type: 'action',
                             ...(colorFromAction ? { color: colorFromAction } : {}),
                             ...(htmlFromAction ? { html: htmlFromAction } : {}),
+                            ...(orderFromAction !== undefined ? { order: orderFromAction } : {}),
                             displayResponse: action.mode === 'request-reply'
                         };
                     })(),

@@ -142,40 +142,7 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 			},
 		},
 		Actions: []ActionConfig{
-			{
-				Action: vento.Action{
-					Name:           "print",
-					Label:          "Print to stdout",
-					Description:    "Send a message that the local agent prints to stdout",
-					Endpoint:       vento.PrintActionEndpoint,
-					ConnectionType: "mqtt",
-					Payload: vento.ActionPayload{
-						Type: "string",
-					},
-					CardProps: map[string]any{
-						"icon": "terminal",
-					},
-				},
-				Handler: handlePrintAction,
-			},
-			{
-				Action: vento.Action{
-					Name:           "execute",
-					Label:          "Execute command",
-					Description:    "Run a shell command on the host and return its output",
-					Endpoint:       vento.ExecuteActionEndpoint,
-					ConnectionType: "mqtt",
-					Payload: vento.ActionPayload{
-						Type: "string",
-					},
-					CardProps: map[string]any{
-						"icon":  "code",
-						"color": "$red10",
-					},
-					Mode: "request-reply",
-				},
-				Handler: handleExecuteAction,
-			},
+			// === DIRECTORIOS (azul) ===
 			{
 				Action: vento.Action{
 					Name:           "list_dir",
@@ -196,7 +163,8 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					},
 					CardProps: map[string]any{
 						"icon":  "folder",
-						"color": "$blue9",
+						"color": "$blue10",
+						"order": 10,
 					},
 					Mode: "request-reply",
 				},
@@ -204,6 +172,35 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					return handleListDirAction(m, baseDir)
 				},
 			},
+			{
+				Action: vento.Action{
+					Name:           "mkdir",
+					Label:          "Create directory",
+					Description:    "Create a directory relative to the agent",
+					Endpoint:       vento.MkdirActionEndpoint,
+					ConnectionType: "mqtt",
+					Payload: vento.ActionPayload{
+						Type: "json-schema",
+						Schema: map[string]any{
+							"path": map[string]any{
+								"type":        "string",
+								"title":       "Directory",
+								"description": "Relative directory path",
+							},
+						},
+					},
+					CardProps: map[string]any{
+						"icon":  "folder-plus",
+						"color": "$blue9",
+						"order": 11,
+					},
+					Mode: "request-reply",
+				},
+				Handler: func(m vento.ActionEnvelope) error {
+					return handleMkdirAction(m, baseDir)
+				},
+			},
+			// === ARCHIVOS (verde/amarillo/rojo) ===
 			{
 				Action: vento.Action{
 					Name:           "read_file",
@@ -223,7 +220,8 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					},
 					CardProps: map[string]any{
 						"icon":  "file-text",
-						"color": "$green9",
+						"color": "$green10",
+						"order": 12,
 					},
 					Mode: "request-reply",
 				},
@@ -255,7 +253,8 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					},
 					CardProps: map[string]any{
 						"icon":  "edit",
-						"color": "$yellow9",
+						"color": "$yellow10",
+						"order": 13,
 					},
 					Mode: "request-reply",
 				},
@@ -282,7 +281,8 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					},
 					CardProps: map[string]any{
 						"icon":  "trash",
-						"color": "$red9",
+						"color": "$red10",
+						"order": 14,
 					},
 					Mode: "request-reply",
 				},
@@ -290,32 +290,43 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					return handleDeleteFileAction(m, baseDir)
 				},
 			},
+			// === SISTEMA (naranja/púrpura) ===
 			{
 				Action: vento.Action{
-					Name:           "mkdir",
-					Label:          "Create directory",
-					Description:    "Create a directory relative to the agent",
-					Endpoint:       vento.MkdirActionEndpoint,
+					Name:           "execute",
+					Label:          "Execute command",
+					Description:    "Run a shell command on the host and return its output",
+					Endpoint:       vento.ExecuteActionEndpoint,
 					ConnectionType: "mqtt",
 					Payload: vento.ActionPayload{
-						Type: "json-schema",
-						Schema: map[string]any{
-							"path": map[string]any{
-								"type":        "string",
-								"title":       "Directory",
-								"description": "Relative directory path",
-							},
-						},
+						Type: "string",
 					},
 					CardProps: map[string]any{
-						"icon":  "folder-plus",
-						"color": "$purple9",
+						"icon":  "terminal",
+						"color": "$orange10",
+						"order": 15,
 					},
 					Mode: "request-reply",
 				},
-				Handler: func(m vento.ActionEnvelope) error {
-					return handleMkdirAction(m, baseDir)
+				Handler: handleExecuteAction,
+			},
+			{
+				Action: vento.Action{
+					Name:           "print",
+					Label:          "Print to stdout",
+					Description:    "Send a message that the local agent prints to stdout",
+					Endpoint:       vento.PrintActionEndpoint,
+					ConnectionType: "mqtt",
+					Payload: vento.ActionPayload{
+						Type: "string",
+					},
+					CardProps: map[string]any{
+						"icon":  "message-square",
+						"color": "$purple10",
+						"order": 16,
+					},
 				},
+				Handler: handlePrintAction,
 			},
 		},
 	}

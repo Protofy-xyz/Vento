@@ -1,9 +1,6 @@
-import { lightTheme } from 'folds';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import { onDarkFontWeight, onLightFontWeight } from '../../config.css';
-import { butterTheme, darkTheme, silverTheme } from '../../colors.css';
-import { settingsAtom } from '../state/settings';
-import { useSetting } from '../state/hooks/settings';
+import { ventoDarkTheme, ventoLightTheme } from '../../colors.css';
 
 export enum ThemeKind {
   Light = 'light',
@@ -14,87 +11,85 @@ export type Theme = {
   id: string;
   kind: ThemeKind;
   classNames: string[];
+  tamaguiClass: string; // Clase para activar variables de Tamagui
 };
 
-export const LightTheme: Theme = {
-  id: 'light-theme',
-  kind: ThemeKind.Light,
-  classNames: [lightTheme, onLightFontWeight, 'prism-light'],
-};
-
-export const SilverTheme: Theme = {
-  id: 'silver-theme',
-  kind: ThemeKind.Light,
-  classNames: ['silver-theme', silverTheme, onLightFontWeight, 'prism-light'],
-};
-export const DarkTheme: Theme = {
-  id: 'dark-theme',
+// Tema Vento Dark - Hereda colores de Tamagui
+export const VentoDarkTheme: Theme = {
+  id: 'vento-dark',
   kind: ThemeKind.Dark,
-  classNames: ['dark-theme', darkTheme, onDarkFontWeight, 'prism-dark'],
-};
-export const ButterTheme: Theme = {
-  id: 'butter-theme',
-  kind: ThemeKind.Dark,
-  classNames: ['butter-theme', butterTheme, onDarkFontWeight, 'prism-dark'],
+  classNames: ['vento-theme', ventoDarkTheme, onDarkFontWeight, 'prism-dark'],
+  tamaguiClass: 't_dark',
 };
 
-export const useThemes = (): Theme[] => {
-  const themes: Theme[] = useMemo(() => [LightTheme, SilverTheme, DarkTheme, ButterTheme], []);
-
-  return themes;
+// Tema Vento Light - Hereda colores de Tamagui
+export const VentoLightTheme: Theme = {
+  id: 'vento-light',
+  kind: ThemeKind.Light,
+  classNames: ['vento-theme', ventoLightTheme, onLightFontWeight, 'prism-light'],
+  tamaguiClass: 't_light',
 };
 
-export const useThemeNames = (): Record<string, string> =>
-  useMemo(
-    () => ({
-      [LightTheme.id]: 'Light',
-      [SilverTheme.id]: 'Silver',
-      [DarkTheme.id]: 'Dark',
-      [ButterTheme.id]: 'Butter',
-    }),
-    []
-  );
+const THEME_STORAGE_KEY = 'vento_theme_preference';
 
-export const useSystemThemeKind = (): ThemeKind => {
-  const darkModeQueryList = useMemo(() => window.matchMedia('(prefers-color-scheme: dark)'), []);
-  const [themeKind, setThemeKind] = useState<ThemeKind>(
-    darkModeQueryList.matches ? ThemeKind.Dark : ThemeKind.Light
-  );
+// Detectar tema del sistema via media query
+function getSystemTheme(): ThemeKind {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches 
+      ? ThemeKind.Dark 
+      : ThemeKind.Light;
+  }
+  return ThemeKind.Dark;
+}
 
-  useEffect(() => {
-    const handleMediaQueryChange = () => {
-      setThemeKind(darkModeQueryList.matches ? ThemeKind.Dark : ThemeKind.Light);
-    };
+// Leer tema de URL, localStorage, o sistema
+function getStoredTheme(): ThemeKind {
+  if (typeof window !== 'undefined') {
+    // Primero revisar URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const themeParam = urlParams.get('theme');
+    
+    if (themeParam === 'light' || themeParam === 'dark') {
+      // Guardar preferencia
+      localStorage.setItem(THEME_STORAGE_KEY, themeParam);
+      return themeParam === 'light' ? ThemeKind.Light : ThemeKind.Dark;
+    }
+    
+    // Si no hay param, revisar localStorage
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light') return ThemeKind.Light;
+    if (stored === 'dark') return ThemeKind.Dark;
+    
+    // Si no hay nada guardado, usar tema del sistema
+    return getSystemTheme();
+  }
+  
+  return ThemeKind.Dark;
+}
 
-    darkModeQueryList.addEventListener('change', handleMediaQueryChange);
-    return () => {
-      darkModeQueryList.removeEventListener('change', handleMediaQueryChange);
-    };
-  }, [darkModeQueryList, setThemeKind]);
+export const useThemes = (): Theme[] => [VentoDarkTheme, VentoLightTheme];
 
-  return themeKind;
-};
+export const useThemeNames = (): Record<string, string> => ({
+  [VentoDarkTheme.id]: 'Vento Dark',
+  [VentoLightTheme.id]: 'Vento Light',
+});
+
+export const useSystemThemeKind = (): ThemeKind => getStoredTheme();
 
 export const useActiveTheme = (): Theme => {
-  const systemThemeKind = useSystemThemeKind();
-  const themes = useThemes();
-  const [systemTheme] = useSetting(settingsAtom, 'useSystemTheme');
-  const [themeId] = useSetting(settingsAtom, 'themeId');
-  const [lightThemeId] = useSetting(settingsAtom, 'lightThemeId');
-  const [darkThemeId] = useSetting(settingsAtom, 'darkThemeId');
+  const themeKind = getStoredTheme();
+  return themeKind === ThemeKind.Light ? VentoLightTheme : VentoDarkTheme;
+};
 
-  if (!systemTheme) {
-    const selectedTheme = themes.find((theme) => theme.id === themeId) ?? LightTheme;
-
-    return selectedTheme;
-  }
-
-  const selectedTheme =
-    systemThemeKind === ThemeKind.Dark
-      ? themes.find((theme) => theme.id === darkThemeId) ?? DarkTheme
-      : themes.find((theme) => theme.id === lightThemeId) ?? LightTheme;
-
-  return selectedTheme;
+// Hook para aplicar clase de Tamagui al HTML
+export const useTamaguiThemeClass = (theme: Theme) => {
+  useEffect(() => {
+    const html = document.documentElement;
+    // Limpiar clases anteriores de Tamagui
+    html.classList.remove('t_dark', 't_light');
+    // Añadir la clase correcta
+    html.classList.add(theme.tamaguiClass);
+  }, [theme]);
 };
 
 const ThemeContext = createContext<Theme | null>(null);

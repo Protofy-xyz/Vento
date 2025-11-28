@@ -1,10 +1,11 @@
 import { style } from '@vanilla-extract/css';
-import { color, config } from 'folds';
+import { config } from 'folds';
 
 export const SplashScreen = style({
   minHeight: '100%',
-  backgroundColor: color.Background.Container,
-  color: color.Background.OnContainer,
+  // Usar variables de Tamagui directamente para evitar flash
+  backgroundColor: 'var(--background, var(--bgContent, #1A1A1A))',
+  color: 'var(--color, #F2F2F2)',
 });
 
 export const SplashScreenFooter = style({

@@ -3,8 +3,9 @@ import { DefaultReset, color, config, toRem } from 'folds';
 
 export const AuthLayout = style({
   minHeight: '100%',
-  backgroundColor: color.Background.Container,
-  color: color.Background.OnContainer,
+  // Usar variables de Tamagui directamente para evitar flash
+  backgroundColor: 'var(--background, var(--bgContent, #1A1A1A))',
+  color: 'var(--color, #F2F2F2)',
   padding: config.space.S400,
   paddingRight: config.space.S200,
   paddingBottom: 0,
@@ -15,11 +16,12 @@ export const AuthCard = style({
   marginTop: '1vh',
   maxWidth: toRem(460),
   width: '100%',
-  backgroundColor: color.Surface.Container,
-  color: color.Surface.OnContainer,
+  // Usar variables de Tamagui directamente para evitar flash
+  backgroundColor: 'var(--bgPanel, var(--backgroundHover, #262626))',
+  color: 'var(--color, #F2F2F2)',
   borderRadius: config.radii.R400,
   boxShadow: config.shadow.E100,
-  border: `${config.borderWidth.B300} solid ${color.Surface.ContainerLine}`,
+  border: `${config.borderWidth.B300} solid var(--borderColor, #404040)`,
   overflow: 'hidden',
 });
 

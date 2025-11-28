@@ -17,6 +17,7 @@ import (
 	"github.com/shirou/gopsutil/v4/host"
 	vmem "github.com/shirou/gopsutil/v4/mem"
 
+	"ventoagent/internal/cards"
 	"ventoagent/internal/vento"
 )
 
@@ -44,6 +45,7 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					CardProps: map[string]any{
 						"icon":  "database",
 						"color": "$green10",
+						"html":  cards.Bytes,
 					},
 				},
 				Boot: t.publishTotalMemory,
@@ -60,6 +62,7 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					CardProps: map[string]any{
 						"icon":  "activity",
 						"color": "$blue10",
+						"html":  cards.Bytes,
 					},
 				},
 				Interval: 5 * time.Second,

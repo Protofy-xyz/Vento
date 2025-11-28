@@ -556,6 +556,7 @@ const registerActions = async () => {
                 const stateName = deviceInfo.getStateNameByMonitor(monitorModel)
                 const iconFromValue = monitor.cardProps?.icon ?? "scan-eye";
                 const colorFromValue = monitor.cardProps?.color;
+                const htmlFromValue = monitor.cardProps?.html;
                 const { width, height } = computeCardSize({});
                 const cardWidth = monitor.cardProps?.width || width;
                 const cardHeight = monitor.cardProps?.height || height;
@@ -576,6 +577,7 @@ const registerActions = async () => {
                             type: 'value',
                             icon: iconFromValue,
                             ...(colorFromValue ? { color: colorFromValue } : {}),
+                            ...(htmlFromValue ? { html: htmlFromValue } : {}),
                             width: cardWidth,
                             height: cardHeight
                         },
@@ -596,6 +598,7 @@ const registerActions = async () => {
                             type: 'value',
                             icon: iconFromValue,
                             ...(colorFromValue ? { color: colorFromValue } : {}),
+                            ...(htmlFromValue ? { html: htmlFromValue } : {}),
                             width: width,
                             height: height
                         },
@@ -730,6 +733,7 @@ const registerActions = async () => {
                 })
                 const iconFromAction = action.cardProps?.icon ?? "rocket";
                 const colorFromAction = action.cardProps?.color;
+                const htmlFromAction = action.cardProps?.html;
                 const { width, height } = computeCardSize(params); // use config params to size
                 const cardWidth = action.cardProps?.width || width;
                 const cardHeight = action.cardProps?.height || height;
@@ -755,6 +759,7 @@ const registerActions = async () => {
                             configParams: params,
                             type: 'action',
                             ...(colorFromAction ? { color: colorFromAction } : {}),
+                            ...(htmlFromAction ? { html: htmlFromAction } : {}),
                             displayResponse: action.mode === 'request-reply'
                         };
                     })(),

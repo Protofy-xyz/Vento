@@ -159,6 +159,7 @@ function assignYPositions(
   marginY: number
 ) {
   const y = new Map<string, number>();
+  const DEFAULT_HEIGHT = 300; // fallback height
 
   // Paso 1: apila desde arriba (alineación top)
   for (let col = 0; col < layers.length; col++) {
@@ -166,11 +167,13 @@ function assignYPositions(
     let yOffset = 0;
     for (const id of ids) {
       y.set(id, yOffset);
-      yOffset += sizes.get(id)!.height + marginY;
+      const nodeSize = sizes.get(id);
+      const nodeHeight = nodeSize?.height ?? DEFAULT_HEIGHT;
+      yOffset += nodeHeight + marginY;
     }
   }
 
-  // Paso 2: ligera relajación para suavizar saltos
+  // Paso 2: ligera relajación para suavizar saltos (solo para nodos con conexiones)
   const relaxIters = 2;
   for (let it = 0; it < relaxIters; it++) {
     for (let col = 1; col < layers.length; col++) {
@@ -178,7 +181,7 @@ function assignYPositions(
         const predsY = (preds.get(id) || []).filter((p) => y.has(p)).map((p) => y.get(p)!);
         if (!predsY.length) continue;
         const avgPredY = predsY.reduce((a, b) => a + b, 0) / predsY.length;
-        const current = y.get(id)!;
+        const current = y.get(id) ?? 0;
         y.set(id, current * 0.8 + avgPredY * 0.2);
       }
     }
@@ -251,7 +254,7 @@ export const computeDirectedLayout = ({
   const layers: string[][] = Array.from({ length: maxLevel + 1 }, () => []);
   for (const id of nodeIds) layers[level.get(id)!].push(id);
 
-  // 3b) Nodos aislados → columnas horizontales
+  // 3b) Nodos aislados → agrupar en filas (grid layout)
   const degree = new Map<string, number>(nodeIds.map((id) => [id, 0]));
   for (const e of validEdges) {
     degree.set(e.source, (degree.get(e.source) || 0) + 1);
@@ -259,18 +262,37 @@ export const computeDirectedLayout = ({
   }
   const isolated = nodeIds.filter((id) => (degree.get(id) || 0) === 0);
   if (isolated.length) {
+    // Quitar nodos aislados de sus capas originales
     for (const id of isolated) {
       const lv = level.get(id)!;
       const col = layers[lv];
       const k = col.indexOf(id);
       if (k >= 0) col.splice(k, 1);
     }
+    // Limpiar capas vacías
     for (let i = layers.length - 1; i >= 0; i--) {
       if (!layers[i].length) layers.splice(i, 1);
     }
-    for (const id of isolated) {
-      layers.push([id]);
-      level.set(id, layers.length - 1);
+    // Ordenar nodos aislados por graphOrder
+    isolated.sort((a, b) => (priority.get(a) ?? Infinity) - (priority.get(b) ?? Infinity));
+    // Agrupar en filas de máximo 6 nodos (horizontal) - cada columna tendrá nodos apilados verticalmente
+    const NODES_PER_ROW = 6;
+    const numRows = Math.ceil(isolated.length / NODES_PER_ROW);
+    // Crear columnas (distribuir nodos en un grid: columnas = X, filas dentro de columna = Y)
+    for (let col = 0; col < NODES_PER_ROW; col++) {
+      const columnNodes: string[] = [];
+      for (let row = 0; row < numRows; row++) {
+        const idx = row * NODES_PER_ROW + col;
+        if (idx < isolated.length) {
+          columnNodes.push(isolated[idx]);
+        }
+      }
+      if (columnNodes.length) {
+        layers.push(columnNodes);
+        for (const id of columnNodes) {
+          level.set(id, layers.length - 1);
+        }
+      }
     }
   }
 
@@ -292,20 +314,35 @@ export const computeDirectedLayout = ({
 
   // 6) Posiciones X por columna
   const nodeX = new Map<string, number>();
+  const DEFAULT_WIDTH = 400;
   let xOffset = 0;
   for (const ids of layers) {
     let maxW = 0;
     for (const id of ids) {
       nodeX.set(id, xOffset);
-      maxW = Math.max(maxW, sizeById.get(id)!.width);
+      const nodeSize = sizeById.get(id);
+      const nodeWidth = nodeSize?.width ?? DEFAULT_WIDTH;
+      maxW = Math.max(maxW, nodeWidth);
     }
     xOffset += maxW + marginX;
   }
 
-  // 7) Salida
+  // 7) Salida - asegurar que todos los nodos tengan posición válida
   const positions: Record<string, { x: number; y: number }> = {};
-  for (const id of nodeIds)
-    positions[id] = { x: nodeX.get(id) || 0, y: yMap.get(id) || 0 };
+  for (const id of nodeIds) {
+    const x = nodeX.get(id);
+    const y = yMap.get(id);
+    // Si un nodo no tiene posición asignada (no estaba en layers), asignar una posición de fallback
+    if (x === undefined || y === undefined) {
+      // Encontrar la última posición X usada y agregar el nodo ahí
+      const fallbackX = xOffset;
+      const fallbackY = Object.keys(positions).length * (DEFAULT_WIDTH / 2 + marginY);
+      positions[id] = { x: fallbackX, y: fallbackY };
+      xOffset += DEFAULT_WIDTH + marginX;
+    } else {
+      positions[id] = { x, y };
+    }
+  }
 
   return { positions, sizes: sizeById };
 };

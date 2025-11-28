@@ -123,7 +123,7 @@
                     "type": "any"
                 }
             },
-            "description": "Actions can perform tasks, automate processes, and enhance user interactions. It can also trigger other action-type cards on the board.\n\n  #### Key Features\n  - Run actions from rules.\n  - Chain/trigger other action cards.\n  - Parameterized execution.\n  - Customize parameters.\n  - Customize the card view (UI/render).",
+            "description": "Default description, edit this description to improve usability of this action",
             "autoResponsive": false,
             "layer": "agent",
             "rulesCode": "await executeAction({name: \"agent_input\", params: {action:'reply', response: params.response}})\r\nreturn 'ok'",
@@ -148,7 +148,7 @@
                     "type": "any"
                 }
             },
-            "description": "Actions can perform tasks, automate processes, and enhance user interactions. It can also trigger other action-type cards on the board.\n\n  #### Key Features\n  - Run actions from rules.\n  - Chain/trigger other action cards.\n  - Parameterized execution.\n  - Customize parameters.\n  - Customize the card view (UI/render).",
+            "description": "Default description, edit this description to improve usability of this action",
             "layer": "agent",
             "displayButton": false,
             "links": [

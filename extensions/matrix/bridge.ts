@@ -332,6 +332,41 @@ async function sendMessageAsAgent(agent: VentoAgent, roomId: string, message: st
 }
 
 /**
+ * Set typing indicator for an agent in a room
+ */
+async function setTypingIndicator(agent: VentoAgent, roomId: string, typing: boolean): Promise<void> {
+    try {
+        await matrixRequest(
+            'PUT',
+            `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/typing/${encodeURIComponent(agent.matrixUserId)}`,
+            {
+                typing: typing,
+                timeout: typing ? 30000 : undefined, // 30 second timeout when typing
+            },
+            agent.matrixUserId
+        );
+        logger.debug({ agent: agent.boardId, roomId, typing }, 'Set typing indicator');
+    } catch (error: any) {
+        // Non-critical, just log
+        logger.debug({ error: error.message }, 'Failed to set typing indicator');
+    }
+}
+
+/**
+ * Send an error message as an agent
+ */
+async function sendErrorAsAgent(agent: VentoAgent, roomId: string, error: Error | string): Promise<void> {
+    const errorMessage = typeof error === 'string' ? error : error.message;
+    const errorStack = typeof error === 'object' && error.stack ? `\n\`\`\`\n${error.stack}\n\`\`\`` : '';
+    
+    await sendMessageAsAgent(
+        agent, 
+        roomId, 
+        `❌ **Error communicating with agent:**\n${errorMessage}${errorStack}`
+    );
+}
+
+/**
  * Call the Vento agent and get response
  */
 /**
@@ -473,11 +508,21 @@ async function handleMatrixEvent(event: any): Promise<void> {
                 try {
                     await registerAgentUser(agent);
                     await joinAgentToRoom(agent, roomId);
-                    const response = await callAgentInput(boardId, message, sender);
-                    await sendMessageAsAgent(agent, roomId, response);
+                    
+                    // Show typing indicator while processing
+                    await setTypingIndicator(agent, roomId, true);
+                    
+                    try {
+                        const response = await callAgentInput(boardId, message, sender);
+                        await setTypingIndicator(agent, roomId, false);
+                        await sendMessageAsAgent(agent, roomId, response);
+                    } catch (agentError: any) {
+                        await setTypingIndicator(agent, roomId, false);
+                        throw agentError;
+                    }
                 } catch (error: any) {
                     logger.error({ error: error.message, agent: boardId }, 'Error handling agent request');
-                    await sendMessageAsAgent(agent, roomId, `❌ Error: ${error.message}`);
+                    await sendErrorAsAgent(agent, roomId, error);
                 }
                 return;
             }
@@ -490,6 +535,9 @@ async function handleMatrixEvent(event: any): Promise<void> {
     if (dmAgent) {
         logger.info({ agent: dmAgent.boardId, message: body, sender, roomId }, 'DM to agent');
         
+        // Show typing indicator while processing
+        await setTypingIndicator(dmAgent, roomId, true);
+        
         try {
             // Load conversation history (per room, so new DM = fresh conversation)
             const history = loadDMHistory(dmAgent.boardId, roomId);
@@ -500,6 +548,9 @@ async function handleMatrixEvent(event: any): Promise<void> {
             // Call agent with full history
             const response = await callAgentWithHistory(dmAgent.boardId, history, sender);
             
+            // Stop typing indicator
+            await setTypingIndicator(dmAgent, roomId, false);
+            
             // Add assistant's response to history
             history.push({ role: 'assistant', content: response });
             
@@ -509,8 +560,11 @@ async function handleMatrixEvent(event: any): Promise<void> {
             // Send response to Matrix
             await sendMessageAsAgent(dmAgent, roomId, response);
         } catch (error: any) {
-            logger.error({ error: error.message, agent: dmAgent.boardId }, 'Error handling DM');
-            await sendMessageAsAgent(dmAgent, roomId, `❌ Error: ${error.message}`);
+            // Stop typing indicator on error
+            await setTypingIndicator(dmAgent, roomId, false);
+            
+            logger.error({ error: error.message, stack: error.stack, agent: dmAgent.boardId }, 'Error handling DM');
+            await sendErrorAsAgent(dmAgent, roomId, error);
         }
     }
 }

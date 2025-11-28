@@ -212,9 +212,9 @@ type UserModerationProps = {
   userId: string;
   canKick: boolean;
   canBan: boolean;
-  canInvite: boolean;
+  canInvite?: boolean; // Deprecated - invite functionality removed
 };
-export function UserModeration({ userId, canKick, canBan, canInvite }: UserModerationProps) {
+export function UserModeration({ userId, canKick, canBan }: UserModerationProps) {
   const mx = useMatrixClient();
   const room = useRoom();
   const reasonInputRef = useRef<HTMLInputElement>(null);
@@ -239,18 +239,11 @@ export function UserModeration({ userId, canKick, canBan, canInvite }: UserModer
     }, [mx, room, userId, getReason])
   );
 
-  const [inviteState, invite] = useAsyncCallback<undefined, Error, []>(
-    useCallback(async () => {
-      await mx.invite(room.roomId, userId, getReason());
-    }, [mx, room, userId, getReason])
-  );
-
   const disabled =
     kickState.status === AsyncStatus.Loading ||
-    banState.status === AsyncStatus.Loading ||
-    inviteState.status === AsyncStatus.Loading;
+    banState.status === AsyncStatus.Loading;
 
-  if (!canBan && !canKick && !canInvite) return null;
+  if (!canBan && !canKick) return null;
 
   return (
     <Box direction="Column" gap="400">
@@ -275,33 +268,8 @@ export function UserModeration({ userId, canKick, canBan, canInvite }: UserModer
               <b>{banState.error.message}</b>
             </Text>
           )}
-          {inviteState.status === AsyncStatus.Error && (
-            <Text style={{ color: color.Critical.Main }} className={BreakWord} size="T200">
-              <b>{inviteState.error.message}</b>
-            </Text>
-          )}
         </Box>
         <Box shrink="No" gap="200">
-          {canInvite && (
-            <Button
-              style={{ flexGrow: 1 }}
-              size="300"
-              variant="Secondary"
-              fill="Soft"
-              radii="300"
-              before={
-                inviteState.status === AsyncStatus.Loading ? (
-                  <Spinner size="50" variant="Secondary" fill="Soft" />
-                ) : (
-                  <Icon size="50" src={Icons.ArrowRight} />
-                )
-              }
-              onClick={invite}
-              disabled={disabled}
-            >
-              <Text size="B300">Invite</Text>
-            </Button>
-          )}
           {canKick && (
             <Button
               style={{ flexGrow: 1 }}

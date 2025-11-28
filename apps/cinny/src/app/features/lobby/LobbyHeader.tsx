@@ -35,9 +35,6 @@ import { BackRouteHandler } from '../../components/BackRouteHandler';
 import { mxcUrlToHttp } from '../../utils/matrix';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { useOpenSpaceSettings } from '../../state/hooks/spaceSettings';
-import { useRoomCreators } from '../../hooks/useRoomCreators';
-import { useRoomPermissions } from '../../hooks/useRoomPermissions';
-import { InviteUserPrompt } from '../../components/invite-user-prompt';
 
 type LobbyMenuProps = {
   powerLevels: IPowerLevels;
@@ -45,19 +42,8 @@ type LobbyMenuProps = {
 };
 const LobbyMenu = forwardRef<HTMLDivElement, LobbyMenuProps>(
   ({ powerLevels, requestClose }, ref) => {
-    const mx = useMatrixClient();
     const space = useSpace();
-    const creators = useRoomCreators(space);
-
-    const permissions = useRoomPermissions(creators, powerLevels);
-    const canInvite = permissions.action('invite', mx.getSafeUserId());
     const openSpaceSettings = useOpenSpaceSettings();
-
-    const [invitePrompt, setInvitePrompt] = useState(false);
-
-    const handleInvite = () => {
-      setInvitePrompt(true);
-    };
 
     const handleRoomSettings = () => {
       openSpaceSettings(space.roomId);
@@ -66,30 +52,7 @@ const LobbyMenu = forwardRef<HTMLDivElement, LobbyMenuProps>(
 
     return (
       <Menu ref={ref} style={{ maxWidth: toRem(160), width: '100vw' }}>
-        {invitePrompt && (
-          <InviteUserPrompt
-            room={space}
-            requestClose={() => {
-              setInvitePrompt(false);
-              requestClose();
-            }}
-          />
-        )}
         <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-          <MenuItem
-            onClick={handleInvite}
-            variant="Primary"
-            fill="None"
-            size="300"
-            after={<Icon size="100" src={Icons.UserPlus} />}
-            radii="300"
-            aria-pressed={invitePrompt}
-            disabled={!canInvite}
-          >
-            <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-              Invite
-            </Text>
-          </MenuItem>
           <MenuItem
             onClick={handleRoomSettings}
             size="300"

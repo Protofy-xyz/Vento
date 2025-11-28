@@ -27,7 +27,6 @@ import { nameInitials } from '../../utils/common';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useRoomUnread } from '../../state/hooks/unread';
 import { roomToUnreadAtom } from '../../state/room/roomToUnread';
-import { usePowerLevels } from '../../hooks/usePowerLevels';
 import { copyToClipboard } from '../../utils/dom';
 import { markAsRead } from '../../utils/notifications';
 import { UseStateProvider } from '../../components/UseStateProvider';
@@ -48,9 +47,6 @@ import {
   RoomNotificationMode,
 } from '../../hooks/useRoomsNotificationPreferences';
 import { RoomNotificationModeSwitcher } from '../../components/RoomNotificationSwitcher';
-import { useRoomCreators } from '../../hooks/useRoomCreators';
-import { useRoomPermissions } from '../../hooks/useRoomPermissions';
-import { InviteUserPrompt } from '../../components/invite-user-prompt';
 import { isSpecialRoom } from '../../utils/specialRooms';
 
 type RoomNavItemMenuProps = {
@@ -63,15 +59,8 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
     const mx = useMatrixClient();
     const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
     const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
-    const powerLevels = usePowerLevels(room);
-    const creators = useRoomCreators(room);
-
-    const permissions = useRoomPermissions(creators, powerLevels);
-    const canInvite = permissions.action('invite', mx.getSafeUserId());
     const openRoomSettings = useOpenRoomSettings();
     const space = useSpaceOptionally();
-
-    const [invitePrompt, setInvitePrompt] = useState(false);
     
     // Check if this is a special/protected room (restricted menu)
     const isVentoRoom = isSpecialRoom(room);
@@ -79,10 +68,6 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
     const handleMarkAsRead = () => {
       markAsRead(mx, room.roomId, hideActivity);
       requestClose();
-    };
-
-    const handleInvite = () => {
-      setInvitePrompt(true);
     };
 
     const handleCopyLink = () => {
@@ -99,15 +84,6 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
 
     return (
       <Menu ref={ref} style={{ maxWidth: toRem(160), width: '100vw' }}>
-        {invitePrompt && room && (
-          <InviteUserPrompt
-            room={room}
-            requestClose={() => {
-              setInvitePrompt(false);
-              requestClose();
-            }}
-          />
-        )}
         <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
           <MenuItem
             onClick={handleMarkAsRead}
@@ -146,20 +122,6 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
           <>
             <Line variant="Surface" size="300" />
             <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-              <MenuItem
-                onClick={handleInvite}
-                variant="Primary"
-                fill="None"
-                size="300"
-                after={<Icon size="100" src={Icons.UserPlus} />}
-                radii="300"
-                aria-pressed={invitePrompt}
-                disabled={!canInvite}
-              >
-                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-                  Invite
-                </Text>
-              </MenuItem>
               <MenuItem
                 onClick={handleCopyLink}
                 size="300"

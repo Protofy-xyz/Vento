@@ -134,11 +134,12 @@ mscs:
     connection_string: file:../../data/dendrite/dendrite_mscs.db
 
 # ======================
-# Appservice API disabled
+# Appservice API - Vento Agents
 # ======================
 
 app_service_api:
-  config_files: []
+  config_files:
+    - ../../data/dendrite/vento-appservice.yaml
   disable_tls_validation: true
 
 # ======================

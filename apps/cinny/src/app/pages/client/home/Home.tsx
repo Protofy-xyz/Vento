@@ -1,5 +1,4 @@
 import React, { MouseEventHandler, forwardRef, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Avatar,
   Box,
@@ -14,7 +13,6 @@ import {
   config,
   toRem,
 } from 'folds';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useAtom, useAtomValue } from 'jotai';
 import FocusTrap from 'focus-trap-react';
 import { factoryRoomIdByActivity, factoryRoomIdByAtoZ } from '../../../utils/sort';
@@ -37,7 +35,6 @@ import { useHomeSearchSelected } from '../../../hooks/router/useHomeSelected';
 import { useHomeRooms } from './useHomeRooms';
 import { useDirectRooms } from '../direct/useDirectRooms';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
-import { VirtualTile } from '../../../components/virtualizer';
 import { RoomNavCategoryButton, RoomNavItem } from '../../../features/room-nav';
 import { makeNavCategoryId } from '../../../state/closedNavCategories';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
@@ -201,7 +198,6 @@ export function Home() {
   const directs = useDirectRooms();
   const notificationPreferences = useRoomsNotificationPreferencesContext();
   const roomToUnread = useAtomValue(roomToUnreadAtom);
-  const navigate = useNavigate();
 
   const selectedRoomId = useSelectedRoom();
   const searchSelected = useHomeSearchSelected();
@@ -227,20 +223,6 @@ export function Home() {
     }
     return items;
   }, [mx, directs, closedCategories, roomToUnread, selectedRoomId]);
-
-  const virtualizer = useVirtualizer({
-    count: sortedRooms.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 38,
-    overscan: 10,
-  });
-
-  const directVirtualizer = useVirtualizer({
-    count: sortedDirects.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 38,
-    overscan: 10,
-  });
 
   const handleCategoryClick = useCategoryHandler(setClosedCategories, (categoryId) =>
     closedCategories.has(categoryId)
@@ -283,37 +265,24 @@ export function Home() {
                     Rooms
                   </RoomNavCategoryButton>
                 </NavCategoryHeader>
-                <div
-                  style={{
-                    position: 'relative',
-                    height: virtualizer.getTotalSize(),
-                  }}
-                >
-                  {virtualizer.getVirtualItems().map((vItem) => {
-                    const roomId = sortedRooms[vItem.index];
-                    const room = mx.getRoom(roomId);
-                    if (!room) return null;
-                    const selected = selectedRoomId === roomId;
+                {!closedCategories.has(DEFAULT_CATEGORY_ID) && sortedRooms.map((roomId) => {
+                  const room = mx.getRoom(roomId);
+                  if (!room) return null;
+                  const selected = selectedRoomId === roomId;
 
-                    return (
-                      <VirtualTile
-                        virtualItem={vItem}
-                        key={vItem.index}
-                        ref={virtualizer.measureElement}
-                      >
-                        <RoomNavItem
-                          room={room}
-                          selected={selected}
-                          linkPath={getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
-                          notificationMode={getRoomNotificationMode(
-                            notificationPreferences,
-                            room.roomId
-                          )}
-                        />
-                      </VirtualTile>
-                    );
-                  })}
-                </div>
+                  return (
+                    <RoomNavItem
+                      key={roomId}
+                      room={room}
+                      selected={selected}
+                      linkPath={getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
+                      notificationMode={getRoomNotificationMode(
+                        notificationPreferences,
+                        room.roomId
+                      )}
+                    />
+                  );
+                })}
               </NavCategory>
             )}
             {sortedDirects.length > 0 && (
@@ -327,39 +296,26 @@ export function Home() {
                     Direct Messages
                   </RoomNavCategoryButton>
                 </NavCategoryHeader>
-                <div
-                  style={{
-                    position: 'relative',
-                    height: directVirtualizer.getTotalSize(),
-                  }}
-                >
-                  {directVirtualizer.getVirtualItems().map((vItem) => {
-                    const roomId = sortedDirects[vItem.index];
-                    const room = mx.getRoom(roomId);
-                    if (!room) return null;
-                    const selected = selectedRoomId === roomId;
+                {!closedCategories.has(DIRECT_CATEGORY_ID) && sortedDirects.map((roomId) => {
+                  const room = mx.getRoom(roomId);
+                  if (!room) return null;
+                  const selected = selectedRoomId === roomId;
 
-                    return (
-                      <VirtualTile
-                        virtualItem={vItem}
-                        key={vItem.index}
-                        ref={directVirtualizer.measureElement}
-                      >
-                        <RoomNavItem
-                          room={room}
-                          selected={selected}
-                          showAvatar
-                          direct
-                          linkPath={getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
-                          notificationMode={getRoomNotificationMode(
-                            notificationPreferences,
-                            room.roomId
-                          )}
-                        />
-                      </VirtualTile>
-                    );
-                  })}
-                </div>
+                  return (
+                    <RoomNavItem
+                      key={roomId}
+                      room={room}
+                      selected={selected}
+                      showAvatar
+                      direct
+                      linkPath={getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
+                      notificationMode={getRoomNotificationMode(
+                        notificationPreferences,
+                        room.roomId
+                      )}
+                    />
+                  );
+                })}
               </NavCategory>
             )}
           </Box>

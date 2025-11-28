@@ -27,9 +27,6 @@ import { useOpenRoomSettings } from '../../state/hooks/roomSettings';
 import { useSpaceOptionally } from '../../hooks/useSpace';
 import { useOpenSpaceSettings } from '../../state/hooks/spaceSettings';
 import { IPowerLevels } from '../../hooks/usePowerLevels';
-import { getRoomCreatorsForRoomId } from '../../hooks/useRoomCreators';
-import { getRoomPermissionsAPI } from '../../hooks/useRoomPermissions';
-import { InviteUserPrompt } from '../../components/invite-user-prompt';
 
 type HierarchyItemWithParent = HierarchyItem & {
   parentId: string;
@@ -117,51 +114,6 @@ function RemoveMenuItem({
   );
 }
 
-function InviteMenuItem({
-  item,
-  requestClose,
-  disabled,
-}: {
-  item: HierarchyItemWithParent;
-  requestClose: () => void;
-  disabled?: boolean;
-}) {
-  const mx = useMatrixClient();
-  const room = mx.getRoom(item.roomId);
-  const [invitePrompt, setInvitePrompt] = useState(false);
-
-  const handleInvite = () => {
-    setInvitePrompt(true);
-  };
-
-  return (
-    <>
-      <MenuItem
-        onClick={handleInvite}
-        size="300"
-        radii="300"
-        variant="Primary"
-        fill="None"
-        aria-pressed={invitePrompt}
-        disabled={disabled || !room}
-      >
-        <Text as="span" size="T300" truncate>
-          Invite
-        </Text>
-      </MenuItem>
-      {invitePrompt && room && (
-        <InviteUserPrompt
-          room={room}
-          requestClose={() => {
-            setInvitePrompt(false);
-            requestClose();
-          }}
-        />
-      )}
-    </>
-  );
-}
-
 function SettingsMenuItem({
   item,
   requestClose,
@@ -211,16 +163,7 @@ export function HierarchyItemMenu({
   pinned,
   onTogglePin,
 }: HierarchyItemMenuProps) {
-  const mx = useMatrixClient();
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
-
-  const canInvite = (): boolean => {
-    if (!powerLevels) return false;
-    const creators = getRoomCreatorsForRoomId(mx, item.roomId);
-    const permissions = getRoomPermissionsAPI(creators, powerLevels);
-
-    return permissions.action('invite', mx.getSafeUserId());
-  };
 
   const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
     setMenuAnchor(evt.currentTarget.getBoundingClientRect());
@@ -278,11 +221,6 @@ export function HierarchyItemMenu({
                         </Text>
                       </MenuItem>
                     )}
-                    <InviteMenuItem
-                      item={item}
-                      requestClose={handleRequestClose}
-                      disabled={!canInvite()}
-                    />
                     <SettingsMenuItem item={item} requestClose={handleRequestClose} />
                     <UseStateProvider initial={false}>
                       {(promptLeave, setPromptLeave) => (

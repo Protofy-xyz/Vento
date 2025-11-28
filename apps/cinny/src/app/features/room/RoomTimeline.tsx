@@ -89,7 +89,6 @@ import { useMatrixEventRenderer } from '../../hooks/useMatrixEventRenderer';
 import { Reactions, Message, Event, EncryptedContent } from './message';
 import { useMemberEventParser } from '../../hooks/useMemberEventParser';
 import * as customHtmlCss from '../../styles/CustomHtml.css';
-import { RoomIntro } from '../../components/room-intro';
 import {
   getIntersectionObserverEntry,
   useIntersectionObserver,
@@ -1353,135 +1352,12 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           </Event>
         );
       },
-      [StateEvent.RoomName]: (mEventId, mEvent, item) => {
-        const highlighted = focusItem?.index === item && focusItem.highlight;
-        const senderId = mEvent.getSender() ?? '';
-        const senderName = getMemberDisplayName(room, senderId) || getMxIdLocalPart(senderId);
-
-        const timeJSX = (
-          <Time
-            ts={mEvent.getTs()}
-            compact={messageLayout === MessageLayout.Compact}
-            hour24Clock={hour24Clock}
-            dateFormatString={dateFormatString}
-          />
-        );
-
-        return (
-          <Event
-            key={mEvent.getId()}
-            data-message-item={item}
-            data-message-id={mEventId}
-            room={room}
-            mEvent={mEvent}
-            highlight={highlighted}
-            messageSpacing={messageSpacing}
-            canDelete={canRedact || mEvent.getSender() === mx.getUserId()}
-            hideReadReceipts={hideActivity}
-            showDeveloperTools={showDeveloperTools}
-          >
-            <EventContent
-              messageLayout={messageLayout}
-              time={timeJSX}
-              iconSrc={Icons.Hash}
-              content={
-                <Box grow="Yes" direction="Column">
-                  <Text size="T300" priority="300">
-                    <b>{senderName}</b>
-                    {t('Organisms.RoomCommon.changed_room_name')}
-                  </Text>
-                </Box>
-              }
-            />
-          </Event>
-        );
-      },
-      [StateEvent.RoomTopic]: (mEventId, mEvent, item) => {
-        const highlighted = focusItem?.index === item && focusItem.highlight;
-        const senderId = mEvent.getSender() ?? '';
-        const senderName = getMemberDisplayName(room, senderId) || getMxIdLocalPart(senderId);
-
-        const timeJSX = (
-          <Time
-            ts={mEvent.getTs()}
-            compact={messageLayout === MessageLayout.Compact}
-            hour24Clock={hour24Clock}
-            dateFormatString={dateFormatString}
-          />
-        );
-
-        return (
-          <Event
-            key={mEvent.getId()}
-            data-message-item={item}
-            data-message-id={mEventId}
-            room={room}
-            mEvent={mEvent}
-            highlight={highlighted}
-            messageSpacing={messageSpacing}
-            canDelete={canRedact || mEvent.getSender() === mx.getUserId()}
-            hideReadReceipts={hideActivity}
-            showDeveloperTools={showDeveloperTools}
-          >
-            <EventContent
-              messageLayout={messageLayout}
-              time={timeJSX}
-              iconSrc={Icons.Hash}
-              content={
-                <Box grow="Yes" direction="Column">
-                  <Text size="T300" priority="300">
-                    <b>{senderName}</b>
-                    {' changed room topic'}
-                  </Text>
-                </Box>
-              }
-            />
-          </Event>
-        );
-      },
-      [StateEvent.RoomAvatar]: (mEventId, mEvent, item) => {
-        const highlighted = focusItem?.index === item && focusItem.highlight;
-        const senderId = mEvent.getSender() ?? '';
-        const senderName = getMemberDisplayName(room, senderId) || getMxIdLocalPart(senderId);
-
-        const timeJSX = (
-          <Time
-            ts={mEvent.getTs()}
-            compact={messageLayout === MessageLayout.Compact}
-            hour24Clock={hour24Clock}
-            dateFormatString={dateFormatString}
-          />
-        );
-
-        return (
-          <Event
-            key={mEvent.getId()}
-            data-message-item={item}
-            data-message-id={mEventId}
-            room={room}
-            mEvent={mEvent}
-            highlight={highlighted}
-            messageSpacing={messageSpacing}
-            canDelete={canRedact || mEvent.getSender() === mx.getUserId()}
-            hideReadReceipts={hideActivity}
-            showDeveloperTools={showDeveloperTools}
-          >
-            <EventContent
-              messageLayout={messageLayout}
-              time={timeJSX}
-              iconSrc={Icons.Hash}
-              content={
-                <Box grow="Yes" direction="Column">
-                  <Text size="T300" priority="300">
-                    <b>{senderName}</b>
-                    {' changed room avatar'}
-                  </Text>
-                </Box>
-              }
-            />
-          </Event>
-        );
-      },
+      // Hide room name change events
+      [StateEvent.RoomName]: () => null,
+      // Hide room topic change events
+      [StateEvent.RoomTopic]: () => null,
+      // Hide room avatar change events
+      [StateEvent.RoomAvatar]: () => null,
     },
     (mEventId, mEvent, item) => {
       if (!showHiddenEvents) return null;
@@ -1707,17 +1583,6 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           justifyContent="End"
           style={{ minHeight: '100%', padding: `${config.space.S600} 0` }}
         >
-          {!canPaginateBack && rangeAtStart && getItems().length > 0 && (
-            <div
-              style={{
-                padding: `${config.space.S700} ${config.space.S400} ${config.space.S600} ${
-                  messageLayout === MessageLayout.Compact ? config.space.S400 : toRem(64)
-                }`,
-              }}
-            >
-              <RoomIntro room={room} />
-            </div>
-          )}
           {(canPaginateBack || !rangeAtStart) &&
             (messageLayout === MessageLayout.Compact ? (
               <>

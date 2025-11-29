@@ -50,11 +50,11 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
             }}
             style={{ overflowY: 'auto' }}
         >
-            <YStack px={collapsed ? "$2" : "$5"} pt={collapsed ? "$3" : "$5"} jc="center" ai={collapsed ? "center" : "flex-start"} height={"fit-content"}>
+            <YStack mt="$2" px={collapsed ? "$2" : "$5"} pt={collapsed ? "$3" : "$5"} jc="center" ai={collapsed ? "center" : "flex-start"} height={"fit-content"}>
                 {/* do not use ternary, use `display` to have both images loaded and only play 
                 with visibility */}
-                <YStack display={collapsed ? "none" : "flex"}>{logo}</YStack>
-                <YStack display={collapsed ? "flex" : "none"}>{collapsedLogo}</YStack>
+                <YStack display={collapsed ? "none" : "flex"}> {logo}</YStack>
+                <YStack display={collapsed ? "flex" : "none"} scale={1.3}>{collapsedLogo}</YStack>
             </YStack>
             <YStack pos='relative'>
                 {React.cloneElement(children, { ...children.props, collapsed })}

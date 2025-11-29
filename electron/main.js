@@ -498,7 +498,7 @@ module.exports = function start(rootPath) {
       await coreStarted;
       console.log('✅ Core service started.');
 
-      const initialUrl = args.initialUrl || 'http://localhost:8000/workspace/boards';
+      const initialUrl = args.initialUrl || 'http://localhost:8000/workspace/network';
       const initialOrigin = originFromUrl(initialUrl);
       if (initialOrigin) ALLOWLIST_ORIGINS.add(initialOrigin);
       console.log('⏳ Waiting for port 8000...');

@@ -2,7 +2,7 @@ import React from 'react'
 import { BoardModel } from '../../boards/boardsSchemas'
 import { API } from 'protobase'
 import { DataTable2 } from "protolib/components/DataTable2"
-import { DataView, DataViewActionButton } from "protolib/components/DataView"
+import { DataView } from "protolib/components/DataView"
 import { AdminPage } from "protolib/components/AdminPage"
 import { PaginatedData, SSR } from "protolib/lib/SSR"
 import { withSession } from "protolib/lib/Session"
@@ -15,14 +15,19 @@ import { AlertDialog } from 'protolib/components/AlertDialog'
 import { useEffect, useState } from 'react'
 import { Slides } from 'protolib/components/Slides';
 import { TemplateCard } from '../../apis/TemplateCard';
-import { Eye, EyeOff } from '@tamagui/lucide-icons'
 import { usePageParams } from 'protolib/next'
-import { Tinted } from 'protolib/components/Tinted'
 import { Board } from '@extensions/boards/pages/view'
+import { BoardView } from '@extensions/boards/pages/view'
 
 const { useParams } = createParam()
 
 const sourceUrl = '/api/core/v1/boards?all=true&filter[network]=core'
+
+// ========== TOGGLE DE VISTA ==========
+// Cambiar a true para usar la vista embebida (NetworkPreview)
+// Cambiar a false para usar la vista de cards (BoardPreview)
+const USE_EMBEDDED_VIEW = false
+// =====================================
 
 const SelectGrid = ({ children }) => {
   return <XStack jc="center" ai="center" gap={25} flexWrap='wrap'>
@@ -87,7 +92,8 @@ const SecondSlide = ({ selected, setName, errorMessage=''}) => {
   </YStack>
 }
 
-const NetworkPreview = ({ board, width }: any) => {
+// Vista alternativa: NetworkPreview - Muestra el board embebido directamente en la card
+const NetworkPreview = ({ board, width, onDelete }: any) => {
     return (
         <YStack
             cursor="pointer"
@@ -113,10 +119,10 @@ export default {
       const { push, query } = usePageParams({})
       const [addOpen, setAddOpen] = React.useState(false)
 
-      const defaultData = { template: {id:'ai agent'}, name: '' }
+      const defaultData = { template: { id: 'ai agent' }, name: '' }
       const [data, setData] = useState(defaultData)
 
-      return (<AdminPage title="Boards" workspace={workspace} pageSession={pageSession}>
+      return (<AdminPage title="Network" workspace={workspace} pageSession={pageSession}>
 
         <AlertDialog
           p={"$2"}
@@ -144,7 +150,7 @@ export default {
                   {
                     name: "Create new Board",
                     title: "Select your Template",
-                    component: <FirstSlide selected={data?.template} setSelected={(template) => setData({...data, template})} />
+                    component: <FirstSlide selected={data?.template} setSelected={(template) => setData({ ...data, template })} />
                   },
                   {
                     name: "Configure your Board",
@@ -165,23 +171,54 @@ export default {
           extraFilters={[{ queryParam: "all" }]}
           initialItems={initialItems}
           numColumnsForm={1}
-          name="element"
+          onAdd={(data) => { router.push(`/boards/view?board=${data.name}`); return data }}
+          name="Network Element"
           disableViews={['raw']}
           onEdit={data => { console.log("DATA (onEdit): ", data); return data }}
+          onSelectItem={(item) => router.push(`/boards/view?board=${item.data.name}`)}
           columns={DataTable2.columns(
             DataTable2.column("name", row => row.name, "name")
           )}
-
           onAddButton={() => setAddOpen(true)}
           model={BoardModel}
           pageState={pageState}
           dataTableGridProps={{
-            getCard: (element, width) => <NetworkPreview board={element} width={width} />,
+            getCard: (element, width) => USE_EMBEDDED_VIEW 
+              ? <NetworkPreview 
+                  board={element} 
+                  width={width} 
+                  onDelete={async () => {
+                    await API.get(`/api/core/v1/boards/${element.name}/delete`);
+                  }}
+                />
+              : <BoardPreview
+                  onDelete={async () => {
+                    await API.get(`/api/core/v1/boards/${element.name}/delete`);
+                  }}
+                  element={element}
+                  width={width}
+                />,
           }}
           defaultView={"grid"}
         />
       </AdminPage>)
     },
     getServerSideProps: PaginatedData(sourceUrl, ['admin'])
+  },
+  // Vista detallada del board (igual que en agents)
+  view: {
+    component: (props: any) => {
+      const { params } = useParams()
+
+      return <AsyncView ready={params.board ? true : false}>
+        <BoardView key={params.board} {...props} board={undefined} />
+      </AsyncView>
+    },
+    getServerSideProps: SSR(async (context) => withSession(context, ['admin'], async (session) => {
+      return {
+        board: await API.get(`/api/core/v1/boards/${context.params.board}/?token=${session?.token}`),
+        icons: (await API.get(`/api/core/v1/icons?token=${session?.token}`))?.data?.icons ?? []
+      }
+    }))
   }
 }

@@ -56,7 +56,12 @@ class VentoClient:
         self.update_device(token, device_name, {"subsystem": subs})
 
     def trigger_register_actions(self, token: str) -> None:
+        """Deprecated: Use regenerate_board_for_device for single device regeneration."""
         self._do_json("GET", "/api/core/v1/devices/registerActions", token, None)
+
+    def regenerate_board_for_device(self, token: str, device_name: str) -> None:
+        """Regenerate the board for a specific device."""
+        self._do_json("GET", f"/api/core/v1/devices/{device_name}/regenerateBoard", token, None)
 
     def hostname(self) -> str:
         return urlparse(self.base_url).hostname or "localhost"

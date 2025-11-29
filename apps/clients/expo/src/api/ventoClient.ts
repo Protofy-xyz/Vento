@@ -84,8 +84,18 @@ export class VentoClient {
     return isNew;
   }
 
+  /**
+   * @deprecated Use regenerateBoardForDevice for single device regeneration.
+   */
   async triggerRegisterActions(token: string) {
     await this.request('/api/core/v1/devices/registerActions', {}, token);
+  }
+
+  /**
+   * Regenerate the board for a specific device.
+   */
+  async regenerateBoardForDevice(token: string, deviceName: string) {
+    await this.request(`/api/core/v1/devices/${encodeURIComponent(deviceName)}/regenerateBoard`, {}, token);
   }
 }
 

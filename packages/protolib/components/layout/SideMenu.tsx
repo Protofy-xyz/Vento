@@ -11,11 +11,13 @@ import { useAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { Popover } from '../../components/Popover'
 import { AppState } from '../AdminPanel'
+import { useRouter } from 'solito/navigation'
 
 export const CollapsedSideMenuAtom = atomWithStorage('collapsedSideMenu', false)
 
 export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher = true, tintSwitcher = true, logo, collapsedLogo, ...props }: any) => {
     const disableOpenMenu = false
+    const router = useRouter()
 
     const isXs = useMedia().xs
     const [open, setOpen] = useState(false)
@@ -50,10 +52,21 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
             }}
             style={{ overflowY: 'auto' }}
         >
-            <YStack mt="$2" px={collapsed ? "$2" : "$5"} pt={collapsed ? "$3" : "$5"} jc="center" ai={collapsed ? "center" : "flex-start"} height={"fit-content"}>
+            <YStack 
+                mt="$2" 
+                px={collapsed ? "$2" : "$5"} 
+                pt={collapsed ? "$3" : "$5"} 
+                jc="center" 
+                ai={collapsed ? "center" : "flex-start"} 
+                height={"fit-content"}
+                cursor="pointer"
+                onPress={() => router.push('/network')}
+                hoverStyle={{ opacity: 0.8 }}
+                pressStyle={{ opacity: 0.6 }}
+            >
                 {/* do not use ternary, use `display` to have both images loaded and only play 
                 with visibility */}
-                <YStack display={collapsed ? "none" : "flex"}> {logo}</YStack>
+                <YStack display={collapsed ? "none" : "flex"}>{logo}</YStack>
                 <YStack display={collapsed ? "flex" : "none"} scale={1.3}>{collapsedLogo}</YStack>
             </YStack>
             <YStack pos='relative'>

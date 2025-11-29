@@ -141,7 +141,7 @@ export default function App() {
   if (!isConnected) {
     return (
       <View style={[styles.container, { backgroundColor: '#0b0b0f' }]}>
-        <StatusBar style="light" />
+        <StatusBar style="light" translucent backgroundColor="transparent" />
         <View style={styles.form}>
           <Text style={styles.title}>Vento Mobile Agent</Text>
           <TextInput
@@ -207,7 +207,7 @@ export default function App() {
   // Connected - show mode-based UI
   return (
     <View style={[styles.container, { backgroundColor }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} hidden={screenMode === 'blank'} />
+      <StatusBar style={isDark ? 'light' : 'dark'} hidden={screenMode === 'blank'} translucent backgroundColor="transparent" />
 
       {/* Blank mode - touch surface with menu button */}
       {screenMode === 'blank' && (
@@ -455,6 +455,8 @@ const styles = StyleSheet.create({
   },
   hiddenBridges: {
     position: 'absolute',
+    top: -9999,
+    left: -9999,
     width: 1,
     height: 1,
     overflow: 'hidden',

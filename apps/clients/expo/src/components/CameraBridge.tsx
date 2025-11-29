@@ -62,6 +62,8 @@ export function CameraBridge({ ventoHost, token }: CameraBridgeProps) {
 const styles = StyleSheet.create({
   hiddenContainer: {
     position: 'absolute',
+    top: -9999,
+    left: -9999,
     width: 1,
     height: 1,
     overflow: 'hidden',

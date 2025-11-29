@@ -13,8 +13,13 @@ if (fs.existsSync(packagePath)) {
     if (!packageJson.workspaces.includes('apps/adminpanel')) {
         packageJson.workspaces.push('apps/adminpanel');
     }
+    
     if (!packageJson.workspaces.includes('apps/chat')) {
         packageJson.workspaces.push('apps/chat');
+    }
+
+    if (!packageJson.workspaces.includes('apps/cinny')) {
+        packageJson.workspaces.push('apps/cinny');
     }
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
     console.log('package.json workspaces have been updated');

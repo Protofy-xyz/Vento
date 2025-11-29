@@ -1,17 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Camera, CameraView } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 export function CameraPreview() {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
 
   useEffect(() => {
-    Camera.requestCameraPermissionsAsync().then(({ status }) => {
-      setHasPermission(status === 'granted');
-    });
-  }, []);
+    if (!permission) {
+      requestPermission();
+    } else if (!permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <View style={styles.container}>
         <Text style={styles.text}>Requesting camera permission...</Text>
@@ -19,10 +21,11 @@ export function CameraPreview() {
     );
   }
 
-  if (!hasPermission) {
+  if (!permission.granted) {
     return (
       <View style={styles.container}>
         <Text style={styles.text}>Camera permission denied</Text>
+        <Text style={styles.hint}>Please grant camera permission in Settings</Text>
       </View>
     );
   }
@@ -42,6 +45,11 @@ const styles = StyleSheet.create({
   text: {
     color: '#fff',
     fontSize: 16,
+  },
+  hint: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 8,
   },
   camera: {
     flex: 1,

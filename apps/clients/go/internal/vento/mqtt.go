@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -52,25 +53,47 @@ func (e ActionEnvelope) CanReply() bool {
 // ActionHandler handles action messages.
 type ActionHandler func(ActionEnvelope)
 
+// ReconnectCallback is called when the client reconnects after a disconnect.
+type ReconnectCallback func()
+
 // MQTTClient wraps the MQTT client helper.
 type MQTTClient struct {
-	deviceName string
-	client     mqtt.Client
+	deviceName     string
+	client         mqtt.Client
+	onReconnect    ReconnectCallback
+	isFirstConnect bool
+}
+
+// SetOnReconnect sets a callback to be called when the client reconnects.
+func (m *MQTTClient) SetOnReconnect(cb ReconnectCallback) {
+	m.onReconnect = cb
 }
 
 // ConnectMQTT establishes an MQTT connection using username/token.
 func ConnectMQTT(ctx context.Context, baseURL *url.URL, deviceName, username, token string, handler ActionHandler) (*MQTTClient, error) {
+	mqttClient := &MQTTClient{
+		deviceName:     deviceName,
+		isFirstConnect: true,
+	}
+
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(buildBrokerAddress(baseURL))
 	opts.SetClientID(fmt.Sprintf("%s-%d", deviceName, time.Now().UnixNano()))
 	opts.SetKeepAlive(30 * time.Second)
 	opts.SetAutoReconnect(true)
+	opts.SetMaxReconnectInterval(30 * time.Second)
+	opts.SetConnectRetry(true)
+	opts.SetConnectRetryInterval(5 * time.Second)
 	opts.SetUsername(username)
 	opts.SetPassword(token)
 	opts.SetOrderMatters(false)
 
 	actionsTopic := fmt.Sprintf("devices/%s/+/actions/#", deviceName)
+
 	opts.OnConnect = func(c mqtt.Client) {
+		log.Printf("[mqtt] connected to broker")
+
+		// Subscribe to actions topic
 		if token := c.Subscribe(actionsTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
 			subsystem, action, requestID, isReply := extractSubsystemAction(msg.Topic())
 			if handler == nil || subsystem == "" || action == "" || isReply {
@@ -93,11 +116,30 @@ func ConnectMQTT(ctx context.Context, baseURL *url.URL, deviceName, username, to
 			}
 			handler(env)
 		}); token.Wait() && token.Error() != nil {
-			// log? best-effort
+			log.Printf("[mqtt] failed to subscribe to actions: %v", token.Error())
+		} else {
+			log.Printf("[mqtt] subscribed to %s", actionsTopic)
 		}
+
+		// Call reconnect callback (skip on first connect)
+		if !mqttClient.isFirstConnect && mqttClient.onReconnect != nil {
+			log.Printf("[mqtt] triggering reconnect callback")
+			go mqttClient.onReconnect()
+		}
+		mqttClient.isFirstConnect = false
+	}
+
+	opts.OnConnectionLost = func(c mqtt.Client, err error) {
+		log.Printf("[mqtt] connection lost: %v - will attempt to reconnect", err)
+	}
+
+	opts.OnReconnecting = func(c mqtt.Client, opts *mqtt.ClientOptions) {
+		log.Printf("[mqtt] attempting to reconnect...")
 	}
 
 	client := mqtt.NewClient(opts)
+	mqttClient.client = client
+
 	tokenResp := client.Connect()
 	if tokenResp == nil {
 		return nil, fmt.Errorf("invalid mqtt token")
@@ -111,7 +153,7 @@ func ConnectMQTT(ctx context.Context, baseURL *url.URL, deviceName, username, to
 		}
 	}()
 	defer close(cancelCh)
-	if !tokenResp.WaitTimeout(10 * time.Second) {
+	if !tokenResp.WaitTimeout(15 * time.Second) {
 		return nil, fmt.Errorf("timeout connecting to mqtt broker")
 	}
 	if err := tokenResp.Error(); err != nil {
@@ -123,10 +165,7 @@ func ConnectMQTT(ctx context.Context, baseURL *url.URL, deviceName, username, to
 	default:
 	}
 
-	return &MQTTClient{
-		deviceName: deviceName,
-		client:     client,
-	}, nil
+	return mqttClient, nil
 }
 
 func buildBrokerAddress(base *url.URL) string {

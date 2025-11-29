@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { Camera, CameraView } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import { registerTorchController, type TorchState } from '../torch/controller';
 
 export function TorchBridge() {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const [torchState, setTorchState] = useState<'off' | 'on'>('off');
+  const hasPermission = permission?.granted ?? false;
 
   useEffect(() => {
-    console.log('[torch] requesting camera permission...');
-    Camera.requestCameraPermissionsAsync().then(({ status }) => {
-      console.log('[torch] permission status:', status);
-      setHasPermission(status === 'granted');
-    });
-  }, []);
+    console.log('[torch] permission status:', permission?.status);
+    if (!permission) {
+      console.log('[torch] requesting camera permission...');
+      requestPermission();
+    } else if (!permission.granted && permission.canAskAgain) {
+      console.log('[torch] permission not granted, requesting again...');
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
   useEffect(() => {
     console.log('[torch] hasPermission:', hasPermission);

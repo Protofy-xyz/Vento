@@ -41,14 +41,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"client@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "client@workspace:."
-  dependencies:
-    shx: "npm:^0.4.0"
-  languageName: unknown
-  linkType: soft
-
 "cross-spawn@npm:^6.0.0":
   version: 6.0.6
   resolution: "cross-spawn@npm:6.0.6"
@@ -141,6 +133,14 @@ __metadata:
   checksum: 10/32cd106ce8c0d83731966d31517adb766d02c3812de49c30cfe0675c7c0ae6630c11214c54a5ae67aca882cf738d27fd7768f21aa19118b9245950554be07247
   languageName: node
   linkType: hard
+
+"go@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "go@workspace:."
+  dependencies:
+    shx: "npm:^0.4.0"
+  languageName: unknown
+  linkType: soft
 
 "hasown@npm:^2.0.2":
   version: 2.0.2

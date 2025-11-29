@@ -66,6 +66,12 @@ func (a *Agent) Start(ctx context.Context) error {
 	defer a.mqtt.Close()
 	log.Printf("connected to mqtt broker as %s", a.cfg.DeviceName)
 
+	// Set up reconnection handler to re-publish boot data
+	a.mqtt.SetOnReconnect(func() {
+		log.Printf("reconnected - re-publishing boot data...")
+		a.subs.PublishBoot(ctx, a.mqtt)
+	})
+
 	a.subs.PublishBoot(ctx, a.mqtt)
 	if a.runOnce {
 		return nil
@@ -88,7 +94,7 @@ func (a *Agent) ensureDevice(ctx context.Context) error {
 	}
 	log.Printf("device %s not found, registering...", a.cfg.DeviceName)
 	createPayload := map[string]any{
-		"name":       payload.Name,
+		"name":     payload.Name,
 		"platform": payload.Platform,
 	}
 	if err := a.http.RegisterDevice(ctx, a.cfg.Token, createPayload); err != nil {

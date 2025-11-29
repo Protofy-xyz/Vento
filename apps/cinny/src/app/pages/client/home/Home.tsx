@@ -218,11 +218,26 @@ export function Home() {
   const networkMembers = useRoomMembers(mx, ventoRoomId);
   const myUserId = mx.getUserId();
   
-  // Filter and sort network members (exclude self, sort by presence)
+  // Filter and sort network members (exclude self and bridge bot, sort by presence)
   const sortedNetworkMembers = useMemo(() => {
     if (!ventoRoom) return [];
+    // Get the local part of the current user's Matrix ID (e.g., "@admin:vento.local" -> "admin")
+    const myLocalPart = myUserId?.split(':')[0]?.replace('@', '') ?? '';
+    // Bridge bot userId to exclude
+    const bridgeBotUserId = '@ventobot:vento.local';
+    
     return networkMembers
-      .filter(m => m.userId !== myUserId && m.membership === 'join')
+      .filter(m => {
+        // Exclude current user
+        if (m.userId === myUserId) return false;
+        // Exclude bridge bot
+        if (m.userId === bridgeBotUserId) return false;
+        // Exclude user with same local part as current user (e.g., if logged as "admin", exclude "@admin:vento.local")
+        const memberLocalPart = m.userId?.split(':')[0]?.replace('@', '') ?? '';
+        if (memberLocalPart === myLocalPart) return false;
+        // Only include joined members
+        return m.membership === 'join';
+      })
       .sort((a, b) => {
         const presenceA = mx.getUser(a.userId)?.presence;
         const presenceB = mx.getUser(b.userId)?.presence;

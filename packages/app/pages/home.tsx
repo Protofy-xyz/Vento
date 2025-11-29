@@ -40,7 +40,7 @@ const Home = () => {
           <SpotLight t="20vh" />
 
           <a
-            href="/workspace/boards"
+            href="/workspace/network"
             style={{
               textDecoration: 'none',
               color: 'inherit',

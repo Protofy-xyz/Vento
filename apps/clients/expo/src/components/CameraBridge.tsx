@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Camera, CameraView } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { registerCameraRef, registerUploadFunction } from '../subsystems/camera';
@@ -11,16 +11,20 @@ interface CameraBridgeProps {
 }
 
 export function CameraBridge({ ventoHost, token }: CameraBridgeProps) {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const hasPermission = permission?.granted ?? false;
 
   useEffect(() => {
-    console.log('[camera] requesting camera permission...');
-    Camera.requestCameraPermissionsAsync().then(({ status }) => {
-      console.log('[camera] permission status:', status);
-      setHasPermission(status === 'granted');
-    });
-  }, []);
+    console.log('[camera] permission status:', permission?.status);
+    if (!permission) {
+      console.log('[camera] requesting camera permission...');
+      requestPermission();
+    } else if (!permission.granted && permission.canAskAgain) {
+      console.log('[camera] permission not granted, requesting again...');
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
   useEffect(() => {
     if (!hasPermission || !cameraRef.current) {

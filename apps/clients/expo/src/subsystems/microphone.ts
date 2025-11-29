@@ -67,10 +67,12 @@ function subscribeMicrophone(emit: EmitFn): UnsubscribeFn {
       const permResponse = await Audio.requestPermissionsAsync();
       
       if (permResponse.status !== 'granted') {
-        console.log('[microphone] permission denied');
+        console.log('[microphone] permission denied, status:', permResponse.status);
         emit({ error: 'permission-denied' });
         return;
       }
+
+      console.log('[microphone] permission granted');
 
       if (stopped) return;
 
@@ -82,39 +84,42 @@ function subscribeMicrophone(emit: EmitFn): UnsubscribeFn {
 
       if (stopped) return;
 
-      console.log('[microphone] creating recording...');
-      const rec = new Audio.Recording();
+      console.log('[microphone] creating recording with createAsync...');
       
-      await rec.prepareToRecordAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
+      // Use the modern API: Audio.Recording.createAsync()
+      const { recording: rec } = await Audio.Recording.createAsync(
+        {
+          android: {
+            extension: '.m4a',
+            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+            audioEncoder: Audio.AndroidAudioEncoder.AAC,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+          },
+          ios: {
+            extension: '.m4a',
+            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+            audioQuality: Audio.IOSAudioQuality.HIGH,
+            sampleRate: 44100,
+            numberOfChannels: 1,
+            bitRate: 128000,
+          },
+          web: {
+            mimeType: 'audio/webm',
+            bitsPerSecond: 128000,
+          },
+          isMeteringEnabled: true,
         },
-        ios: {
-          extension: '.m4a',
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 128000,
-        },
-        isMeteringEnabled: true,
-      });
+        undefined, // onRecordingStatusUpdate
+        100 // progressUpdateIntervalMillis
+      );
 
       if (stopped) {
         await rec.stopAndUnloadAsync();
         return;
       }
 
-      await rec.startAsync();
       recording = rec;
       console.log('[microphone] recording started');
 
@@ -130,12 +135,13 @@ function subscribeMicrophone(emit: EmitFn): UnsubscribeFn {
           }
         } catch (err) {
           // Recording might have been stopped
+          console.log('[microphone] error getting status:', err);
         }
       }, 100);
 
-    } catch (err) {
-      console.log('[microphone] error starting:', err);
-      emit({ error: 'failed-to-start' });
+    } catch (err: any) {
+      console.log('[microphone] error starting:', err?.message ?? err);
+      emit({ error: 'failed-to-start', details: err?.message });
     }
   }
 

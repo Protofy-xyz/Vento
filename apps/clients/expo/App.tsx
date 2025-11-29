@@ -15,6 +15,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as NavigationBar from 'expo-navigation-bar';
 
 import { useAgent } from './src/hooks/useAgent';
+import { usePermissions } from './src/hooks/usePermissions';
 import { TorchBridge } from './src/components/TorchBridge';
 import { CameraBridge } from './src/components/CameraBridge';
 import { CameraPreview } from './src/components/CameraPreview';
@@ -32,6 +33,7 @@ type ScreenMode = 'blank' | 'camera' | 'logs';
 
 export default function App() {
   const { state, connect, disconnect } = useAgent();
+  const { state: permissions, requestAllPermissions } = usePermissions();
   const [host, setHost] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -40,8 +42,29 @@ export default function App() {
   const [overrideText, setOverrideText] = useState<string | null>(null);
   const [overrideTextColor, setOverrideTextColor] = useState<string | null>(null);
   const [overrideTextSize, setOverrideTextSize] = useState<number | null>(null);
+  const [permissionsRequested, setPermissionsRequested] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // Request permissions on app start (only once)
+  useEffect(() => {
+    let mounted = true;
+    
+    const doRequest = async () => {
+      console.log('[App] Requesting permissions on startup...');
+      await requestAllPermissions();
+      if (mounted) {
+        setPermissionsRequested(true);
+        console.log('[App] Permissions requested');
+      }
+    };
+    
+    if (!permissionsRequested) {
+      doRequest();
+    }
+    
+    return () => { mounted = false; };
+  }, []); // Empty deps - run only once on mount
 
   // Register screen callbacks
   useEffect(() => {
@@ -153,6 +176,24 @@ export default function App() {
             disabled={isConnecting}
           />
           {state.error && <Text style={styles.error}>{state.error}</Text>}
+          
+          {/* Permission status */}
+          <View style={styles.permissionsRow}>
+            <Text style={[styles.permissionItem, { color: permissions.camera === 'granted' ? '#4ade80' : '#f87171' }]}>
+              📷 {permissions.camera === 'granted' ? '✓' : '✗'}
+            </Text>
+            <Text style={[styles.permissionItem, { color: permissions.microphone === 'granted' ? '#4ade80' : '#f87171' }]}>
+              🎤 {permissions.microphone === 'granted' ? '✓' : '✗'}
+            </Text>
+            <Text style={[styles.permissionItem, { color: permissions.location === 'granted' ? '#4ade80' : '#f87171' }]}>
+              📍 {permissions.location === 'granted' ? '✓' : '✗'}
+            </Text>
+          </View>
+          {!permissions.allGranted && permissionsRequested && (
+            <Pressable onPress={requestAllPermissions} style={styles.permissionButton}>
+              <Text style={styles.permissionButtonText}>Grant Permissions</Text>
+            </Pressable>
+          )}
         </View>
         {isConnecting && (
           <View style={styles.overlay}>
@@ -288,6 +329,26 @@ const styles = StyleSheet.create({
   error: {
     color: '#ff6b6b',
     textAlign: 'center',
+  },
+  permissionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 16,
+  },
+  permissionItem: {
+    fontSize: 16,
+  },
+  permissionButton: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 14,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

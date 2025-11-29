@@ -1,0 +1,25 @@
+# Ignore EVERYTHING first
+*
+
+# Then whitelist only what we need
+!app.json
+!eas.json
+!package.json
+!tsconfig.json
+!index.ts
+!App.tsx
+!babel.config.js
+!metro.config.js
+
+# Source code
+!src
+!src/**
+
+# Assets
+!assets
+!assets/**
+
+# Allow node_modules (EAS needs it, but will install fresh)
+# Actually, let EAS install dependencies on their server
+node_modules
+

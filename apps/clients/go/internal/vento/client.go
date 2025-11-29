@@ -136,9 +136,15 @@ func (c *Client) SetSubsystems(ctx context.Context, token, deviceName string, su
 	return c.UpdateDevice(ctx, token, deviceName, body)
 }
 
-// TriggerRegisterActions forces Vento to rebuild the device boards.
+// TriggerRegisterActions forces Vento to rebuild all device boards.
+// Deprecated: Use RegenerateBoardForDevice for single device regeneration.
 func (c *Client) TriggerRegisterActions(ctx context.Context, token string) error {
 	return c.doJSON(ctx, http.MethodGet, "/api/core/v1/devices/registerActions", token, nil, nil)
+}
+
+// RegenerateBoardForDevice regenerates the board for a specific device.
+func (c *Client) RegenerateBoardForDevice(ctx context.Context, token, deviceName string) error {
+	return c.doJSON(ctx, http.MethodGet, "/api/core/v1/devices/"+deviceName+"/regenerateBoard", token, nil, nil)
 }
 
 // BaseURL returns the configured base URL string.

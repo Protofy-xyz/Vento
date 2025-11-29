@@ -114,9 +114,9 @@ export function useAgent(): AgentControls {
         appendLog(`Device ensured (${Date.now() - t2}ms)`);
         if (isNewDevice) {
           const t3 = Date.now();
-          appendLog('New device, registering actions...');
-          await client.triggerRegisterActions(token);
-          appendLog(`Actions registered (${Date.now() - t3}ms)`);
+          appendLog('New device, regenerating board...');
+          await client.regenerateBoardForDevice(token, deviceName);
+          appendLog(`Board regenerated (${Date.now() - t3}ms)`);
         }
 
         configRef.current = { host, username, token, deviceName, subsystems };

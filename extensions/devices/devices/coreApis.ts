@@ -522,242 +522,261 @@ const getDB = (path, req, session) => {
     return db;
 }
 
-// iterate over all devices and register an action for each subsystem action
-const registerActions = async () => {
+// Regenerate board for a single device - registers actions, cards and generates the board
+const regenerateBoardForDevice = async (deviceName: string) => {
     const db = getDB('devices')
-    //db.iterator is yeilding
-    for await (const [key, value] of db.iterator()) {
-        // console.log('device: ', value)
-        const deviceInfo = DevicesModel.load(JSON.parse(value))
-        // 🔴 delete existing actions & cards for this device before adding new ones
-        await deleteDeviceActions(deviceInfo.data.name)
+    let deviceData
+    try {
+        deviceData = await db.get(deviceName)
+    } catch (err) {
+        logger.error({ deviceName, err }, 'Device not found for board regeneration')
+        throw new Error(`Device ${deviceName} not found`)
+    }
+    
+    const deviceInfo = DevicesModel.load(JSON.parse(deviceData))
+    
+    // Delete existing actions & cards for this device before adding new ones
+    await deleteDeviceActions(deviceInfo.data.name)
 
-        for (const subsystem of deviceInfo.data?.subsystem) {
-            // console.log('subsystem: ', subsystem)
-            if (subsystem.name == "mqtt") continue
-            for (const monitor of subsystem.monitors ?? []) {
-                // console.log('monitor: ', monitor)
-                const monitorModel = deviceInfo.getMonitorByEndpoint(monitor.endpoint)
-                const stateName = deviceInfo.getStateNameByMonitor(monitorModel)
-                const iconFromValue = monitor.cardProps?.icon ?? "scan-eye";
-                const colorFromValue = monitor.cardProps?.color;
-                const htmlFromValue = monitor.cardProps?.html;
-                const orderFromValue = monitor.cardProps?.order;
-                const { width, height } = computeCardSize({});
-                const cardWidth = monitor.cardProps?.width || width;
-                const cardHeight = monitor.cardProps?.height || height;
+    const formatParamsJson = (json) => {
+        const parts = Object.entries(json).map(([key, value]) => {
+            return `${key} ${value}`;
+        });
 
-                if (subsystem.monitors.length == 1) {
+        if (parts.length === 0) {
+            return 'No constraints specified';
+        }
 
-                    addCard({
-                        group: 'devices',
-                        tag: deviceInfo.data.name,
-                        id: 'devices_monitors_' + deviceInfo.data.name + '_' + subsystem.name,
-                        templateName: deviceInfo.data.name + ' ' + subsystem.name + ' device value',
-                        name: subsystem.name,
-                        defaults: {
-                            label: monitor.label,
-                            name: deviceInfo.data.name + ' ' + subsystem.name,
-                            description: monitor.description ?? "",
-                            rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
-                            type: 'value',
-                            icon: iconFromValue,
-                            ...(colorFromValue ? { color: colorFromValue } : {}),
-                            ...(htmlFromValue ? { html: htmlFromValue } : {}),
-                            ...(orderFromValue !== undefined ? { order: orderFromValue } : {}),
-                            width: cardWidth,
-                            height: cardHeight
-                        },
-                        emitEvent: true
-                    })
-                } else {
-                    addCard({
-                        group: 'devices',
-                        tag: deviceInfo.data.name,
-                        id: 'devices_monitors_' + deviceInfo.data.name + '_' + monitor.name,
-                        templateName: deviceInfo.data.name + ' ' + monitor.name + ' device value',
-                        name: monitor.name,
-                        defaults: {
-                            label: monitor.label,
-                            name: deviceInfo.data.name + ' ' + monitor.name,
-                            description: monitor.description ?? "",
-                            rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
-                            type: 'value',
-                            icon: iconFromValue,
-                            ...(colorFromValue ? { color: colorFromValue } : {}),
-                            ...(htmlFromValue ? { html: htmlFromValue } : {}),
-                            ...(orderFromValue !== undefined ? { order: orderFromValue } : {}),
-                            width: width,
-                            height: height
-                        },
-                        emitEvent: true
-                    })
+        return `The value must have ${parts.join(', ')}`;
+    }
+
+    const toParamType = (schemaType?: string) => {
+        switch (schemaType) {
+            case 'int':
+            case 'number':
+                return 'number';
+            case 'array':
+            case 'object':
+                return 'json';
+            case 'boolean':
+                return 'boolean';
+            default:
+                return 'string';
+        }
+    };
+
+    type JsonSchema = {
+        type?: 'string' | 'number' | 'int' | 'boolean' | 'object' | 'array';
+        default?: any;
+        enum?: any[];
+        minimum?: number;
+        properties?: Record<string, JsonSchema>;
+        required?: string[];
+        items?: JsonSchema;
+        description?: string;
+    };
+
+    const exampleForSchema = (field?: JsonSchema): any => {
+        if (!field || typeof field !== 'object') return null;
+
+        // If an explicit default is provided, prefer it
+        if (field.default !== undefined) return field.default;
+
+        switch (field.type) {
+            case 'object': {
+                const props = field.properties || {};
+                const keys = field.required?.length ? field.required : Object.keys(props);
+                const out: Record<string, any> = {};
+                for (const key of keys) {
+                    out[key] = exampleForSchema(props[key]);
                 }
+                return JSON.stringify(out, null, 2);
             }
-            const formatParamsJson = (json) => {
-                const parts = Object.entries(json).map(([key, value]) => {
-                    return `${key} ${value}`;
-                });
-
-                if (parts.length === 0) {
-                    return 'No constraints specified';
-                }
-
-                return `The value must have ${parts.join(', ')}`;
+            case 'array': {
+                // Build a one-element example array
+                const item = exampleForSchema(field.items || { type: 'string' });
+                return [item];
             }
+            case 'string':
+                return Array.isArray(field.enum) && field.enum.length ? field.enum[0] : '';
+            case 'number':
+            case 'int':
+                return typeof field.minimum === 'number' ? field.minimum : 0;
+            case 'boolean':
+                return false;
+            default:
+                return null;
+        }
+    };
 
-            for (const action of subsystem.actions ?? []) {
-                const url = `/api/core/v1/devices/${deviceInfo.data.name}/subsystems/${subsystem.name}/actions/${action.name}`;
-                const isJsonSchema = action.payload?.type === "json-schema";
+    const getParams = (params) => {
+        let actionParams = {}
+        for (const key in params) {
+            actionParams[key] = params[key].description || ''
+        }
+        return actionParams
+    }
 
-                const params = { 
-                    value: {
-                        description: action.description ?? "Value to send",
-                    } 
-                };
-                if (isJsonSchema) {
-                    delete params.value
-                    const toParamType = (schemaType?: string) => {
-                        switch (schemaType) {
-                            case 'int':
-                            case 'number':
-                                return 'number';
-                            case 'array':
-                            case 'object':
-                                return 'json';
-                            case 'boolean':
-                                return 'boolean';
-                            default:
-                                return 'string';
-                        }
-                    };
-                    type JsonSchema = {
-                        type?: 'string' | 'number' | 'int' | 'boolean' | 'object' | 'array';
-                        default?: any;
-                        enum?: any[];
-                        minimum?: number;
-                        properties?: Record<string, JsonSchema>;
-                        required?: string[];
-                        items?: JsonSchema;
-                        description?: string;
-                    };
+    for (const subsystem of deviceInfo.data?.subsystem ?? []) {
+        if (subsystem.name == "mqtt") continue
+        
+        for (const monitor of subsystem.monitors ?? []) {
+            const monitorModel = deviceInfo.getMonitorByEndpoint(monitor.endpoint)
+            const stateName = deviceInfo.getStateNameByMonitor(monitorModel)
+            const iconFromValue = monitor.cardProps?.icon ?? "scan-eye";
+            const colorFromValue = monitor.cardProps?.color;
+            const htmlFromValue = monitor.cardProps?.html;
+            const orderFromValue = monitor.cardProps?.order;
+            const { width, height } = computeCardSize({});
+            const cardWidth = monitor.cardProps?.width || width;
+            const cardHeight = monitor.cardProps?.height || height;
 
-                    const exampleForSchema = (field?: JsonSchema): any => {
-                        if (!field || typeof field !== 'object') return null;
-
-                        // If an explicit default is provided, prefer it
-                        if (field.default !== undefined) return field.default;
-
-                        switch (field.type) {
-                            case 'object': {
-                                const props = field.properties || {};
-                                const keys = field.required?.length ? field.required : Object.keys(props);
-                                const out: Record<string, any> = {};
-                                for (const key of keys) {
-                                    out[key] = exampleForSchema(props[key]);
-                                }
-                                return JSON.stringify(out, null, 2);
-                            }
-                            case 'array': {
-                                // Build a one-element example array
-                                const item = exampleForSchema(field.items || { type: 'string' });
-                                return [item];
-                            }
-                            case 'string':
-                                return Array.isArray(field.enum) && field.enum.length ? field.enum[0] : '';
-                            case 'number':
-                            case 'int':
-                                return typeof field.minimum === 'number' ? field.minimum : 0;
-                            case 'boolean':
-                                return false;
-                            default:
-                                return null;
-                        }
-                    };
-
-                    if (action.payload?.schema && typeof action.payload?.schema === "object") {
-                        for (const [key, value] of Object.entries(action.payload.schema)) {
-                            if (typeof value === "object" && !Array.isArray(value)) {
-                                params[key] = {
-                                    visible: true,
-                                    description: value.description ?? formatParamsJson(value),
-                                    defaultValue: exampleForSchema(value),
-                                    type: toParamType(value.type)
-                                }
-                                if (value.enum) {
-                                    params[key].description += ` Possible values: ${value.enum.join(", ")}`;
-                                }
-                            } else {
-                                params[key] = {
-                                    visible: true,
-                                    description: '',
-                                    defaultValue: '',
-                                    type: 'string'
-                                }
-                            }
-                        }
-                    }
-
-
-                }
-                const rulesCode = isJsonSchema
-                    ? `const value = { value: JSON.stringify(userParams) };\nreturn (await execute_action('${url}', value))?.reply`
-                    : `return (await execute_action('${url}', userParams))?.reply`;
-                const getParams = (params) => {
-                    let actionParams = {}
-                    for (const key in params) {
-                        actionParams[key] = params[key].description || ''
-                    }
-                    return actionParams
-                }
-                addAction({
-                    group: 'devices',
-                    name: subsystem.name + '_' + action.name, //get last path element
-                    url: `/api/core/v1/devices/${deviceInfo.data.name}/subsystems/${subsystem.name}/actions/${action.name}`,
-                    tag: deviceInfo.data.name,
-                    description: action.description ?? "",
-                    ...!action.payload?.value ? { params } : {},
-                    emitEvent: true
-                })
-                const iconFromAction = action.cardProps?.icon ?? "rocket";
-                const colorFromAction = action.cardProps?.color;
-                const htmlFromAction = action.cardProps?.html;
-                const orderFromAction = action.cardProps?.order;
-                const { width, height } = computeCardSize(params); // use config params to size
-                const cardWidth = action.cardProps?.width || width;
-                const cardHeight = action.cardProps?.height || height;
-                //http://localhost:8000/api/core/v1/cards to understand what this fills
+            if (subsystem.monitors.length == 1) {
                 addCard({
                     group: 'devices',
                     tag: deviceInfo.data.name,
-                    id: 'devices_' + deviceInfo.data.name + '_' + subsystem.name + '_' + action.name,
-                    templateName: deviceInfo.data.name + ' ' + subsystem.name + ' ' + action.name + ' device action',
-                    name: subsystem.name + '_' + action.name,
-                    defaults: (() => {
-                        const paramsForDefaults = action.payload?.value ? {} : getParams(params);
-
-                        return {
-                            label: action.label,
-                            width: cardWidth,
-                            height: cardHeight + (action.mode === 'request-reply' ? 2 : 0),
-                            icon: iconFromAction,
-                            name: deviceInfo.data.name + ' ' + subsystem.name + ' ' + action.name,
-                            description: action.description ?? '',
-                            rulesCode,
-                            params: paramsForDefaults,
-                            configParams: params,
-                            type: 'action',
-                            ...(colorFromAction ? { color: colorFromAction } : {}),
-                            ...(htmlFromAction ? { html: htmlFromAction } : {}),
-                            ...(orderFromAction !== undefined ? { order: orderFromAction } : {}),
-                            displayResponse: action.mode === 'request-reply'
-                        };
-                    })(),
+                    id: 'devices_monitors_' + deviceInfo.data.name + '_' + subsystem.name,
+                    templateName: deviceInfo.data.name + ' ' + subsystem.name + ' device value',
+                    name: subsystem.name,
+                    defaults: {
+                        label: monitor.label,
+                        name: deviceInfo.data.name + ' ' + subsystem.name,
+                        description: monitor.description ?? "",
+                        rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
+                        type: 'value',
+                        icon: iconFromValue,
+                        ...(colorFromValue ? { color: colorFromValue } : {}),
+                        ...(htmlFromValue ? { html: htmlFromValue } : {}),
+                        ...(orderFromValue !== undefined ? { order: orderFromValue } : {}),
+                        width: cardWidth,
+                        height: cardHeight
+                    },
+                    emitEvent: true
+                })
+            } else {
+                addCard({
+                    group: 'devices',
+                    tag: deviceInfo.data.name,
+                    id: 'devices_monitors_' + deviceInfo.data.name + '_' + monitor.name,
+                    templateName: deviceInfo.data.name + ' ' + monitor.name + ' device value',
+                    name: monitor.name,
+                    defaults: {
+                        label: monitor.label,
+                        name: deviceInfo.data.name + ' ' + monitor.name,
+                        description: monitor.description ?? "",
+                        rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
+                        type: 'value',
+                        icon: iconFromValue,
+                        ...(colorFromValue ? { color: colorFromValue } : {}),
+                        ...(htmlFromValue ? { html: htmlFromValue } : {}),
+                        ...(orderFromValue !== undefined ? { order: orderFromValue } : {}),
+                        width: width,
+                        height: height
+                    },
                     emitEvent: true
                 })
             }
         }
-        await generateDeviceBoard(deviceInfo.data.name, deviceInfo.data.name);
+
+        for (const action of subsystem.actions ?? []) {
+            const url = `/api/core/v1/devices/${deviceInfo.data.name}/subsystems/${subsystem.name}/actions/${action.name}`;
+            const isJsonSchema = action.payload?.type === "json-schema";
+
+            const params = { 
+                value: {
+                    description: action.description ?? "Value to send",
+                } 
+            };
+            if (isJsonSchema) {
+                delete params.value
+
+                if (action.payload?.schema && typeof action.payload?.schema === "object") {
+                    for (const [key, value] of Object.entries(action.payload.schema)) {
+                        if (typeof value === "object" && !Array.isArray(value)) {
+                            params[key] = {
+                                visible: true,
+                                description: value.description ?? formatParamsJson(value),
+                                defaultValue: exampleForSchema(value),
+                                type: toParamType(value.type)
+                            }
+                            if (value.enum) {
+                                params[key].description += ` Possible values: ${value.enum.join(", ")}`;
+                            }
+                        } else {
+                            params[key] = {
+                                visible: true,
+                                description: '',
+                                defaultValue: '',
+                                type: 'string'
+                            }
+                        }
+                    }
+                }
+            }
+            
+            const rulesCode = isJsonSchema
+                ? `const value = { value: JSON.stringify(userParams) };\nreturn (await execute_action('${url}', value))?.reply`
+                : `return (await execute_action('${url}', userParams))?.reply`;
+            
+            addAction({
+                group: 'devices',
+                name: subsystem.name + '_' + action.name,
+                url: `/api/core/v1/devices/${deviceInfo.data.name}/subsystems/${subsystem.name}/actions/${action.name}`,
+                tag: deviceInfo.data.name,
+                description: action.description ?? "",
+                ...!action.payload?.value ? { params } : {},
+                emitEvent: true
+            })
+            
+            const iconFromAction = action.cardProps?.icon ?? "rocket";
+            const colorFromAction = action.cardProps?.color;
+            const htmlFromAction = action.cardProps?.html;
+            const orderFromAction = action.cardProps?.order;
+            const { width, height } = computeCardSize(params);
+            const cardWidth = action.cardProps?.width || width;
+            const cardHeight = action.cardProps?.height || height;
+            
+            addCard({
+                group: 'devices',
+                tag: deviceInfo.data.name,
+                id: 'devices_' + deviceInfo.data.name + '_' + subsystem.name + '_' + action.name,
+                templateName: deviceInfo.data.name + ' ' + subsystem.name + ' ' + action.name + ' device action',
+                name: subsystem.name + '_' + action.name,
+                defaults: (() => {
+                    const paramsForDefaults = action.payload?.value ? {} : getParams(params);
+
+                    return {
+                        label: action.label,
+                        width: cardWidth,
+                        height: cardHeight + (action.mode === 'request-reply' ? 2 : 0),
+                        icon: iconFromAction,
+                        name: deviceInfo.data.name + ' ' + subsystem.name + ' ' + action.name,
+                        description: action.description ?? '',
+                        rulesCode,
+                        params: paramsForDefaults,
+                        configParams: params,
+                        type: 'action',
+                        ...(colorFromAction ? { color: colorFromAction } : {}),
+                        ...(htmlFromAction ? { html: htmlFromAction } : {}),
+                        ...(orderFromAction !== undefined ? { order: orderFromAction } : {}),
+                        displayResponse: action.mode === 'request-reply'
+                    };
+                })(),
+                emitEvent: true
+            })
+        }
+    }
+    
+    await generateDeviceBoard(deviceInfo.data.name, deviceInfo.data.name);
+    logger.info({ deviceName }, 'Regenerated board for device')
+}
+
+// iterate over all devices and register an action for each subsystem action
+const registerActions = async () => {
+    const db = getDB('devices')
+    for await (const [key, value] of db.iterator()) {
+        const deviceInfo = DevicesModel.load(JSON.parse(value))
+        await regenerateBoardForDevice(deviceInfo.data.name)
     }
 }
 
@@ -907,6 +926,22 @@ export default (app, context) => {
         }
         addDevicePlatform(req.body.platform)
         res.send({message: 'Register platform devices'})
+    }))
+
+    app.get('/api/core/v1/devices/:device/regenerateBoard', handler(async (req, res, session) => {
+        if(!session || !session.user.admin) {
+            res.status(401).send({error: "Unauthorized"})
+            return
+        }
+        
+        const deviceName = req.params.device
+        try {
+            await regenerateBoardForDevice(deviceName)
+            res.send({message: 'Board regenerated successfully', device: deviceName})
+        } catch (err: any) {
+            logger.error({ deviceName, err: err.message }, 'Failed to regenerate board')
+            res.status(404).send({error: err.message || 'Failed to regenerate board'})
+        }
     }))
 
     app.get('/api/core/v1/devices/registerActions', handler(async (req, res, session) => {

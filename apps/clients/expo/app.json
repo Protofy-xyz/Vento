@@ -15,11 +15,14 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Used to report the device location to Vento",
-        "NSCameraUsageDescription": "Used to control the flashlight",
-        "NSMicrophoneUsageDescription": "Used to measure ambient sound levels",
-        "NSBluetoothAlwaysUsageDescription": "Used to scan and connect to Bluetooth devices",
-        "NSBluetoothPeripheralUsageDescription": "Used to communicate with Bluetooth peripherals"
+        "NSLocationWhenInUseUsageDescription": "Vento needs location access to report device position",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Vento needs background location access",
+        "NSLocationAlwaysUsageDescription": "Vento needs background location access",
+        "NSCameraUsageDescription": "Vento needs camera access to take photos and control the flashlight",
+        "NSMicrophoneUsageDescription": "Vento needs microphone access to measure ambient sound levels",
+        "NSBluetoothAlwaysUsageDescription": "Vento needs Bluetooth to scan and connect to BLE devices",
+        "NSBluetoothPeripheralUsageDescription": "Vento needs Bluetooth to communicate with peripherals",
+        "UIBackgroundModes": ["audio", "bluetooth-central", "location"]
       },
       "bundleIdentifier": "com.protofy.vento"
     },
@@ -31,17 +34,26 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-        "INTERNET",
-        "RECORD_AUDIO",
-        "BLUETOOTH",
-        "BLUETOOTH_ADMIN",
-        "BLUETOOTH_SCAN",
-        "BLUETOOTH_CONNECT",
-        "BLUETOOTH_ADVERTISE",
-        "ACCESS_BACKGROUND_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.FLASHLIGHT",
+        "android.permission.INTERNET",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_ADVERTISE",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.WRITE_SETTINGS",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ],
       "package": "com.protofy.vento"
     },
@@ -53,10 +65,53 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+            "minSdkVersion": 24
           }
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Vento needs camera access to take photos and control the flashlight",
+          "microphonePermission": "Vento needs microphone access for audio features",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Vento needs location access to report device position and for BLE scanning",
+          "locationAlwaysPermission": "Vento needs background location access",
+          "locationWhenInUsePermission": "Vento needs location access to report device position",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Vento needs microphone access to measure ambient sound levels"
+        }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": ["peripheral", "central"],
+          "bluetoothAlwaysPermission": "Vento needs Bluetooth to scan and connect to BLE devices"
+        }
+      ],
+      "expo-sensors",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

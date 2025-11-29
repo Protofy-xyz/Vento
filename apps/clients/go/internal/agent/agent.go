@@ -98,8 +98,8 @@ func (a *Agent) ensureDevice(ctx context.Context) error {
 		return err
 	}
 	if !a.skipRegisterActions {
-		if err := a.http.TriggerRegisterActions(ctx, a.cfg.Token); err != nil {
-			log.Printf("warning: failed to trigger registerActions: %v", err)
+		if err := a.http.RegenerateBoardForDevice(ctx, a.cfg.Token, a.cfg.DeviceName); err != nil {
+			log.Printf("warning: failed to regenerate board: %v", err)
 		}
 	}
 	// persist generated config to disk

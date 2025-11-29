@@ -64,9 +64,9 @@ class Agent:
         self.http.update_device(self.cfg.token, self.cfg.device_name, payload.to_dict())
         if not self.skip_register_actions:
             try:
-                self.http.trigger_register_actions(self.cfg.token)
+                self.http.regenerate_board_for_device(self.cfg.token, self.cfg.device_name)
             except Exception as err:
-                LOG.warning("failed to trigger registerActions: %s", err)
+                LOG.warning("failed to regenerate board: %s", err)
 
     def _handle_action(self, msg: ActionEnvelope) -> None:
         handled = self.subs.handle_action(msg)

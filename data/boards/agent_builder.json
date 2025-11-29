@@ -1045,7 +1045,7 @@
     "version": 132,
     "savedAt": 1762907206492,
     "tags": [ "vento" ],
-    "visibility": ["chat"],
+    "visibility": [],
     "inputs": {
         "default": "/api/agents/v1/[object Object]/agent_input"
     }

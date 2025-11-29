@@ -53,10 +53,13 @@ const createdMatrixUsers: Set<string> = new Set();
 const agentsInVentoRoom: Set<string> = new Set();
 // Room alias for the main room
 const VENTO_ROOM_ALIAS = '#vento:vento.local';
+const VENTO_ROOM_LOCAL_ALIAS = 'vento';
 // Cache for DM room -> agent mapping
 const dmRoomAgentCache: Map<string, string> = new Map();
 // Room ID of #vento (to exclude from DM detection)
 let ventoRoomId: string | null = null;
+// Track if we've tried to ensure the room exists
+let ventoRoomEnsured = false;
 // Max history messages to keep per DM
 const MAX_DM_HISTORY = 50;
 
@@ -218,6 +221,85 @@ async function registerAgentUser(agent: VentoAgent): Promise<void> {
 }
 
 /**
+ * Ensure the #vento room exists, creating it if necessary
+ * Returns the room ID
+ */
+async function ensureVentoRoom(): Promise<string | null> {
+    if (ventoRoomId) {
+        return ventoRoomId;
+    }
+    
+    if (ventoRoomEnsured) {
+        // Already tried, don't retry
+        return ventoRoomId;
+    }
+    ventoRoomEnsured = true;
+    
+    // First, try to resolve the room alias to get the room ID
+    try {
+        const resolveResult = await matrixRequest(
+            'GET',
+            `/_matrix/client/v3/directory/room/${encodeURIComponent(VENTO_ROOM_ALIAS)}`
+        );
+        if (resolveResult?.room_id) {
+            ventoRoomId = resolveResult.room_id;
+            logger.info({ roomId: ventoRoomId }, '#vento room already exists');
+            return ventoRoomId;
+        }
+    } catch (error: any) {
+        // Room doesn't exist, we'll create it
+        logger.info('#vento room does not exist, creating it...');
+    }
+    
+    // Create the room as the appservice bot (ventobot)
+    const botUserId = `@ventobot:${SERVER_NAME}`;
+    try {
+        // First register the bot user if needed
+        try {
+            await matrixRequest('POST', '/_matrix/client/v3/register', {
+                type: 'm.login.application_service',
+                username: 'ventobot',
+            });
+        } catch (e) {
+            // Bot user might already exist, that's fine
+        }
+        
+        // Create the room
+        const createResult = await matrixRequest(
+            'POST',
+            '/_matrix/client/v3/createRoom',
+            {
+                name: 'Vento Network',
+                topic: 'Vento agents and users network',
+                room_alias_name: VENTO_ROOM_LOCAL_ALIAS,
+                visibility: 'public',
+                preset: 'public_chat',
+                initial_state: [
+                    {
+                        type: 'm.room.join_rules',
+                        state_key: '',
+                        content: { join_rule: 'public' }
+                    },
+                    {
+                        type: 'm.room.history_visibility',
+                        state_key: '',
+                        content: { history_visibility: 'shared' }
+                    }
+                ]
+            },
+            botUserId
+        );
+        
+        ventoRoomId = createResult?.room_id;
+        logger.info({ roomId: ventoRoomId }, 'Created #vento room');
+        return ventoRoomId;
+    } catch (error: any) {
+        logger.error({ error: error.message }, 'Failed to create #vento room');
+        return null;
+    }
+}
+
+/**
  * Join an agent to a room by ID
  */
 async function joinAgentToRoom(agent: VentoAgent, roomId: string): Promise<void> {
@@ -244,13 +326,20 @@ async function joinAgentToVentoRoom(agent: VentoAgent): Promise<void> {
         return;
     }
 
+    // Ensure the room exists first
+    const roomId = await ensureVentoRoom();
+    if (!roomId) {
+        logger.warn({ agent: agent.boardId }, 'Cannot join #vento - room could not be created');
+        return;
+    }
+
     logger.info({ agent: agent.boardId, room: VENTO_ROOM_ALIAS, matrixId: agent.matrixUserId }, 'Attempting to join #vento');
 
     try {
-        // Join by alias
+        // Join by room ID (more reliable than alias)
         const joinResult = await matrixRequest(
             'POST',
-            `/_matrix/client/v3/join/${encodeURIComponent(VENTO_ROOM_ALIAS)}`,
+            `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/join`,
             {},
             agent.matrixUserId
         );
@@ -258,7 +347,7 @@ async function joinAgentToVentoRoom(agent: VentoAgent): Promise<void> {
         logger.info({ agent: agent.boardId, room: VENTO_ROOM_ALIAS, joinResult }, 'Agent joined #vento room');
     } catch (error: any) {
         logger.warn({ error: error.message, agent: agent.boardId, room: VENTO_ROOM_ALIAS }, 'Join error');
-        // Already joined or room doesn't exist - mark anyway
+        // Already joined - mark anyway
         agentsInVentoRoom.add(agent.matrixUserId);
     }
 }

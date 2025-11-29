@@ -374,7 +374,7 @@ async function detectDMAgent(roomId: string, sender: string): Promise<VentoAgent
 
     // Try to detect by querying room members as each agent
     // (appservice can't query rooms it's not in, but agents can)
-    for (const [boardId, agent] of registeredAgents) {
+    for (const [boardId, agent] of Array.from(registeredAgents)) {
         try {
             const membersResult = await matrixRequest(
                 'GET',
@@ -586,7 +586,7 @@ async function handleMatrixEvent(event: any): Promise<void> {
     logger.debug({ sender, roomId, body }, 'Processing Matrix event');
 
     // Check if message mentions an agent
-    for (const [boardId, agent] of registeredAgents) {
+    for (const [boardId, agent] of Array.from(registeredAgents)) {
         const mentionPatterns = [
             new RegExp(`^@?${USER_PREFIX}${boardId}[:\\s]+(.+)$`, 'is'),
             new RegExp(`^@?${boardId}[:\\s]+(.+)$`, 'is'),
@@ -730,6 +730,173 @@ export async function syncAgents(): Promise<void> {
 }
 
 /**
+ * Sync agents with cleanup - removes agents that no longer exist from Matrix
+ * This compares current boards with previously registered agents and removes stale ones
+ */
+export async function syncAgentsWithCleanup(): Promise<void> {
+    try {
+        logger.info('Starting Matrix agent sync with cleanup...');
+        const token = getServiceToken();
+        
+        // Get current boards from API
+        const response = await API.get(`/api/core/v1/boards?all=true&token=${token}`);
+
+        if (response.isError) {
+            logger.warn({ error: response.error }, 'Failed to fetch boards for agent sync');
+            return;
+        }
+
+        const boards = response.data?.items || response.data || [];
+        
+        // Build set of valid agent board names
+        const validAgentNames = new Set<string>();
+        for (const board of boards) {
+            const boardName = board.name;
+            const visibility = board.visibility;
+            const isVisibleInChat = !visibility || (Array.isArray(visibility) && visibility.includes('chat'));
+            const hasAgentInput = board.cards?.some((card: any) =>
+                card.name === 'agent_input' || card.enableAgentInputMode
+            );
+            
+            if (isVisibleInChat && hasAgentInput) {
+                validAgentNames.add(boardName);
+            }
+        }
+        
+        // Find agents that are registered but no longer valid
+        const agentsToRemove: string[] = [];
+        for (const [boardId] of Array.from(registeredAgents)) {
+            if (!validAgentNames.has(boardId)) {
+                agentsToRemove.push(boardId);
+            }
+        }
+        
+        // Remove stale agents
+        for (const boardId of agentsToRemove) {
+            logger.info({ boardId }, 'Removing stale agent');
+            await removeAgent(boardId);
+        }
+        
+        // Now do normal sync for remaining/new agents
+        await syncAgents();
+        
+        logger.info({ removed: agentsToRemove.length, agentsToRemove }, 'Sync with cleanup completed');
+    } catch (error: any) {
+        logger.error({ error: error.message, stack: error.stack }, 'Error in syncAgentsWithCleanup');
+    }
+}
+
+/**
+ * Clean up orphaned agents from #vento room on startup
+ * This handles agents that were left in Matrix from previous bridge runs
+ */
+export async function cleanupOrphanedAgents(): Promise<void> {
+    try {
+        logger.info('Cleaning up orphaned agents from previous runs...');
+        
+        // First ensure we have the #vento room ID
+        const roomId = await ensureVentoRoom();
+        if (!roomId) {
+            logger.warn('Cannot cleanup orphaned agents - #vento room not available');
+            return;
+        }
+        
+        // Get current valid agent names from API
+        const token = getServiceToken();
+        const response = await API.get(`/api/core/v1/boards?all=true&token=${token}`);
+        
+        if (response.isError) {
+            logger.warn({ error: response.error }, 'Failed to fetch boards for orphan cleanup');
+            return;
+        }
+        
+        const boards = response.data?.items || response.data || [];
+        const validAgentNames = new Set<string>();
+        
+        for (const board of boards) {
+            const boardName = board.name;
+            const visibility = board.visibility;
+            const isVisibleInChat = !visibility || (Array.isArray(visibility) && visibility.includes('chat'));
+            const hasAgentInput = board.cards?.some((card: any) =>
+                card.name === 'agent_input' || card.enableAgentInputMode
+            );
+            
+            if (isVisibleInChat && hasAgentInput) {
+                validAgentNames.add(boardName.toLowerCase());
+            }
+        }
+        
+        logger.info({ validAgents: Array.from(validAgentNames) }, 'Valid agents from current boards');
+        
+        // Get all members of #vento room using the appservice bot
+        const botUserId = `@ventobot:${SERVER_NAME}`;
+        let members: any[] = [];
+        
+        try {
+            const membersResult = await matrixRequest(
+                'GET',
+                `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/members?membership=join`,
+                undefined,
+                botUserId
+            );
+            members = membersResult?.chunk || [];
+        } catch (error: any) {
+            logger.warn({ error: error.message }, 'Failed to get #vento room members');
+            return;
+        }
+        
+        // Find _vento_ users that are not valid agents
+        const orphanedUsers: string[] = [];
+        for (const member of members) {
+            const userId = member.state_key;
+            if (userId && userId.startsWith(`@${USER_PREFIX}`)) {
+                // Extract agent name from @_vento_agentname:server
+                const agentName = getAgentNameFromMatrixId(userId);
+                if (agentName && !validAgentNames.has(agentName.toLowerCase())) {
+                    orphanedUsers.push(userId);
+                }
+            }
+        }
+        
+        if (orphanedUsers.length === 0) {
+            logger.info('No orphaned agents found');
+            return;
+        }
+        
+        logger.info({ orphanedUsers }, 'Found orphaned agents to remove');
+        
+        // Remove each orphaned user from #vento
+        for (const orphanUserId of orphanedUsers) {
+            try {
+                // Set presence to offline
+                await matrixRequest(
+                    'PUT',
+                    `/_matrix/client/v3/presence/${encodeURIComponent(orphanUserId)}/status`,
+                    { presence: 'offline' },
+                    orphanUserId
+                );
+                
+                // Leave the #vento room
+                await matrixRequest(
+                    'POST',
+                    `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/leave`,
+                    {},
+                    orphanUserId
+                );
+                
+                logger.info({ orphanUserId }, 'Removed orphaned agent from #vento');
+            } catch (error: any) {
+                logger.warn({ error: error.message, orphanUserId }, 'Failed to remove orphaned agent');
+            }
+        }
+        
+        logger.info({ removed: orphanedUsers.length }, 'Orphan cleanup completed');
+    } catch (error: any) {
+        logger.error({ error: error.message, stack: error.stack }, 'Error cleaning up orphaned agents');
+    }
+}
+
+/**
  * Get list of registered agents
  */
 export function getAgents(): VentoAgent[] {
@@ -779,7 +946,7 @@ export async function handleUserQuery(userId: string): Promise<boolean> {
  * Update presence for all registered agents (call periodically)
  */
 export async function updateAllAgentsPresence(): Promise<void> {
-    for (const [, agent] of registeredAgents) {
+    for (const [, agent] of Array.from(registeredAgents)) {
         await setAgentPresence(agent, 'online');
     }
 }
@@ -849,11 +1016,11 @@ export async function removeAgent(boardId: string): Promise<void> {
     agentsInVentoRoom.delete(agent.matrixUserId);
 
     // Clean up DM cache - remove any entries pointing to this agent
-    for (const [roomId, agentId] of dmRoomAgentCache.entries()) {
+    Array.from(dmRoomAgentCache.entries()).forEach(([roomId, agentId]) => {
         if (agentId === boardId) {
             dmRoomAgentCache.delete(roomId);
         }
-    }
+    });
 
     logger.info({ agent: boardId }, 'Agent removed successfully');
 }

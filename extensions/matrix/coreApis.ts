@@ -10,6 +10,8 @@ import { handler, requireAdmin } from 'protonode';
 import { getLogger } from 'protobase';
 import {
     syncAgents,
+    syncAgentsWithCleanup,
+    cleanupOrphanedAgents,
     getAgents,
     validateHsToken,
     handleTransaction,
@@ -29,6 +31,9 @@ export default async (app: any, context: any) => {
     setTimeout(async () => {
         logger.info('Running initial Matrix agent sync NOW');
         try {
+            // First cleanup any orphaned agents from previous runs
+            await cleanupOrphanedAgents();
+            // Then sync current agents
             await syncAgents();
             logger.info('Initial agent sync completed successfully');
         } catch (error) {
@@ -70,15 +75,21 @@ export default async (app: any, context: any) => {
         context.mqtt,
         context,
         async (msg: any) => {
-            // Extract board name from event path: boards/delete/{boardName}
-            const boardName = msg?.parsed?.path?.split('/')[2];
+            // Try to extract board name from various possible message structures
+            const boardName = msg?.parsed?.payload?.id 
+                || msg?.payload?.id 
+                || msg?.parsed?.path?.split('/')?.[2]
+                || msg?.topic?.split('/')?.[2];
+            
+            logger.info({ boardName, msgStructure: JSON.stringify(msg).slice(0, 500) }, 'Board delete event received');
+            
             if (boardName) {
-                logger.info({ boardName }, 'Board deleted, removing Matrix agent');
+                logger.info({ boardName }, 'Removing Matrix agent for deleted board');
                 await removeAgent(boardName);
             } else {
-                // Fallback: full sync if we can't extract the board name
-                logger.debug('Board deleted, syncing Matrix agents');
-                await syncAgents();
+                // Fallback: do a full sync that also cleans up removed agents
+                logger.warn('Could not extract board name from delete event, doing full sync with cleanup');
+                await syncAgentsWithCleanup();
             }
         },
         'boards/delete/#'

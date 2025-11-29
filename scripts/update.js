@@ -58,11 +58,30 @@ async function killAgentProcess() {
     }
 }
 
+function isAgentRunning() {
+    try {
+        const result = execSync('pm2 jlist', { stdio: 'pipe', cwd: rootDir });
+        const list = JSON.parse(result.toString());
+        const agent = list.find(p => p.name === 'agent');
+        return agent && agent.pm2_env && agent.pm2_env.status === 'online';
+    } catch (e) {
+        return false;
+    }
+}
+
 async function main() {
     console.log('\n🔄 Updating agent...\n');
 
+    // 0. Check if agent was running before update
+    const wasRunning = isAgentRunning();
+    if (wasRunning) {
+        console.log('ℹ️  Agent was running, will restart after update');
+    } else {
+        console.log('ℹ️  Agent was not running, will not start after update');
+    }
+
     // 1. Parar y eliminar el agent de PM2 completamente
-    console.log('📦 Stopping agent...');
+    console.log('\n📦 Stopping agent...');
     runSilent('pm2 stop agent');
     runSilent('pm2 delete agent');
     
@@ -80,10 +99,13 @@ async function main() {
     console.log('\n📥 Updating agent...');
     runRequired('yarn update-agent');
 
-    // 3. Arrancar el agent de nuevo (reiniciar PM2 para que lo vuelva a cargar)
-    console.log('\n🚀 Restarting agent...');
-    // Primero intentar reiniciar todo el ecosystem para que recargue la config del agent
-    runSilent('pm2 restart ecosystem.config.js --only agent');
+    // 3. Arrancar el agent de nuevo SOLO si estaba corriendo antes
+    if (wasRunning) {
+        console.log('\n🚀 Restarting agent...');
+        runSilent('pm2 restart ecosystem.config.js --only agent');
+    } else {
+        console.log('\n⏸️  Skipping agent restart (was not running)');
+    }
     
     console.log('\n✅ Agent update complete!\n');
 }

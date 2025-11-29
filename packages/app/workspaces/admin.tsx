@@ -14,7 +14,7 @@ export default ({ boards, objects }) => {
     const objectsWithPage = objects ? objects.filter(o => o?.features?.adminPage) : []
 
     const integrations = [
-        { name: 'Agents', icon: Bot, href: '/workspace/boards' },
+        // { name: 'Agents', icon: Bot, href: '/workspace/boards' }, // Removed - using Network page via logo click
         { name: 'Assets', icon: Blocks, href: '/workspace/assets' },
         { name: 'Tasks', icon: Zap, href: '/workspace/tasks' },
         { name: 'Devices', icon: Router, href: '/workspace/devices' },

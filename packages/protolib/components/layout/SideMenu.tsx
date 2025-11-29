@@ -33,7 +33,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
     const settingsTintSwitcherEnabled = settingsTintSwitcher === undefined ? true : settingsTintSwitcher
     const settingsThemeSwitcherEnabled = settingsTintSwitcher === undefined ? true : settingsThemeSwitcher
 
-    return <YStack id="app-sidemenu" bw={0} bc={sideBarColor} {...props}>
+    return <YStack id="app-sidemenu" bw={0} brw={1} brc="$color6" bc={sideBarColor} {...props}>
         <YStack
             animateOnly={["width"]}
             // @ts-ignore

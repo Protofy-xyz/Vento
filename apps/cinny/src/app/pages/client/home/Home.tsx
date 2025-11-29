@@ -290,7 +290,7 @@ export function Home() {
       ) : (
         <PageNavContent scrollRef={scrollRef}>
           <Box direction="Column" gap="300">
-            {sortedRooms.length > 0 && (
+            {rooms.length > 0 && (
               <NavCategory>
                 <NavCategoryHeader>
                   <Box grow="Yes" alignItems="Center" justifyContent="SpaceBetween">
@@ -328,7 +328,7 @@ export function Home() {
                 })}
               </NavCategory>
             )}
-            {sortedDirects.length > 0 && (
+            {directs.length > 0 && (
               <NavCategory>
                 <NavCategoryHeader>
                   <RoomNavCategoryButton
@@ -361,7 +361,7 @@ export function Home() {
                 })}
               </NavCategory>
             )}
-            {sortedNetworkMembers.length > 0 && (
+            {networkMembers.length > 0 && (
               <NavCategory>
                 <NavCategoryHeader>
                   <RoomNavCategoryButton

@@ -10,7 +10,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'fs';
 import path from 'path';
 
-// Plugin para servir el tema de Tamagui desde data/public/themes/
+// Plugin para servir el tema de Tamagui desde data/public/themes/ en desarrollo
 function serveTamaguiTheme() {
   const themeCssPath = path.resolve(__dirname, '../../data/public/themes/adminpanel.css');
   
@@ -18,10 +18,9 @@ function serveTamaguiTheme() {
     name: 'vite-plugin-serve-tamagui-theme',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        // Manejar tanto /tamagui-theme.css como /chat/tamagui-theme.css
-        const isTamaguiTheme = req.url === '/tamagui-theme.css' || 
-                               req.url === '/chat/tamagui-theme.css' ||
-                               req.url?.endsWith('/tamagui-theme.css');
+        // Servir el CSS de Tamagui desde /public/themes/adminpanel.css (misma ruta que en producción)
+        const isTamaguiTheme = req.url === '/public/themes/adminpanel.css' || 
+                               req.url?.endsWith('/adminpanel.css');
         
         if (isTamaguiTheme) {
           if (fs.existsSync(themeCssPath)) {

@@ -21,12 +21,16 @@ import { CameraBridge } from './src/components/CameraBridge';
 import { CameraPreview } from './src/components/CameraPreview';
 import {
   registerScreenColorCallback,
+  registerScreenHtmlCallback,
   registerScreenTextCallback,
   registerScreenTextColorCallback,
   registerScreenTextSizeCallback,
   registerTouchPublisher,
+  registerHtmlNamePublisher,
   type TouchData,
+  type ScreenHtmlState,
 } from './src/subsystems/screen';
+import { WebView } from 'react-native-webview';
 import { MQTTManager } from './src/mqttClient';
 
 type ScreenMode = 'blank' | 'camera' | 'logs';
@@ -39,6 +43,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [screenMode, setScreenMode] = useState<ScreenMode>('blank');
   const [overrideColor, setOverrideColor] = useState<string | null>(null);
+  const [overrideHtml, setOverrideHtml] = useState<ScreenHtmlState | null>(null);
   const [overrideText, setOverrideText] = useState<string | null>(null);
   const [overrideTextColor, setOverrideTextColor] = useState<string | null>(null);
   const [overrideTextSize, setOverrideTextSize] = useState<number | null>(null);
@@ -69,16 +74,28 @@ export default function App() {
   // Register screen callbacks
   useEffect(() => {
     registerScreenColorCallback(setOverrideColor);
+    registerScreenHtmlCallback(setOverrideHtml);
     registerScreenTextCallback(setOverrideText);
     registerScreenTextColorCallback(setOverrideTextColor);
     registerScreenTextSizeCallback(setOverrideTextSize);
+    
+    // Register html_name publisher for MQTT monitoring
+    registerHtmlNamePublisher((name) => {
+      if ((globalThis as any).__ventoMqtt && state.deviceName) {
+        const mqtt = (globalThis as any).__ventoMqtt as MQTTManager;
+        mqtt.publish(state.deviceName, '/screen/monitors/html_name', { name });
+      }
+    });
+    
     return () => {
       registerScreenColorCallback(null);
+      registerScreenHtmlCallback(null);
       registerScreenTextCallback(null);
       registerScreenTextColorCallback(null);
       registerScreenTextSizeCallback(null);
+      registerHtmlNamePublisher(null);
     };
-  }, []);
+  }, [state.deviceName]);
 
   // Touch handler - publishes touch data via MQTT
   const handleTouch = useCallback(
@@ -209,30 +226,59 @@ export default function App() {
     <View style={[styles.container, { backgroundColor }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} hidden={screenMode === 'blank'} translucent backgroundColor="transparent" />
 
-      {/* Blank mode - touch surface with menu button */}
+      {/* Blank mode - WebView or touch surface with menu button */}
       {screenMode === 'blank' && (
         <>
-          <View
-            style={styles.blankScreen}
-            onStartShouldSetResponder={() => true}
-            onMoveShouldSetResponder={() => true}
-            onResponderGrant={(e) => handleTouch(e.nativeEvent.touches)}
-            onResponderMove={(e) => handleTouch(e.nativeEvent.touches)}
-            onResponderRelease={() => handleTouch([])}
-            onResponderTerminate={() => handleTouch([])}
-          >
-            <Text
-              style={[
-                styles.blankHint,
-                {
-                  color: overrideTextColor ?? mutedColor,
-                  fontSize: overrideTextSize ?? 14,
-                },
-              ]}
+          {overrideHtml ? (
+            // WebView mode - show HTML content
+            <View
+              style={styles.webviewContainer}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={(e) => handleTouch(e.nativeEvent.touches)}
+              onResponderMove={(e) => handleTouch(e.nativeEvent.touches)}
+              onResponderRelease={() => handleTouch([])}
+              onResponderTerminate={() => handleTouch([])}
             >
-              {overrideText ?? ''}
-            </Text>
-          </View>
+              <WebView
+                style={styles.webview}
+                source={{ html: overrideHtml.html }}
+                scrollEnabled={false}
+                bounces={false}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                overScrollMode="never"
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                originWhitelist={['*']}
+                allowsFullscreenVideo={true}
+                mediaPlaybackRequiresUserAction={false}
+              />
+            </View>
+          ) : (
+            // Plain mode - simple touch surface
+            <View
+              style={styles.blankScreen}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={(e) => handleTouch(e.nativeEvent.touches)}
+              onResponderMove={(e) => handleTouch(e.nativeEvent.touches)}
+              onResponderRelease={() => handleTouch([])}
+              onResponderTerminate={() => handleTouch([])}
+            >
+              <Text
+                style={[
+                  styles.blankHint,
+                  {
+                    color: overrideTextColor ?? mutedColor,
+                    fontSize: overrideTextSize ?? 14,
+                  },
+                ]}
+              >
+                {overrideText ?? ''}
+              </Text>
+            </View>
+          )}
           {/* Menu button in top right corner - outside touch view */}
           <Pressable style={styles.menuButton} onPress={() => setScreenMode('logs')}>
             <Text style={styles.menuButtonText}>☰</Text>
@@ -366,6 +412,17 @@ const styles = StyleSheet.create({
   blankHint: {
     fontSize: 14,
     opacity: 0.5,
+  },
+  webviewContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  webview: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
   },
   menuButton: {
     position: 'absolute',

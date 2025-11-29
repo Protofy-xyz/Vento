@@ -1,12 +1,21 @@
 import type { SubsystemDefinition } from './types';
 
 const SET_COLOR_ENDPOINT = '/screen/actions/set_color';
+const SET_HTML_ENDPOINT = '/screen/actions/set_html';
 const SET_TEXT_ENDPOINT = '/screen/actions/set_text';
 const SET_TEXT_COLOR_ENDPOINT = '/screen/actions/set_text_color';
 const SET_TEXT_SIZE_ENDPOINT = '/screen/actions/set_text_size';
 const TOUCH_ENDPOINT = '/screen/monitors/touch';
+const HTML_NAME_ENDPOINT = '/screen/monitors/html_name';
+
+// HTML content state
+export interface ScreenHtmlState {
+  html: string;
+  name: string;
+}
 
 // Global screen state callbacks
+let screenHtmlCallback: ((state: ScreenHtmlState | null) => void) | null = null;
 let screenColorCallback: ((color: string | null) => void) | null = null;
 let screenTextCallback: ((text: string | null) => void) | null = null;
 let screenTextColorCallback: ((color: string | null) => void) | null = null;
@@ -14,6 +23,12 @@ let screenTextSizeCallback: ((size: number | null) => void) | null = null;
 
 // Touch data publisher
 let touchPublisher: ((data: TouchData) => void) | null = null;
+
+// HTML name monitor publisher
+let htmlNamePublisher: ((name: string | null) => void) | null = null;
+
+// Current HTML name for monitoring
+let currentHtmlName: string | null = null;
 
 export interface TouchPoint {
   id: number;
@@ -36,6 +51,10 @@ export function publishTouch(data: TouchData) {
   }
 }
 
+export function registerScreenHtmlCallback(cb: ((state: ScreenHtmlState | null) => void) | null) {
+  screenHtmlCallback = cb;
+}
+
 export function registerScreenColorCallback(cb: ((color: string | null) => void) | null) {
   screenColorCallback = cb;
 }
@@ -50,6 +69,58 @@ export function registerScreenTextColorCallback(cb: ((color: string | null) => v
 
 export function registerScreenTextSizeCallback(cb: ((size: number | null) => void) | null) {
   screenTextSizeCallback = cb;
+}
+
+export function registerHtmlNamePublisher(publisher: ((name: string | null) => void) | null) {
+  htmlNamePublisher = publisher;
+}
+
+// Helper to generate HTML for a solid color
+function generateColorHtml(color: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body { background-color: ${color}; }
+  </style>
+</head>
+<body></body>
+</html>`;
+}
+
+// Internal function to set HTML and update monitor
+function setScreenHtml(html: string, name: string) {
+  currentHtmlName = name;
+  
+  if (screenHtmlCallback) {
+    screenHtmlCallback({ html, name });
+  }
+  
+  // Publish html_name change
+  if (htmlNamePublisher) {
+    htmlNamePublisher(name);
+  }
+}
+
+// Internal function to reset screen
+function resetScreen() {
+  currentHtmlName = null;
+  
+  if (screenHtmlCallback) {
+    screenHtmlCallback(null);
+  }
+  
+  if (screenColorCallback) {
+    screenColorCallback(null);
+  }
+  
+  // Publish html_name change
+  if (htmlNamePublisher) {
+    htmlNamePublisher(null);
+  }
 }
 
 export function buildScreenSubsystem(): SubsystemDefinition {
@@ -71,6 +142,23 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           },
         },
         // No boot, no interval - published on touch events from App
+      },
+      {
+        descriptor: {
+          name: 'html_name',
+          label: 'Current HTML',
+          description: 'Name of the currently displayed HTML',
+          endpoint: HTML_NAME_ENDPOINT,
+          connectionType: 'mqtt',
+          cardProps: {
+            icon: 'code',
+            color: '$purple10',
+          },
+        },
+        boot: async (publish) => {
+          // Publish current state on boot
+          await publish({ name: currentHtmlName });
+        },
       },
     ],
     actions: [
@@ -112,9 +200,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
             // Handle reset
             if (color === 'reset' || color === 'clear' || color === '') {
               console.log('[screen] resetting color');
-              if (screenColorCallback) {
-                screenColorCallback(null);
-              }
+              resetScreen();
               await reply({ status: 'reset' });
               return;
             }
@@ -130,13 +216,86 @@ export function buildScreenSubsystem(): SubsystemDefinition {
             }
 
             console.log('[screen] setting color to', color);
+            
+            // Generate HTML for the color and set it
+            const html = generateColorHtml(color);
+            const name = `color_${color.replace('#', '')}.html`;
+            setScreenHtml(html, name);
+            
+            // Also update the legacy color callback for backwards compatibility
             if (screenColorCallback) {
               screenColorCallback(color);
             }
-            await reply({ status: 'ok', color });
+            
+            await reply({ status: 'ok', color, html_name: name });
           } catch (err: any) {
             console.error('[screen] error:', err);
             await reply({ error: err?.message ?? 'failed to set color' });
+          }
+        },
+      },
+      {
+        descriptor: {
+          name: 'set_html',
+          label: 'Set screen HTML',
+          description: 'Displays custom HTML content on screen',
+          endpoint: SET_HTML_ENDPOINT,
+          connectionType: 'mqtt',
+          payload: {
+            type: 'json-schema',
+            schema: {
+              html: {
+                type: 'string',
+                description: 'HTML content to display (or "reset" to clear)',
+              },
+              name: {
+                type: 'string',
+                description: 'Name/identifier for the HTML (for monitoring)',
+                default: 'index.html',
+              },
+            },
+          },
+          cardProps: {
+            icon: 'code',
+            color: '$violet10',
+          },
+          mode: 'request-reply',
+        },
+        handler: async (payload, reply) => {
+          try {
+            let html: string | null = null;
+            let name: string = 'index.html';
+            
+            // Parse payload
+            try {
+              const parsed = JSON.parse(payload);
+              html = parsed.html ?? null;
+              name = parsed.name ?? 'index.html';
+            } catch {
+              html = payload.trim();
+            }
+
+            // Handle reset
+            if (html === 'reset' || html === 'clear' || html === '' || html === null) {
+              console.log('[screen] resetting HTML');
+              resetScreen();
+              await reply({ status: 'reset' });
+              return;
+            }
+
+            console.log('[screen] setting HTML:', name);
+            
+            // Clear any previous color override since we're showing custom HTML
+            if (screenColorCallback) {
+              screenColorCallback(null);
+            }
+            
+            setScreenHtml(html, name);
+            
+            await reply({ status: 'ok', name });
+          } catch (err: any) {
+            console.error('[screen] error:', err);
+            await reply({ error: err?.message ?? 'failed to set HTML' });
           }
         },
       },
@@ -316,4 +475,3 @@ export function buildScreenSubsystem(): SubsystemDefinition {
     ],
   };
 }
-

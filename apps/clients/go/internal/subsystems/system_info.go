@@ -295,11 +295,18 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 				Action: vento.Action{
 					Name:           "execute",
 					Label:          "Execute command",
-					Description:    "Run a shell command on the host and return its output",
+					Description:    "Run any shell command or launch programs on the host. Returns the command output. Examples: 'notepad.exe', 'calc', 'dir', 'echo hello'",
 					Endpoint:       vento.ExecuteActionEndpoint,
 					ConnectionType: "mqtt",
 					Payload: vento.ActionPayload{
-						Type: "string",
+						Type: "json-schema",
+						Schema: map[string]any{
+							"command": map[string]any{
+								"type":        "string",
+								"title":       "Command",
+								"description": "Shell command or program to execute",
+							},
+						},
 					},
 					CardProps: map[string]any{
 						"icon":  "terminal",
@@ -318,7 +325,14 @@ func (t *SystemInfoTemplate) Build(string) Definition {
 					Endpoint:       vento.PrintActionEndpoint,
 					ConnectionType: "mqtt",
 					Payload: vento.ActionPayload{
-						Type: "string",
+						Type: "json-schema",
+						Schema: map[string]any{
+							"message": map[string]any{
+								"type":        "string",
+								"title":       "Message",
+								"description": "Text to print to stdout",
+							},
+						},
 					},
 					CardProps: map[string]any{
 						"icon":  "message-square",
@@ -365,21 +379,31 @@ func (t *SystemInfoTemplate) publishOSVersion(ctx context.Context, mqtt *vento.M
 }
 
 func handlePrintAction(msg vento.ActionEnvelope) error {
-	payload := msg.Payload
-	trimmed := strings.TrimSpace(string(payload))
-	if trimmed == "" {
+	message := extractMessage(string(msg.Payload))
+	if message == "" {
 		fmt.Println("[action:print] <empty>")
 		return nil
 	}
-	var asJSON any
-	if json.Unmarshal(payload, &asJSON) == nil {
-		if formatted, err := json.MarshalIndent(asJSON, "", "  "); err == nil {
-			fmt.Printf("[action:print] %s\n", formatted)
-			return nil
+	fmt.Printf("[action:print] %s\n", message)
+	return nil
+}
+
+func extractMessage(payload string) string {
+	trimmed := strings.TrimSpace(payload)
+	if trimmed == "" {
+		return ""
+	}
+	// Try to parse as JSON and extract "message" field
+	if strings.HasPrefix(trimmed, "{") {
+		var data map[string]any
+		if err := json.Unmarshal([]byte(trimmed), &data); err == nil {
+			if msg, ok := data["message"].(string); ok {
+				return strings.TrimSpace(msg)
+			}
 		}
 	}
-	fmt.Printf("[action:print] %s\n", trimmed)
-	return nil
+	// Fallback to raw string
+	return trimmed
 }
 
 func (t *SystemInfoTemplate) publishTotalMemory(ctx context.Context, mqtt *vento.MQTTClient) error {

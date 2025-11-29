@@ -19,22 +19,17 @@ async function execute_action(url_or_name, params={}) {
     //if the param is not visible, hardcode the param value to the value in the configParams defaultValue
     if(action.configParams) {
         for(const param in action.configParams) {
-            // if(action.configParams[param].visible === false && action.configParams[param].defaultValue != '') {
-            //     params[param] = action.configParams[param].defaultValue
-            // }
-            if(action.configParams[param].defaultValue !== '') {
-                // si el param empieza por board. lo sustituimos por el valor del context.boardId
-                // compruba que el defaultValue es un string
+            if(action.configParams[param].defaultValue && (params[param] === undefined || action.configParams[param].visible === false)) {
                 if(typeof action.configParams[param].defaultValue === 'string' && action.configParams[param].defaultValue.startsWith('board.')) {
-                        const stateName = action.configParams[param].defaultValue.substring(6);
-                        // console.log('looking in: ', states, ' for state: ', stateName);
-                        if(states[stateName] && states[stateName] !== undefined) {
-                            params[param] = states[stateName];
-                        } else {
-                            console.warn('State ' + stateName + ' not found in board ' + context.boardId);
-                        }
+                    const stateName = action.configParams[param].defaultValue.substring(6);
+                    // console.log('looking in: ', states, ' for state: ', stateName);
+                    if(states[stateName] && states[stateName] !== undefined) {
+                        params[param] = states[stateName];
+                    } else {
+                        console.warn('State ' + stateName + ' not found in board ' + context.boardId);
+                    }
                 } else {
-                        params[param] = action.configParams[param].defaultValue;
+                    params[param] = action.configParams[param].defaultValue;
                 }
             }
         }

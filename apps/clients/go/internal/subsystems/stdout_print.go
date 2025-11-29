@@ -29,7 +29,14 @@ func (t *StdoutPrintTemplate) Build(string) Definition {
 					Endpoint:       vento.PrintActionEndpoint,
 					ConnectionType: "mqtt",
 					Payload: vento.ActionPayload{
-						Type: "string",
+						Type: "json-schema",
+						Schema: map[string]any{
+							"message": map[string]any{
+								"type":        "string",
+								"title":       "Message",
+								"description": "Text to print to stdout",
+							},
+						},
 					},
 					CardProps: map[string]any{
 						"icon": "terminal",
@@ -42,18 +49,29 @@ func (t *StdoutPrintTemplate) Build(string) Definition {
 }
 
 func (t *StdoutPrintTemplate) handlePrint(msg vento.ActionEnvelope) error {
-	trimmed := strings.TrimSpace(string(msg.Payload))
-	if trimmed == "" {
+	message := extractMessageFromPayload(string(msg.Payload))
+	if message == "" {
 		fmt.Println("[action:print] <empty>")
 		return nil
 	}
-	var asJSON any
-	if json.Unmarshal(msg.Payload, &asJSON) == nil {
-		if formatted, err := json.MarshalIndent(asJSON, "", "  "); err == nil {
-			fmt.Printf("[action:print] %s\n", formatted)
-			return nil
+	fmt.Printf("[action:print] %s\n", message)
+	return nil
+}
+
+func extractMessageFromPayload(payload string) string {
+	trimmed := strings.TrimSpace(payload)
+	if trimmed == "" {
+		return ""
+	}
+	// Try to parse as JSON and extract "message" field
+	if strings.HasPrefix(trimmed, "{") {
+		var data map[string]any
+		if err := json.Unmarshal([]byte(trimmed), &data); err == nil {
+			if msg, ok := data["message"].(string); ok {
+				return strings.TrimSpace(msg)
+			}
 		}
 	}
-	fmt.Printf("[action:print] %s\n", trimmed)
-	return nil
+	// Fallback to raw string
+	return trimmed
 }

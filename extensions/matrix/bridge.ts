@@ -784,6 +784,80 @@ export async function updateAllAgentsPresence(): Promise<void> {
     }
 }
 
+/**
+ * Leave a room as an agent
+ */
+async function leaveRoom(agent: VentoAgent, roomId: string): Promise<void> {
+    try {
+        await matrixRequest(
+            'POST',
+            `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/leave`,
+            {},
+            agent.matrixUserId
+        );
+        logger.info({ agent: agent.boardId, roomId }, 'Agent left room');
+    } catch (error: any) {
+        logger.warn({ error: error.message, agent: agent.boardId, roomId }, 'Failed to leave room');
+    }
+}
+
+/**
+ * Get all rooms an agent is joined to
+ */
+async function getAgentJoinedRooms(agent: VentoAgent): Promise<string[]> {
+    try {
+        const result = await matrixRequest(
+            'GET',
+            '/_matrix/client/v3/joined_rooms',
+            undefined,
+            agent.matrixUserId
+        );
+        return result?.joined_rooms || [];
+    } catch (error: any) {
+        logger.warn({ error: error.message, agent: agent.boardId }, 'Failed to get joined rooms');
+        return [];
+    }
+}
+
+/**
+ * Remove an agent completely - leave all rooms and clean up state
+ * Called when a board is deleted
+ */
+export async function removeAgent(boardId: string): Promise<void> {
+    const agent = registeredAgents.get(boardId);
+    if (!agent) {
+        logger.debug({ boardId }, 'Agent not found, nothing to remove');
+        return;
+    }
+
+    logger.info({ agent: agent.boardId, matrixId: agent.matrixUserId }, 'Removing agent from Matrix');
+
+    // Set presence to offline first
+    await setAgentPresence(agent, 'offline');
+
+    // Get all rooms the agent is in and leave them
+    const joinedRooms = await getAgentJoinedRooms(agent);
+    logger.info({ agent: agent.boardId, roomCount: joinedRooms.length }, 'Leaving all rooms');
+
+    for (const roomId of joinedRooms) {
+        await leaveRoom(agent, roomId);
+    }
+
+    // Clean up all internal state
+    registeredAgents.delete(boardId);
+    createdMatrixUsers.delete(agent.matrixUserId);
+    agentsInVentoRoom.delete(agent.matrixUserId);
+
+    // Clean up DM cache - remove any entries pointing to this agent
+    for (const [roomId, agentId] of dmRoomAgentCache.entries()) {
+        if (agentId === boardId) {
+            dmRoomAgentCache.delete(roomId);
+        }
+    }
+
+    logger.info({ agent: boardId }, 'Agent removed successfully');
+}
+
 // Export config for status endpoint
 export const APPSERVICE_CONFIG = {
     homeserverUrl: HOMESERVER_URL,

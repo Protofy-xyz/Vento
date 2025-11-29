@@ -15,6 +15,7 @@ import {
     handleTransaction,
     handleUserQuery,
     updateAllAgentsPresence,
+    removeAgent,
     APPSERVICE_CONFIG,
 } from './bridge';
 
@@ -59,10 +60,28 @@ export default async (app: any, context: any) => {
         context.mqtt,
         context,
         async () => {
-            logger.debug('Board created, syncing Matrix agents');
+            logger.info('Board created, syncing Matrix agents');
             await syncAgents();
         },
-        'boards/create'
+        'boards/create/#'
+    );
+
+    context.events?.onEvent?.(
+        context.mqtt,
+        context,
+        async (msg: any) => {
+            // Extract board name from event path: boards/delete/{boardName}
+            const boardName = msg?.parsed?.path?.split('/')[2];
+            if (boardName) {
+                logger.info({ boardName }, 'Board deleted, removing Matrix agent');
+                await removeAgent(boardName);
+            } else {
+                // Fallback: full sync if we can't extract the board name
+                logger.debug('Board deleted, syncing Matrix agents');
+                await syncAgents();
+            }
+        },
+        'boards/delete/#'
     );
 
     // ===========================================

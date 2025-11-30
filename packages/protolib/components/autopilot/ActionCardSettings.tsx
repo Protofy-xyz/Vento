@@ -1,6 +1,6 @@
-import { Braces, ClipboardList, FileCode, FileQuestion, Save, Settings, ArrowDownRight, ArrowUpRight, Check } from '@tamagui/lucide-icons'
+import { Braces, ClipboardList, FileCode, FileQuestion, Save, Settings, ArrowDownRight, ArrowUpRight, Check, History } from '@tamagui/lucide-icons'
 import { Text, YStack, Paragraph, XStack } from '@my/ui'
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { Tinted } from '../Tinted'
 import { RuleEditor } from './RuleEditor'
 import { ParamsEditor } from './ParamsEditor'
@@ -13,6 +13,7 @@ import { DisplayEditor } from './DisplayEditor'
 import { useUpdateEffect } from 'usehooks-ts'
 import { TabBar } from 'protolib/components/TabBar';
 import { OutputEditor } from './OutputEditor'
+import { HistoryEditor } from './HistoryEditor'
 // import { LinkedActions } from './LinkedActions'
 import { TabContainer } from './Tab'
 
@@ -203,7 +204,20 @@ export const ActionCardSettings = ({ board, actions, states, card, icons, onEdit
       label: 'Raw',
       icon: <Braces size={"$1"} />,
       content: <SettingsEditor cardData={cardData} setCardData={setCardData} resolvedTheme={resolvedTheme} />
-    }
+    },
+    // History tab - only shown when keepHistory is enabled
+    ...(cardData.keepHistory ? [{
+      id: 'history',
+      label: 'History',
+      icon: <History size={"$1"} />,
+      content: <TabContainer px="$4" py="$4">
+        <HistoryEditor
+          boardId={board.name}
+          cardId={cardData.key || cardData.name}
+          cardName={cardData.name}
+        />
+      </TabContainer>
+    }] : [])
   ]
 
   const handleSave = async () => {

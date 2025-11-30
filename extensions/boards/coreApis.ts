@@ -14,6 +14,7 @@ import { acquireLock, releaseLock } from "./system/lock";
 import { BoardsDir, getBoard, getBoards, cleanObsoleteCardFiles, getBoardFilePath } from "./system/boards";
 import { getActions, handleBoardAction, setActionValue, buildActionWrapper, normalizeRulesCode } from "./system/actions";
 import { TypeParser } from "./system/types";
+import { insertHistoryEntry, getCardHistory, cleanupOldEntries } from "./system/cardHistory";
 import fetch from 'node-fetch';
 
 
@@ -645,6 +646,15 @@ export default async (app, context) => {
                         card.value = value;
                         context.state.set({ group: 'boards', tag: boardId, name: card.name, value: value, emitEvent: true });
                         Manager.update('../../data/boards/' + boardId + '.js', 'states', card.name, value);
+                        
+                        // Save to history if keepHistory is enabled
+                        if (card.keepHistory) {
+                            try {
+                                await insertHistoryEntry(boardId, card.key || card.name, card.name, value);
+                            } catch (err) {
+                                logger.warn({ err, card: card.name }, 'Failed to insert history entry for value card');
+                            }
+                        }
                     }
                     // }
                 }
@@ -1466,6 +1476,24 @@ export default async (app, context) => {
         }
     })
 
+    // Card history endpoint
+    app.get('/api/core/v1/boards/:boardId/cards/:cardId/history', requireAdmin(), async (req, res) => {
+        try {
+            const { boardId, cardId } = req.params;
+            const { from, to, limit } = req.query;
+
+            const fromTs = from ? parseInt(from as string) : undefined;
+            const toTs = to ? parseInt(to as string) : undefined;
+            const limitNum = limit ? parseInt(limit as string) : undefined;
+
+            const history = await getCardHistory(boardId, cardId, limitNum, fromTs, toTs);
+            res.json({ history });
+        } catch (error) {
+            logger.error({ error }, "Error getting card history");
+            res.status(500).send({ error: "Internal Server Error" });
+        }
+    })
+
     const startAutoPilot = async (boardId, res?) => {
         const started = await Manager.start('../../data/boards/' + boardId + '.js', async () => {
             const states = await context.state.getStateTree();
@@ -1652,6 +1680,29 @@ export default async (app, context) => {
     setInterval(() => {
         triggerBoardsReload()
     }, BOARD_REFRESH_INTERVAL)
+
+    // History cleanup interval - runs every hour to clean old history entries
+    const HISTORY_CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
+    setInterval(async () => {
+        try {
+            const boards = await getBoards();
+            for (const boardId of boards) {
+                try {
+                    const board = await getBoard(boardId);
+                    for (const card of board.cards ?? []) {
+                        if (card.keepHistory) {
+                            const retentionDays = parseInt(card.historyRetentionDays) || 30;
+                            await cleanupOldEntries(boardId, card.key || card.name, retentionDays);
+                        }
+                    }
+                } catch (err) {
+                    logger.warn({ err, boardId }, 'Error cleaning history for board');
+                }
+            }
+        } catch (err) {
+            logger.warn({ err }, 'Error in history cleanup interval');
+        }
+    }, HISTORY_CLEANUP_INTERVAL);
 
     context.events.onEvent(
         context.mqtt,

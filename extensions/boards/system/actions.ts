@@ -7,6 +7,7 @@ import { getExecuteAction } from "./getExecuteAction";
 import fetch from 'node-fetch';
 import { getLogger } from 'protobase';
 import { TypeParser } from "./types";
+import { insertHistoryEntry } from "./cardHistory";
 
 const getBoardCardActions = async (boardId) => {
     const board = await getBoard(boardId);
@@ -103,6 +104,16 @@ export const setActionValue = async (Manager, context, boardId, action, value) =
     if (action?.alwaysReportValue || JSON.stringify(value) !== JSON.stringify(prevValue)) {
         await context.state.set({ group: 'boards', tag: boardId, name: action.name, value: value, emitEvent: true });
         Manager.update(`../../data/boards/${boardId}.js`, 'states', action.name, value);
+        
+        // Save to history if keepHistory is enabled
+        if (action?.keepHistory) {
+            try {
+                await insertHistoryEntry(boardId, action.key || action.name, action.name, value);
+            } catch (err) {
+                getLogger({ module: 'boards', board: boardId, card: action.name }).warn({ err }, 'Failed to insert history entry');
+            }
+        }
+        
         // Ensure dependent value-cards recompute immediately, not waiting for interval
         try {
             await API.get(`/api/core/v1/boards/${boardId}/reload?token=${token}`)

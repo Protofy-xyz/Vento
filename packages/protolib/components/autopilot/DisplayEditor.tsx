@@ -100,6 +100,8 @@ export const DisplayEditor = ({
         { label: 'Keep value permanently', description: 'Persiste the value of the card on project restart', key: 'persistValue', type: 'toggle', section: 'General', visible: ({ card }) => card.type === 'action' },
         { label: 'Autorun on start', description: 'Autorun the card on board start', key: 'autorun', type: 'toggle', section: 'General', visible: ({ card }) => card.type === 'action' },
         { label: 'Always report value', description: 'Report the card value on each execution to the board', key: 'alwaysReportValue', type: 'toggle', section: 'General' },
+        { label: 'Keep history', description: 'Save value changes to history database', key: 'keepHistory', type: 'toggle', section: 'General' },
+        { label: 'History retention (days)', description: 'Number of days to keep history entries (default 30)', key: 'historyRetentionDays', type: 'text', section: 'General', indent: 1, visible: ({ cardData }) => !!cardData.keepHistory, get: (cd) => cd.historyRetentionDays ?? '30' },
         { label: 'Natural language rules', description: 'Enable natural language rules view', key: 'editRulesInNaturalLanguage', type: 'toggle', section: 'General', get: (cd) => cd.editRulesInNaturalLanguage !== false },
         { label: 'Low code', description: 'Enable low code view', key: 'editRulesInLowCode', type: 'toggle', section: 'General', get: (cd) => cd.editRulesInLowCode !== false },
         { label: 'Layer', description: 'Layer to show the card in', key: 'layer', type: 'text', section: 'General', get: (cd) => cd.layer ?? activeLayer },

@@ -15,9 +15,9 @@ import { devicesOption } from '../../devices/networkOption'
 import { androidOption } from '../../android/networkOption'
 
 export const networkOptions: NetworkOption[] = [
+  androidOption,
+  devicesOption,
   virtualAgentsOption,
   tasksOption,
-  devicesOption,
-  androidOption,
 ]
 

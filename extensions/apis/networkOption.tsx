@@ -172,7 +172,7 @@ const TasksWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void, o
 
 export const tasksOption: NetworkOption = {
     id: 'tasks',
-    name: 'Tasks',
+    name: 'Task',
     description: 'Complex tasks with full programming environment',
     icon: 'list-checks',
     Component: TasksWizard

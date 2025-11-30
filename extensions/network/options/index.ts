@@ -11,13 +11,11 @@ export interface NetworkOption {
 // Re-exporta desde cada extensión
 import { virtualAgentsOption } from '../../boards/networkOption'
 import { tasksOption } from '../../apis/networkOption'
+import { devicesOption } from '../../devices/networkOption'
 
 export const networkOptions: NetworkOption[] = [
   virtualAgentsOption,
   tasksOption,
-  // Futuras opciones:
-  // import { computerOption } from '../../devices/networkOption'
-  // import { esp32Option } from '../../devices/networkOption'
-  // etc.
+  devicesOption,
 ]
 

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from 'next/router';
-import { BookOpen, Tag, Wrench } from '@tamagui/lucide-icons';
+import { BookOpen, Tag, Wrench, CheckCircle } from '@tamagui/lucide-icons';
 import { DevicesModel } from './devicesSchemas';
 import { API } from 'protobase';
 import { DataTable2 } from 'protolib/components/DataTable2';
@@ -22,6 +22,7 @@ import { SSR } from 'protolib/lib/SSR'
 import { withSession } from 'protolib/lib/Session'
 import { SelectList } from 'protolib/components/SelectList';
 import { useEsphomeDeviceActions } from '@extensions/esphome/hooks/useEsphomeDeviceActions';
+import { AlertDialog } from 'protolib/components/AlertDialog';
 
 const DevicesIcons = { name: Tag, deviceDefinition: BookOpen }
 
@@ -30,7 +31,7 @@ const definitionsSourceUrl = '/api/core/v1/deviceDefinitions?all=1'
 
 export default {
   component: ({ pageState, initialItems, itemData, pageSession, extraData }: any) => {
-    const { replace } = usePageParams(pageState)
+    const { replace, query } = usePageParams(pageState)
     if (typeof window !== 'undefined') {
       Object.keys(deviceFunctions).forEach(k => (window as any)[k] = deviceFunctions[k])
     }
@@ -38,6 +39,30 @@ export default {
     usePendingEffect((s) => { API.get({ url: definitionsSourceUrl }, s) }, setDeviceDefinitions, extraData?.deviceDefinitions)
     const router = useRouter();
     const { flashDevice, uploadConfigFile, viewLogs, ui: deviceActionsUi } = useEsphomeDeviceActions();
+
+    // Handle "created" parameter from network wizard
+    const [createdDevice, setCreatedDevice] = useState<any>(null)
+    const [showCreatedDialog, setShowCreatedDialog] = useState(false)
+
+    useEffect(() => {
+      const created = query?.created
+      if (created && typeof created === 'string') {
+        // Fetch the created device
+        API.get(`${sourceUrl}/${created}`).then((result) => {
+          if (!result.isError && result.data) {
+            setCreatedDevice(DevicesModel.load(result.data))
+            setShowCreatedDialog(true)
+          }
+        })
+      }
+    }, [query?.created])
+
+    const handleCloseCreatedDialog = () => {
+      setShowCreatedDialog(false)
+      setCreatedDevice(null)
+      // Remove the created parameter from URL
+      replace('created', undefined)
+    }
 
     const extraMenuActions = [
       {
@@ -122,6 +147,68 @@ export default {
 
     return (<AdminPage title="Devices" pageSession={pageSession}>
       {deviceActionsUi}
+
+      {/* Device Created Dialog */}
+      <AlertDialog
+        open={showCreatedDialog}
+        setOpen={setShowCreatedDialog}
+        title="Device Created"
+        description=""
+        hideAccept={true}
+        onOpenChange={(open) => {
+          if (!open) handleCloseCreatedDialog()
+        }}
+      >
+        <YStack padding="$4" alignItems="center" gap="$4">
+          <Tinted>
+            <CheckCircle size={48} color="var(--color9)" />
+          </Tinted>
+          <Text fontSize="$6" fontWeight="600" textAlign="center">
+            Device "{createdDevice?.data?.name}" has been created successfully!
+          </Text>
+          {createdDevice?.data?.deviceDefinition ? (
+            <Text fontSize="$4" color="$gray11" textAlign="center">
+              Template: {createdDevice.data.deviceDefinition}
+            </Text>
+          ) : (
+            <Text fontSize="$4" color="$gray11" textAlign="center">
+              No template selected. You can configure it manually.
+            </Text>
+          )}
+          <XStack gap="$4" marginTop="$4">
+            <Button onPress={handleCloseCreatedDialog}>
+              Close
+            </Button>
+            {createdDevice?.data?.deviceDefinition && (
+              <Tinted>
+                <Button
+                  icon={UploadCloud}
+                  onPress={() => {
+                    handleCloseCreatedDialog()
+                    flashDevice(createdDevice)
+                  }}
+                >
+                  Upload Definition
+                </Button>
+              </Tinted>
+            )}
+            {!createdDevice?.data?.deviceDefinition && createdDevice?.getConfigFile() && (
+              <Tinted>
+                <Button
+                  icon={UploadCloud}
+                  onPress={async () => {
+                    handleCloseCreatedDialog()
+                    await uploadConfigFile(createdDevice)
+                  }}
+                >
+                  Upload Config
+                </Button>
+              </Tinted>
+            )}
+          </XStack>
+        </YStack>
+      </AlertDialog>
+
       <DataView
         entityName="devices"
         title=""

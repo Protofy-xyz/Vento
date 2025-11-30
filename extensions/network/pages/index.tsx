@@ -128,7 +128,7 @@ export default {
                   ]}
                 />
               ) : (
-                selectedOption && <selectedOption.Component onCreated={handleCreated} />
+                selectedOption && <selectedOption.Component onCreated={handleCreated} onBack={() => setStep('select')} />
               )}
             </XStack>
           </YStack>

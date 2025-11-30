@@ -6,7 +6,6 @@ import * as fspath from 'path';
 import { API } from 'protobase'
 import { getServiceToken } from "protonode";
 import { ObjectModel } from '@extensions/objects/objectsSchemas'
-const pm2 = require('pm2');
 
 const APIDirPath = "/data/automations/"
 const APIDir = (root) => fspath.join(root, "/data/automations/")
@@ -187,21 +186,6 @@ const getDB = (path, req, session) => {
         console.log('Adding feature AutoAPI to object: ', value.object)
         await addFeature(ObjectSourceFile, '"AutoAPI"', "true")
       }
-
-      pm2.connect((err) => {
-          if (err) {
-              console.error('Error connecting to PM2:', err);
-              return;
-          }
-          pm2.restart('api-dev', (err) => {
-              if (err) {
-                  console.error('Error restarting api-dev:', err);
-              } else {
-                  console.log('api-dev restarted successfully.');
-              }
-              pm2.disconnect();
-          });
-      })
     },
 
     async get(key) {

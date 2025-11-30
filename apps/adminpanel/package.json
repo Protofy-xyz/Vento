@@ -5,9 +5,6 @@
   "scripts": {
     "prepare-dev": "node prepare.js",
     "dev-standalone": "FULL_DEV=1 NODE_ENV=development node entrypoint.js",
-    "dev-service": "FULL_DEV=1 NODE_ENV=development pm2 start pm2.config.js",
-    "prod": "NODE_ENV=production pm2 start pm2.config.js --no-daemon",
-    "dev": "FULL_DEV=1 NODE_ENV=development pm2 start pm2.config.js --no-daemon",
     "package": "shx rm -rf out && NEXT_PUBLIC_APP_ID=adminpanel BUILD_MODE=export next build && shx cp -r ../../data/public out/public && shx rm -rf ../../data/pages/workspace && shx mkdir -p ../../data/pages/workspace && shx cp -r out/* ../../data/pages/workspace"
   },
   "dependencies": {
@@ -59,7 +56,6 @@
     "next-compose-plugins": "^2.2.1",
     "next-transpile-modules": "^10.0.1",
     "playwright": "1.41.0",
-    "pm2": "^5.3.0",
     "sharp": "0.33.4",
     "shx": "^0.3.4"
   }

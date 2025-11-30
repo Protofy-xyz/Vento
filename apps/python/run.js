@@ -91,10 +91,8 @@ process.on('exit', (code) => {
     killSubprocess();
 });
 
-// En Windows, escuchar también el evento 'message' de PM2
 process.on('message', (msg) => {
     if (msg === 'shutdown') {
-        console.log('Received shutdown message from PM2');
         killSubprocess();
         setTimeout(() => process.exit(0), 500);
     }

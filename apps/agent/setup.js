@@ -67,7 +67,7 @@ async function main() {
         const reconfigure = await prompt('\nReconfigure? (y/N): ');
         if (reconfigure.toLowerCase() !== 'y') {
             console.log('\n✅ Using existing configuration.');
-            console.log('   Start with: yarn start (or pm2 will include it)\n');
+            console.log('   Start with: yarn start\n');
             return;
         }
     }
@@ -103,7 +103,7 @@ async function main() {
         if (code === 0) {
             console.log('\n✅ Agent configured successfully!');
             console.log('   Config saved to:', configPath);
-            console.log('\n   The agent will now run automatically with PM2.');
+            console.log('\n   The agent will now run automatically with Vento.');
             console.log('   Or run manually: yarn workspace agent start\n');
         } else {
             console.log('\n❌ Setup failed with code:', code);

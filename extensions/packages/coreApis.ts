@@ -1,7 +1,6 @@
 import { handler, AutoAPI, getServiceToken, getRoot } from 'protonode'
 import { API, generateEvent } from 'protobase'
 import fs from 'fs';
-import pm2 from 'pm2';
 import { PackageModel } from './packagesSchema';
 import chokidar from 'chokidar';
 import { generate as uuidv4 } from 'short-uuid'

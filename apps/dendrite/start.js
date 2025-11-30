@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Dendrite launcher wrapper
- * Redirects stderr to stdout so PM2 doesn't show red logs
+ * Redirects stderr to stdout so Vento doesn't show red logs
  */
 
 const { spawn } = require('child_process');

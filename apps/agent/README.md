@@ -1,6 +1,6 @@
 # 🤖 Vento Agent Service
 
-Runs the Vento Agent as a PM2-managed service. The agent connects your machine to Vento, monitors system resources, and executes actions received via MQTT.
+Runs the Vento Agent as a vento-managed service. The agent connects your machine to Vento, monitors system resources, and executes actions received via MQTT.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ Runs the Vento Agent as a PM2-managed service. The agent connects your machine t
 
 1. The `download-agent` script downloads the correct binary for your platform to `bin/ventoagent`
 2. The setup script runs the agent once to configure credentials (saved to `data/agent-config.json`)
-3. PM2 automatically starts the agent as a service when Vento starts
+3. Vento automatically starts the agent as a service when Vento starts
 
 ## Configuration
 
@@ -64,20 +64,20 @@ yarn start
 
 ## Service Management
 
-The agent runs as part of the PM2 ecosystem:
+The agent runs as part of the Vento ecosystem:
 
 ```bash
 # Check status
-pm2 status
+yarn status
 
 # View logs
-pm2 logs agent-dev
+yarn logs agent-dev
 
 # Restart
-pm2 restart agent-dev
+yarn restart agent-dev
 
 # Stop
-pm2 stop agent-dev
+yarn stop agent-dev
 ```
 
 ## Troubleshooting

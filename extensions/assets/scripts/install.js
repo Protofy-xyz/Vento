@@ -1,7 +1,6 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const pm2 = require('pm2');
 
 function moveAssetStructure(sourceDir, targetDir) {
     if (!fs.existsSync(sourceDir)) {
@@ -74,21 +73,6 @@ function installAsset(assetName) {
     const yarnPath = path.join(baseDir, '.yarn', 'releases', 'yarn-4.1.0.cjs');
 
     execSync(`node ${yarnPath}`, { stdio: 'inherit' });
-    // pm2.connect((err) => {
-    //     if (err) {
-    //         console.error('Error connecting to PM2:', err);
-    //         return;
-    //     }
-    //     pm2.restart('api-dev', (err) => {
-    //         if (err) {
-    //             console.error('Error restarting api-dev:', err);
-    //         } else {
-    //             console.log('api-dev restarted successfully.');
-    //         }
-    //         pm2.disconnect();
-    //     });
-    // })
-    //execSync(`pm2 restart api-dev`, { stdio: 'inherit' });
 }
 
 module.exports = {installAsset}

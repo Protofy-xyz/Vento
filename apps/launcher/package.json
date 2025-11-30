@@ -4,8 +4,6 @@
   "scripts": {
     "prepare-dev": "node prepare.js",
     "dev-standalone": "FULL_DEV=1 NODE_ENV=development node entrypoint.js",
-    "dev-service": "FULL_DEV=1 NODE_ENV=development pm2 start pm2.config.js",
-    "dev": "FULL_DEV=1 NODE_ENV=development pm2 start pm2.config.js --no-daemon",
     "package-launcher": "shx rm -rf out && NEXT_PUBLIC_APP_ID=launcher BUILD_MODE=export next build && shx rm -rf ../../electron/launcher && shx mkdir -p ../../electron/launcher && shx cp -r out/* ../../electron/launcher && shx mkdir -p ../../electron/launcher/public && shx cp -r ../../data/public/* ../../electron/launcher/public"
   },
   "dependencies": {
@@ -56,7 +54,6 @@
     "eslint-config-next": "^14.2.3",
     "next-compose-plugins": "^2.2.1",
     "next-transpile-modules": "^10.0.1",
-    "pm2": "^5.3.0",
     "sharp": "0.33.4",
     "shx": "^0.3.4"
   }

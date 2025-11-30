@@ -2,9 +2,11 @@
  * update.js
  * 
  * Script para actualizar el agent de forma segura:
- * 1. Para y elimina el agent de PM2 para liberar el .exe
+ * 1. Para el agent matando el proceso directamente
  * 2. Descarga y actualiza el agent
- * 3. Arranca el agent de nuevo
+ * 
+ * Para reiniciar el agent después de actualizar:
+ *   node scripts/start.js restart agent
  */
 
 const { execSync } = require('child_process');
@@ -50,7 +52,7 @@ function sleep(ms) {
 }
 
 async function killAgentProcess() {
-    // En Windows, intentar matar el proceso del agent directamente
+    // Matar el proceso del agent directamente
     if (isWindows) {
         runSilent('taskkill /F /IM ventoagent.exe');
     } else {
@@ -58,34 +60,11 @@ async function killAgentProcess() {
     }
 }
 
-function isAgentRunning() {
-    try {
-        const result = execSync('pm2 jlist', { stdio: 'pipe', cwd: rootDir });
-        const list = JSON.parse(result.toString());
-        const agent = list.find(p => p.name === 'agent');
-        return agent && agent.pm2_env && agent.pm2_env.status === 'online';
-    } catch (e) {
-        return false;
-    }
-}
-
 async function main() {
     console.log('\n🔄 Updating agent...\n');
 
-    // 0. Check if agent was running before update
-    const wasRunning = isAgentRunning();
-    if (wasRunning) {
-        console.log('ℹ️  Agent was running, will restart after update');
-    } else {
-        console.log('ℹ️  Agent was not running, will not start after update');
-    }
-
-    // 1. Parar y eliminar el agent de PM2 completamente
-    console.log('\n📦 Stopping agent...');
-    runSilent('pm2 stop agent');
-    runSilent('pm2 delete agent');
-    
-    // Matar el proceso directamente por si acaso
+    // 1. Parar el agent matando el proceso
+    console.log('📦 Stopping agent...');
     await killAgentProcess();
     
     // Esperar un poco para que Windows libere el archivo
@@ -98,16 +77,9 @@ async function main() {
 
     console.log('\n📥 Updating agent...');
     runRequired('yarn update-agent');
-
-    // 3. Arrancar el agent de nuevo SOLO si estaba corriendo antes
-    if (wasRunning) {
-        console.log('\n🚀 Restarting agent...');
-        runSilent('pm2 restart ecosystem.config.js --only agent');
-    } else {
-        console.log('\n⏸️  Skipping agent restart (was not running)');
-    }
     
-    console.log('\n✅ Agent update complete!\n');
+    console.log('\n✅ Agent update complete!');
+    console.log('   To restart the agent: node scripts/start.js restart agent\n');
 }
 
 main().catch(err => {

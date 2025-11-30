@@ -26,7 +26,6 @@ const configPanels = [
   { name: 'Users', href: '/workspace/users', icon: "users", description: "Manage system users" },
   { name: 'Keys', href: '/workspace/keys', icon: "key", description: "Manage system keys" },
   { name: 'Events', href: '/workspace/events', icon: "activity", description: "View system events" },
-  { name: 'Services', href: '/workspace/services', icon: "server", description: "View system services" },
   { name: 'Databases', href: '/workspace/databases', icon: "database", description: "Manage databases" },
   { name: 'Files', href: '/workspace/files?path=/', icon: "folder", description: "Manage system files" },
   { name: 'Settings', href: '/workspace/settings', icon: "cog", description: "Configure system settings" },

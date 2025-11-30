@@ -1,5 +1,5 @@
 /**
- * PM2 Configuration for Vento Agent
+ * Service Configuration for Vento Agent
  * 
  * Runs the ventoagent binary with service token - no prior setup needed.
  */
@@ -125,3 +125,4 @@ if (agentBinary && isAgentEnabled()) {
 module.exports = {
     apps
 };
+

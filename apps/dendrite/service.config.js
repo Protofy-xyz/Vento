@@ -1,4 +1,4 @@
-// apps/dendrite/ecosystem.config.js
+// apps/dendrite/service.config.js
 const path = require('path');
 const currentDir = __dirname;
 
@@ -24,3 +24,4 @@ const service = {
 module.exports = {
   apps: [service]
 };
+

@@ -443,10 +443,10 @@ module.exports = function start(rootPath) {
 
         mainWindow.on('close', async () => {
           try {
-            console.log('🔚 Main window closed. Stopping PM2 and exiting...');
+            console.log('🔚 Main window closed. Stopping Vento and exiting...');
             await runYarn('kill');
           } catch (err) {
-            console.error('❌ Error stopping PM2:', err);
+            console.error('❌ Error stopping Vento:', err);
           } finally {
             console.log('👋 Exiting app...');
             app.exit(0); // esto termina el proceso principal
@@ -482,8 +482,8 @@ module.exports = function start(rootPath) {
         console.log('✅ Yarn completed successfully.');
       }
 
-      await runYarn('kill'); // Ensure any previous PM2 processes are killed
-      console.log('💣 Previous PM2 processes killed.');
+      await runYarn('kill'); // Ensure any previous Vento processes are killed
+      console.log('💣 Previous Vento processes killed.');
 
       // await runYarn('prepare-dev');
 

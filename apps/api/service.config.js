@@ -70,3 +70,4 @@ const apiDev = {
 module.exports = {
     apps: isProduction ? [api] : [apiDev],
 };
+

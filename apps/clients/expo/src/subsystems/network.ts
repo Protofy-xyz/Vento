@@ -1,6 +1,7 @@
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 
 import type { SubsystemDefinition, EmitFn, UnsubscribeFn } from './types';
+import { textTemplate, jsonTemplate } from './cardTemplates';
 
 const NETWORK_TYPE_ENDPOINT = '/network/monitors/type';
 const NETWORK_CONNECTED_ENDPOINT = '/network/monitors/connected';
@@ -13,26 +14,6 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
     monitors: [
       {
         descriptor: {
-          name: 'type',
-          label: 'Network type',
-          description: 'Current network type (wifi, cellular, none, etc.)',
-          endpoint: NETWORK_TYPE_ENDPOINT,
-          connectionType: 'mqtt',
-          ephemeral: true,
-          cardProps: {
-            icon: 'wifi',
-            color: '$blue10',
-          },
-        },
-        boot: async () => {
-          const state = await NetInfo.fetch();
-          return state.type;
-        },
-        subscribe: (emit) => subscribeNetworkField(emit, (state) => state.type),
-        minIntervalMs: 1000,
-      },
-      {
-        descriptor: {
           name: 'connected',
           label: 'Connected',
           description: 'Whether device has internet connection',
@@ -42,6 +23,8 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'globe',
             color: '$green10',
+            order: 16,
+            html: textTemplate,
           },
         },
         boot: async () => {
@@ -55,6 +38,28 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
       },
       {
         descriptor: {
+          name: 'type',
+          label: 'Network type',
+          description: 'Current network type (wifi, cellular, none, etc.)',
+          endpoint: NETWORK_TYPE_ENDPOINT,
+          connectionType: 'mqtt',
+          ephemeral: true,
+          cardProps: {
+            icon: 'wifi',
+            color: '$blue10',
+            order: 17,
+            html: textTemplate,
+          },
+        },
+        boot: async () => {
+          const state = await NetInfo.fetch();
+          return state.type;
+        },
+        subscribe: (emit) => subscribeNetworkField(emit, (state) => state.type),
+        minIntervalMs: 1000,
+      },
+      {
+        descriptor: {
           name: 'details',
           label: 'Network details',
           description: 'Detailed network information (SSID, IP, etc.)',
@@ -64,6 +69,7 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'info',
             color: '$purple10',
+            order: 18,
           },
         },
         boot: async () => {

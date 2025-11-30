@@ -22,6 +22,7 @@ export function buildBrightnessSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'sun',
             color: '$yellow10',
+            order: 54,
           },
         },
         boot: async () => {
@@ -65,6 +66,7 @@ export function buildBrightnessSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'sun',
             color: '$yellow10',
+            order: 55,
           },
           mode: 'request-reply',
         },

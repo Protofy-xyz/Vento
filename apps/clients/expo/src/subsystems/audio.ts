@@ -30,6 +30,7 @@ export function buildAudioSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'bell',
             color: '$red10',
+            order: 56,
           },
           mode: 'request-reply',
         },

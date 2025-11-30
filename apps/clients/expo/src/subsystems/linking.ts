@@ -31,6 +31,7 @@ export function buildLinkingSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'external-link',
             color: '$blue10',
+            order: 63,
           },
           mode: 'request-reply',
         },
@@ -79,6 +80,7 @@ export function buildLinkingSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'settings',
             color: '$gray10',
+            order: 64,
           },
           mode: 'request-reply',
         },

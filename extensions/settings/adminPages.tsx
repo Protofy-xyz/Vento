@@ -23,11 +23,15 @@ const sourceUrl = '/api/core/v1/settings'
 const tooltipDelay = { open: 500, close: 150 }
 
 const configPanels = [
+  { name: 'Assets', href: '/workspace/assets', icon: "blocks", description: "Manage system assets" },
+  { name: 'Tasks', href: '/workspace/tasks', icon: "zap", description: "Manage automated tasks" },
+  { name: 'Devices', href: '/workspace/devices', icon: "router", description: "Manage connected devices" },
+  { name: 'Storages', href: '/workspace/objects', icon: "boxes", description: "Manage data storages" },
+  { name: 'Files', href: '/workspace/files?path=/', icon: "folder", description: "Manage system files" },
   { name: 'Users', href: '/workspace/users', icon: "users", description: "Manage system users" },
   { name: 'Keys', href: '/workspace/keys', icon: "key", description: "Manage system keys" },
   { name: 'Events', href: '/workspace/events', icon: "activity", description: "View system events" },
   { name: 'Databases', href: '/workspace/databases', icon: "database", description: "Manage databases" },
-  { name: 'Files', href: '/workspace/files?path=/', icon: "folder", description: "Manage system files" },
   { name: 'Settings', href: '/workspace/settings', icon: "cog", description: "Configure system settings" },
   { name: 'Themes', href: '/workspace/themes', icon: "palette", description: "Change or customize themes" }
 ]

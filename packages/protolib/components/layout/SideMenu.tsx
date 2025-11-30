@@ -1,7 +1,7 @@
 import React from 'react'
 import { YStack, Button, Square, XStack, TooltipSimple } from '@my/ui'
 import { useState } from 'react'
-import { PanelLeft, Globe, Settings, MessageCircle } from '@tamagui/lucide-icons'
+import { PanelLeft, Globe, User, MessageCircle, Settings } from '@tamagui/lucide-icons'
 import { SiteConfig } from '@my/config/dist/AppConfig'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { ColorToggleButton } from '../../components/ColorToggleButton'
@@ -112,6 +112,18 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                             />
                         </YStack>
                     </TooltipSimple>
+                    <TooltipSimple label="Config">
+                        <YStack
+                            p="$2"
+                            cursor='pointer'
+                            br="$4"
+                            hoverStyle={{ backgroundColor: '$backgroundHover' }}
+                            pressStyle={{ backgroundColor: '$backgroundPress' }}
+                            onPress={() => router.push('/config')}
+                        >
+                            <Settings size={28} color="$gray9" strokeWidth={1.5} />
+                        </YStack>
+                    </TooltipSimple>
                     <Popover
                         menuPlacement="right"
                         color="$background"
@@ -121,7 +133,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                                 cursor='pointer'
                                 br="$4"
                             >
-                                <Settings size={28} color="$gray9" strokeWidth={1.5} />
+                                <User size={28} color="$gray9" strokeWidth={1.5} />
                             </YStack>
                         }
                     >

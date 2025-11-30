@@ -1,31 +1,7 @@
-import { Router, Cog, Boxes, Box, LayoutDashboard, Zap, Blocks, Bot, Folder } from '@tamagui/lucide-icons'
-import { MonitorCog as RawMonitorCog } from 'lucide-react'
-import { styled } from 'tamagui'
-
-const MonitorCog = styled(RawMonitorCog, {
-    name: 'MonitorCog',
-    size: '$true',
-    color: 'currentColor',
-})
-
-const enableArduinos = false
+import { Box, LayoutDashboard } from '@tamagui/lucide-icons'
 
 export default ({ boards, objects }) => {
     const objectsWithPage = objects ? objects.filter(o => o?.features?.adminPage) : []
-
-    const integrations = [
-        // { name: 'Agents', icon: Bot, href: '/workspace/boards' }, // Removed - using Network page via logo click
-        { name: 'Assets', icon: Blocks, href: '/workspace/assets' },
-        { name: 'Tasks', icon: Zap, href: '/workspace/tasks' },
-        { name: 'Devices', icon: Router, href: '/workspace/devices' },
-        { name: 'Storages', icon: Boxes, href: '/workspace/objects' },
-        // { name: 'Events', icon: 'activity', href: '/workspace/events' },
-        { name: 'Files', icon: Folder, href: '/workspace/files?path=/', path: '' },
-        { name: 'Config', icon: Cog, href: '/workspace/config' },
-    ]
-    if (enableArduinos) integrations.push({ name: 'Arduinos', icon: Router, href: '/workspace/arduinos' })
-
-    // const manageBoards = { name: 'Manage Boards', icon: MonitorCog, href: '/workspace/boards' }
 
     const objectsMenu = (objectsWithPage.length
         ? objectsWithPage.map((obj) => ({
@@ -34,13 +10,11 @@ export default ({ boards, objects }) => {
             href: '/workspace/' + obj.features.adminPage,
         }))
         : [])
-    //objectsMenu.push({ name: 'Manage Storage', icon: Boxes, href: '/workspace/objects' })
 
     // Base menu groups
     const menuByGroup: Record<string, any[]> = {
         Boards: [],
         Storage: objectsMenu,
-        Platform: integrations,
     }
 
     // 1. Group boards by category (preserve tags for later)

@@ -13,10 +13,12 @@ import { virtualAgentsOption } from '../../boards/networkOption'
 import { tasksOption } from '../../apis/networkOption'
 import { devicesOption } from '../../devices/networkOption'
 import { androidOption } from '../../android/networkOption'
+import { objectsOption } from '../../objects/networkOption'
 
 export const networkOptions: NetworkOption[] = [
   androidOption,
   devicesOption,
+  objectsOption,
   virtualAgentsOption,
   tasksOption,
 ]

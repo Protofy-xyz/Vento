@@ -103,7 +103,7 @@ const VirtualAgentsWizard = ({ onCreated }: { onCreated: (data?: any) => void })
 
 export const virtualAgentsOption: NetworkOption = {
   id: 'virtualagents',
-  name: 'Virtual Agents',
+  name: 'Virtual Agent',
   description: 'AI-powered agents with customizable templates',
   icon: 'bot',
   Component: VirtualAgentsWizard

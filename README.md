@@ -4,7 +4,7 @@
   Vento
 </h1>
 
-<h3 align="center">AI Control Networks for the Physical World</h3>
+<h3 align="center">The AI control and automation platform for devices, machines and spaces.</h3>
 
 <p align="center">
   Build intelligent agents that sense, decide, and act on the real world
@@ -262,19 +262,11 @@ Integrated editor and flash system to connect ESP32 based devices to the vento n
 
 ### Go Agent
 
-```bash
-cd apps/clients/go
-go build ./cmd/ventoagent
-./ventoagent -host http://localhost:8000 -user admin
-```
+Ultraportable agent allowing to connect computers with windows, linux or mac to the vento control and sensing network. 
 
 ### Python Agent (Raspberry Pi)
 
-```bash
-cd apps/clients/python
-pip install -r requirements.txt
-python main.py --host http://localhost:8000 --user admin
-```
+A python agent to connect and control raspberry devices
 
 ### Android App
 
@@ -286,19 +278,6 @@ Connect your Android phone in two simple steps:
 
 Once connected, your Android device appears as a controllable device with all its sensors and actuators available to your AI agents.
 
-**Example: AI-triggered photo capture**
-```javascript
-// Your AI agent can take photos from the connected Android
-{
-  "actions": [{
-    "name": "android_camera_take_picture",
-    "params": { "quality": 0.8 }
-  }]
-}
-// Returns: { "path": "/uploads/photo_123.jpg" }
-```
-
----
 
 ## MCP Integration
 

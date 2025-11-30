@@ -10,14 +10,15 @@ import { useRouter } from 'solito/navigation';
 import BoardPreview from 'protolib/components/board/BoardPreview'
 import { createParam } from 'solito'
 import { AsyncView } from 'protolib/components/AsyncView'
-import { YStack, Text, XStack, Spacer, ScrollView, Input } from "@my/ui";
+import { YStack, XStack, Spacer, ScrollView } from "@my/ui";
 import { AlertDialog } from 'protolib/components/AlertDialog'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Slides } from 'protolib/components/Slides';
 import { TemplateCard } from '../../apis/TemplateCard';
 import { usePageParams } from 'protolib/next'
 import { Board } from '@extensions/boards/pages/view'
 import { BoardView } from '@extensions/boards/pages/view'
+import { networkOptions, NetworkOption } from '../options'
 
 const { useParams } = createParam()
 
@@ -35,60 +36,21 @@ const SelectGrid = ({ children }) => {
   </XStack>
 }
 
-const FirstSlide = ({ selected, setSelected }) => {
-  const [boardTemplates, setBoardTemplates] = useState([]);
-  const reloadBoardTemplates = async () => {
-    const templates = await API.get(`/api/core/v2/templates/boards`);
-    let templatesData = templates.data || [];
-    templatesData = templatesData.map((tpl) => {
-      return tpl
-    })
-    setBoardTemplates(templatesData);
-  };
-
-  useEffect(() => {
-    reloadBoardTemplates()
-  }, []);
-
-  //template with id empty should be the first
+const CategorySlide = ({ selected, setSelected }: { selected: NetworkOption | null, setSelected: (option: NetworkOption) => void }) => {
   return <YStack>
     <ScrollView mah={"500px"}>
       <SelectGrid>
-        {Object.entries(boardTemplates).map(([templateId, template]) => (
+        {networkOptions.map((option) => (
           <TemplateCard
-            key={templateId}
-            template={template}
-            isSelected={selected?.id === template?.id}
-            onPress={() => setSelected(template)}
+            key={option.id}
+            template={option}
+            isSelected={selected?.id === option.id}
+            onPress={() => setSelected(option)}
           />
         ))}
       </SelectGrid>
     </ScrollView>
     <Spacer marginBottom="$8" />
-  </YStack>
-}
-
-const isNameValid = (text) => {
-  return text == ''? false:/^[a-z_]*$/.test(text)
-}
-
-const SecondSlide = ({ selected, setName, errorMessage=''}) => {
-  const [error, setError] = useState('')
-  useEffect(() => setError(errorMessage), [errorMessage])
-  const handleChange = (text: string) => {
-    if (!isNameValid(text)) {
-      setError('Name is required and must use only lowercase letters and underscores')
-    } else {
-      setError('')
-    }
-    setName(text)
-  }
-
-  return <YStack minHeight={"200px"} jc="center" ai="center">
-    <YStack width="400px" gap="$2">
-      <Input f={1} value={selected?.name} onChangeText={handleChange} placeholder="Enter board name" />
-      <Text ml="$2" h={"$1"} fos="$2" color="$red8">{error}</Text>
-    </YStack>
   </YStack>
 }
 
@@ -118,9 +80,21 @@ export default {
       const router = useRouter()
       const { push, query} = usePageParams({})
       const [addOpen, setAddOpen] = React.useState(false)
+      const [selectedOption, setSelectedOption] = useState<NetworkOption | null>(networkOptions[0] || null)
+      const [step, setStep] = useState<'select' | 'configure'>('select')
 
-      const defaultData = { template: { id: 'ai agent' }, name: '' }
-      const [data, setData] = useState(defaultData)
+      const handleCreated = (data?: any) => {
+        setAddOpen(false)
+        setStep('select')
+        // Navigation is handled by each option's Component
+      }
+
+      const handleDialogClose = (open: boolean) => {
+        setAddOpen(open)
+        if (!open) {
+          setStep('select')
+        }
+      }
 
       return (<AdminPage title="Network" workspace={workspace} pageSession={pageSession}>
 
@@ -128,37 +102,31 @@ export default {
           p={"$2"}
           pt="$5"
           pl="$5"
-          setOpen={setAddOpen}
+          setOpen={handleDialogClose}
           open={addOpen}
           hideAccept={true}
           description={""}
         >
           <YStack f={1} jc="center" ai="center">
             <XStack mr="$5">
-              <Slides
-                lastButtonCaption="Create"
-                id='boards'
-                onFinish={async () => {
-                  console.log('val: ', data)
-                  const name = data.name
-                  if (!isNameValid(name)) return
-                  const template = data.template
-                  await API.post(`/api/core/v1/import/board`, { name, template })
-                  router.push(`/boards/view?board=${name}`)
-                }}
-                slides={[
-                  {
-                    name: "Create new Board",
-                    title: "Select your Template",
-                    component: <FirstSlide selected={data?.template} setSelected={(template) => setData({ ...data, template })} />
-                  },
-                  {
-                    name: "Configure your Board",
-                    title: "Board Name",
-                    component: <SecondSlide selected={data} setName={(name) => setData({ ...data, name })} />
-                  }
-                ]
-                }></Slides>
+              {step === 'select' ? (
+                <Slides
+                  lastButtonCaption="Next"
+                  id='network-categories'
+                  onFinish={() => {
+                    setStep('configure')
+                  }}
+                  slides={[
+                    {
+                      name: "Add Network Element",
+                      title: "Select Type",
+                      component: <CategorySlide selected={selectedOption} setSelected={setSelectedOption} />
+                    }
+                  ]}
+                />
+              ) : (
+                selectedOption && <selectedOption.Component onCreated={handleCreated} />
+              )}
             </XStack>
           </YStack>
         </AlertDialog>

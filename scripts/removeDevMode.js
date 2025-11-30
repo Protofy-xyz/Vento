@@ -15,7 +15,8 @@ const workspaces = [
     "packages/protodevice",
     "packages/protonode",
     "extensions/*",
-    "scripts"
+    "scripts",
+    "data/automations"
 ]
 // load package.json and replace workspaces with the ones we want to keep
 if (fs.existsSync(packagePath)) {

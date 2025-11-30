@@ -3,7 +3,7 @@ import { getLogger, getConfig, generateEvent } from 'protobase';
 import { getConfigWithoutSecrets } from '@my/config'
 import BundleContext from 'app/bundles/context'
 import { pathToFileURL } from 'url';
-import fs from 'fs'
+import { initHMR, automationMiddleware } from './hmr';
 const { createExpressProxy } = require('app/proxy.js')
 
 const logger = getLogger()
@@ -37,12 +37,14 @@ const mqtt = getMQTTClient(serviceName, getServiceToken(), async () => {
         mqtt.publish(topic, data)
     }
 
+    const context = { mqtt, topicPub, topicSub, ...BundleContext };
+
     try {
         const BundleAPI = await import(pathToFileURL(require.resolve('app/bundles/apis')).href);
         const BundleChatbotsAPI = await import(pathToFileURL(require.resolve('app/bundles/chatbots')).href);
         //wait for mqtt before starting API
-        await BundleAPI.default(app, { mqtt, topicPub, topicSub, ...BundleContext })
-        BundleChatbotsAPI.default(app, { mqtt, topicPub, topicSub, ...BundleContext })
+        await BundleAPI.default(app, context)
+        BundleChatbotsAPI.default(app, context)
     } catch (error) {
         generateEvent({
             path: 'services/' + serviceName + '/crash', //event type: / separated event category: files/create/file, files/create/dir, devices/device/online
@@ -53,14 +55,11 @@ const mqtt = getMQTTClient(serviceName, getServiceToken(), async () => {
         logger.error({ error: error.toString() }, "Server error")
     }
 
-    //import dynamic api modules/automations, loop 
-    fs.readdirSync('../../data/automations').filter(file => file.endsWith('.ts')).forEach(file => { // ../../ here because readdir is relative to cwd
-        import(pathToFileURL(require.resolve('../../../data/automations/' + file)).href).then((module) => { // ../../../ here because requiere is relative to module file, now cwd
-            module.default(app, { mqtt, topicPub, topicSub, ...BundleContext })
-        }).catch((error) => {
-            logger.error({ error: error.toString() }, "Error loading automation: " + file)
-        });
-    })
+    // Initialize HMR for automations - uses dynamic router that can be hot-swapped
+    await initHMR(app, context);
+    
+    // Mount the automation middleware - delegates to current automation router
+    app.use(automationMiddleware());
 
     generateEvent({
         path: 'services/api/ready', //do not use serviceName here, since core depends on this event to autostart boards

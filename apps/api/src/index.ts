@@ -15,6 +15,9 @@ global.appName = 'api'
 import chokidar from 'chokidar';
 const { handleUpgrade } = require('app/proxy.js')
 
+// Import HMR statically to ensure same module instance
+import { handleFileChange as hmrHandleFileChange } from './hmr';
+
 const isProduction = process.env.NODE_ENV === 'production';
 const serviceName = isProduction ? 'api' : 'api-dev'
 
@@ -74,11 +77,16 @@ if (waitForCore) {
 }
 
 if (process.env.NODE_ENV != 'production') {
-  const pathsToWatch = [
-    'src/**',
-    '../../extensions/**',
+  // Paths that support HMR (no restart needed)
+  const hmrPaths = [
     '../../data/automations/**',
     '../../data/objects/**',
+  ];
+
+  // Paths that require full restart
+  const restartPaths = [
+    'src/**',
+    '../../extensions/**',
     '../../packages/app/bundles/**',
     '../../packages/app/objects/**',
     '../../packages/app/chatbots/**',
@@ -88,10 +96,19 @@ if (process.env.NODE_ENV != 'production') {
     '../../packages/protobase/dist/**',
   ];
 
-  const watcher = chokidar.watch(pathsToWatch, {
+  // HMR watcher for automations and objects
+  const hmrWatcher = chokidar.watch(hmrPaths, {
     ignored: /^([.][^.\/\\])|([\/\\]+[.][^.])/,
     ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 800, pollInterval: 100 }, // ← evita ráfagas
+    awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 50 }, // faster for HMR
+    persistent: true
+  });
+
+  // Restart watcher for everything else
+  const restartWatcher = chokidar.watch(restartPaths, {
+    ignored: /^([.][^.\/\\])|([\/\\]+[.][^.])/,
+    ignoreInitial: true,
+    awaitWriteFinish: { stabilityThreshold: 800, pollInterval: 100 },
     persistent: true
   });
 
@@ -111,12 +128,35 @@ if (process.env.NODE_ENV != 'production') {
     };
   })();
 
-  let armed = false;
-  watcher.on('ready', () => { armed = true; });
+  let hmrArmed = false;
+  let restartArmed = false;
 
-  const TRIGGER_EVENTS = new Set(['change', 'add']); //, 'change', 'unlink', 'addDir', 'unlinkDir'
-  watcher.on('all', (event) => {
-    if (!armed) return; // ← don't react until ready
-    if (TRIGGER_EVENTS.has(event)) scheduleRestart();
+  hmrWatcher.on('ready', () => { 
+    hmrArmed = true; 
+    console.log('[HMR] Watcher ready');
+  });
+  restartWatcher.on('ready', () => { restartArmed = true; });
+
+  // HMR events - hot reload without restart
+  const HMR_EVENTS = new Set(['change', 'add', 'unlink']);
+  hmrWatcher.on('all', async (event, filePath) => {
+    if (!hmrArmed) return;
+    
+    if (HMR_EVENTS.has(event) && filePath.endsWith('.ts')) {
+      console.log(`[HMR] ${event}: ${filePath}`);
+      try {
+        // Use statically imported handler - same module instance as api.ts
+        await hmrHandleFileChange(event, filePath);
+      } catch (error) {
+        console.error('[HMR] Error handling file change:', error);
+      }
+    }
+  });
+
+  // Restart events - full process restart
+  const RESTART_EVENTS = new Set(['change', 'add']);
+  restartWatcher.on('all', (event) => {
+    if (!restartArmed) return;
+    if (RESTART_EVENTS.has(event)) scheduleRestart();
   });
 }

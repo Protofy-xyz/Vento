@@ -112,7 +112,7 @@ const getDB = (path, req, session, context) => {
             if(!fsSync.existsSync(cardPath)) {
                 fsSync.writeFileSync(cardPath, JSON.stringify(card, null, 2));
             } else {
-                getLogger().debug({}, "Card already exists: " + cardPath);
+                //getLogger().debug({}, "Card already exists: " + cardPath);
             }
         },
 

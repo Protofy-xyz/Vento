@@ -58,9 +58,19 @@ ventoagent \
 | `-token` | Existing Vento token (skips login) |
 | `-skip-register-actions` | Don't trigger `/devices/registerActions` |
 | `-once` | Run monitors once and exit |
-| `-no-tray` | Disable system tray icon (Windows only) |
+| `-no-tray` | Disable system tray icon (Windows/macOS) |
+| `-no-gui` | Disable GUI login dialog, use terminal prompts (Windows/macOS) |
 
 Flags override values stored in `config.json`. Leaving the password empty triggers an interactive prompt.
+
+### GUI Login (Windows & macOS)
+
+On Windows and macOS, if you run the agent without a config file or CLI parameters, a **graphical login dialog** will appear asking for:
+- Server URL
+- Username  
+- Password
+
+To disable the GUI and use terminal prompts instead, use the `-no-gui` flag.
 
 ### System Tray (Windows & macOS)
 
@@ -109,20 +119,44 @@ yarn vento run myboard_start_agent -p '{"host": "http://localhost:8000", "token"
 
 ## Building
 
-Ensure Go ≥1.21 is installed, then from `apps/clients/go`:
+Ensure Go ≥1.21 is installed.
 
-```
-go mod tidy
-go build ./cmd/ventoagent
+### Windows & macOS (with GUI)
+
+These platforms require CGO for the graphical interface. You need a C compiler:
+
+- **Windows**: Install MinGW (`choco install mingw`)
+- **macOS**: Install Xcode Command Line Tools (`xcode-select --install`)
+
+Then build with CGO enabled:
+
+```bash
+# Windows
+set CGO_ENABLED=1
+go build -ldflags="-H windowsgui" ./cmd/ventoagent
+
+# macOS
+CGO_ENABLED=1 go build ./cmd/ventoagent
 ```
 
-To cross-compile:
+### Linux (no GUI)
 
+Linux builds don't include the GUI and can be built without CGO:
+
+```bash
+CGO_ENABLED=0 go build ./cmd/ventoagent
 ```
-GOOS=linux GOARCH=arm64 go build -o ventoagent-linux-arm64 ./cmd/ventoagent
-GOOS=windows GOARCH=amd64 go build -o ventoagent.exe ./cmd/ventoagent
-GOOS=darwin GOARCH=amd64 go build -o ventoagent-darwin ./cmd/ventoagent
+
+### Cross-compilation
+
+For Linux targets (no GUI needed):
+
+```bash
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o ventoagent-linux-arm64 ./cmd/ventoagent
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ventoagent-linux-amd64 ./cmd/ventoagent
 ```
+
+For Windows/macOS, use native builds on each platform (CGO cross-compilation is complex).
 
 ## Extending monitors/actions
 

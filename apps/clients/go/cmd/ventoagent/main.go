@@ -15,6 +15,7 @@ import (
 
 	"ventoagent/internal/agent"
 	"ventoagent/internal/config"
+	"ventoagent/internal/gui"
 	"ventoagent/internal/tray"
 	"ventoagent/internal/vento"
 )
@@ -30,6 +31,7 @@ type cliOptions struct {
 	SkipRegisterActions bool
 	Once                bool
 	NoTray              bool
+	NoGUI               bool
 }
 
 func parseFlags() cliOptions {
@@ -43,21 +45,89 @@ func parseFlags() cliOptions {
 	flag.StringVar(&opts.Token, "token", "", "existing vento token (skips login when provided)")
 	flag.BoolVar(&opts.SkipRegisterActions, "skip-register-actions", false, "do not trigger /devices/registerActions after ensuring the device")
 	flag.BoolVar(&opts.Once, "once", false, "run monitors once and exit (useful for debugging)")
-	flag.BoolVar(&opts.NoTray, "no-tray", false, "disable system tray icon (Windows only)")
+	flag.BoolVar(&opts.NoTray, "no-tray", false, "disable system tray icon (Windows/macOS)")
+	flag.BoolVar(&opts.NoGUI, "no-gui", false, "disable GUI login dialog (use terminal prompts)")
 	flag.Parse()
 	return opts
+}
+
+// needsGUILogin checks if we should show the GUI login dialog
+func needsGUILogin(opts cliOptions, cfg *config.Config) bool {
+	// Check if on a supported platform (Windows, macOS, or Linux)
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		return false
+	}
+
+	// GUI explicitly disabled
+	if opts.NoGUI {
+		return false
+	}
+
+	// GUI not available on this platform
+	if !gui.IsAvailable() {
+		return false
+	}
+
+	// Already have credentials from CLI
+	if opts.Host != "" && opts.Token != "" {
+		return false
+	}
+	if opts.Host != "" && opts.Password != "" {
+		return false
+	}
+
+	// Already have credentials in config
+	if cfg.Host != "" && cfg.Token != "" {
+		return false
+	}
+
+	// Need credentials - show GUI
+	return true
 }
 
 func main() {
 	opts := parseFlags()
 
+	manager := config.NewManager(opts.ConfigPath)
+	cfg, err := manager.Load()
+	if err != nil {
+		log.Fatalf("failed reading config: %v", err)
+	}
+
+	// Apply CLI overrides first
+	cfg.ApplyCLIOverrides(config.CLIOverrides{
+		Host:            opts.Host,
+		Username:        opts.Username,
+		DeviceName:      opts.DeviceName,
+		Token:           opts.Token,
+		MonitorInterval: opts.MonitorInterval,
+	})
+
+	// Check if we need GUI login
+	if needsGUILogin(opts, cfg) {
+		log.Println("launching GUI login dialog...")
+
+		result := gui.ShowLoginDialog(cfg.Host, cfg.Username)
+		if !result.OK {
+			log.Println("login cancelled by user")
+			os.Exit(0)
+		}
+
+		// Apply GUI values
+		cfg.Host = result.Host
+		cfg.Username = result.Username
+		opts.Password = result.Password
+
+		log.Printf("connecting to %s as %s", cfg.Host, cfg.Username)
+	}
+
 	// Set up context with signal handling
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Initialize system tray (Windows and macOS, no-op on other platforms)
+	// Initialize system tray (Windows, macOS, and Linux with display)
 	var trayController tray.TrayController
-	if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && !opts.NoTray {
+	if (runtime.GOOS == "windows" || runtime.GOOS == "darwin" || runtime.GOOS == "linux") && !opts.NoTray {
 		trayController = tray.StartAsync(tray.TrayCallbacks{
 			OnQuit: func() {
 				log.Println("quit requested from system tray")
@@ -74,20 +144,6 @@ func main() {
 			trayController.UpdateState(state, host, deviceName)
 		}
 	}
-
-	manager := config.NewManager(opts.ConfigPath)
-	cfg, err := manager.Load()
-	if err != nil {
-		log.Fatalf("failed reading config: %v", err)
-	}
-
-	cfg.ApplyCLIOverrides(config.CLIOverrides{
-		Host:            opts.Host,
-		Username:        opts.Username,
-		DeviceName:      opts.DeviceName,
-		Token:           opts.Token,
-		MonitorInterval: opts.MonitorInterval,
-	})
 
 	// If both host and token are provided via CLI, skip all prompts (headless mode)
 	headlessMode := opts.Host != "" && opts.Token != ""

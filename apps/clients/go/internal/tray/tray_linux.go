@@ -1,18 +1,32 @@
-//go:build windows || darwin
-// +build windows darwin
+//go:build linux
+// +build linux
 
 package tray
 
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync"
 
 	"github.com/getlantern/systray"
 )
 
-// windowsTray implements TrayController for Windows.
-type windowsTray struct {
+// hasDisplay checks if a graphical display is available
+func hasDisplay() bool {
+	// Check for X11
+	if os.Getenv("DISPLAY") != "" {
+		return true
+	}
+	// Check for Wayland
+	if os.Getenv("WAYLAND_DISPLAY") != "" {
+		return true
+	}
+	return false
+}
+
+// linuxTray implements TrayController for Linux.
+type linuxTray struct {
 	mu         sync.RWMutex
 	state      ConnectionState
 	host       string
@@ -25,23 +39,29 @@ type windowsTray struct {
 	mQuit       *systray.MenuItem
 	initialized bool
 	quitChan    chan struct{}
+	enabled     bool
 }
 
 var (
-	instance *windowsTray
+	instance *linuxTray
 	once     sync.Once
 )
 
 // Start initializes and runs the system tray (blocking).
-// Should be called from the main goroutine on Windows.
 func Start(callbacks TrayCallbacks) TrayController {
 	once.Do(func() {
-		instance = &windowsTray{
+		instance = &linuxTray{
 			callbacks: callbacks,
 			quitChan:  make(chan struct{}),
 			state:     StateDisconnected,
+			enabled:   hasDisplay(),
 		}
 	})
+
+	if !instance.enabled {
+		log.Println("[tray] no display available, system tray disabled")
+		return instance
+	}
 
 	// Run systray in a separate goroutine
 	go systray.Run(instance.onReady, instance.onExit)
@@ -54,7 +74,7 @@ func StartAsync(callbacks TrayCallbacks) TrayController {
 	return Start(callbacks)
 }
 
-func (t *windowsTray) onReady() {
+func (t *linuxTray) onReady() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -100,12 +120,12 @@ func (t *windowsTray) onReady() {
 	}()
 }
 
-func (t *windowsTray) onExit() {
+func (t *linuxTray) onExit() {
 	close(t.quitChan)
 }
 
 // UpdateState updates the connection state displayed in the tray.
-func (t *windowsTray) UpdateState(state ConnectionState, host string, deviceName string) {
+func (t *linuxTray) UpdateState(state ConnectionState, host string, deviceName string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -113,7 +133,7 @@ func (t *windowsTray) UpdateState(state ConnectionState, host string, deviceName
 	t.host = host
 	t.deviceName = deviceName
 
-	if !t.initialized {
+	if !t.initialized || !t.enabled {
 		return
 	}
 
@@ -147,6 +167,9 @@ func (t *windowsTray) UpdateState(state ConnectionState, host string, deviceName
 }
 
 // Quit triggers a graceful shutdown.
-func (t *windowsTray) Quit() {
-	systray.Quit()
+func (t *linuxTray) Quit() {
+	if t.enabled {
+		systray.Quit()
+	}
 }
+

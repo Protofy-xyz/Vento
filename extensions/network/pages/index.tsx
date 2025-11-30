@@ -21,7 +21,7 @@ import { BoardView } from '@extensions/boards/pages/view'
 
 const { useParams } = createParam()
 
-const sourceUrl = '/api/core/v1/boards?all=true&filter[network]=core'
+const sourceUrl = '/api/core/v1/boards'
 
 // ========== TOGGLE DE VISTA ==========
 // Cambiar a true para usar la vista embebida (NetworkPreview)

@@ -116,7 +116,7 @@ export default {
   boards: {
     component: ({ workspace, pageState, initialItems, itemData, pageSession, extraData }: any) => {
       const router = useRouter()
-      const { push, query } = usePageParams({})
+      const { push, query} = usePageParams({})
       const [addOpen, setAddOpen] = React.useState(false)
 
       const defaultData = { template: { id: 'ai agent' }, name: '' }
@@ -168,7 +168,6 @@ export default {
           itemData={itemData}
           sourceUrl={sourceUrl}
           sourceUrlParams={query}
-          extraFilters={[{ queryParam: "all" }]}
           initialItems={initialItems}
           numColumnsForm={1}
           onAdd={(data) => { router.push(`/boards/view?board=${data.name}`); return data }}

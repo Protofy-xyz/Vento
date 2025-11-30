@@ -903,6 +903,42 @@ export default (app, context) => {
 
     registerActions()
 
+    // Subscribe to board delete events to delete associated device
+    context.events?.onEvent?.(
+        context.mqtt,
+        context,
+        async (msg: any) => {
+            const boardName = msg?.parsed?.payload?.id 
+                || msg?.payload?.id 
+                || msg?.parsed?.path?.split('/')?.[2]
+                || msg?.topic?.split('/')?.[2];
+            
+            if (!boardName) {
+                logger.warn('Board delete event received but could not extract board name');
+                return;
+            }
+
+            // Check if a device with this name exists and delete it via API
+            const db = getDB('devices', null, null);
+            try {
+                const deviceData = await db.get(boardName);
+                if (deviceData) {
+                    logger.info({ deviceName: boardName }, 'Board deleted, removing associated device via API');
+                    const token = getServiceToken();
+                    await API.get(`/api/core/v1/devices/${encodeURIComponent(boardName)}/delete?token=${token}`);
+                    logger.info({ deviceName: boardName }, 'Device deleted due to board deletion');
+                }
+            } catch (err: any) {
+                // Device doesn't exist or delete failed - log only if it's not a "not found" error
+                const status = err?.response?.status || err?.status;
+                if (status && status !== 404) {
+                    logger.warn({ deviceName: boardName, err: err?.message }, 'Failed to delete device after board deletion');
+                }
+            }
+        },
+        'boards/delete/#'
+    );
+
     const devicePlatforms = {}
     const getDevicePlatforms = () => Object.keys(devicePlatforms)
     
@@ -1273,3 +1309,4 @@ export default (app, context) => {
     });
 
 }
+

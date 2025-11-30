@@ -105,7 +105,8 @@ if (process.env.NODE_ENV != 'production') {
       }
       timer = setTimeout(async () => {
         await generateEvent({ path: `services/${serviceName}/stop`, from: serviceName, user: 'system', payload: {} }, getServiceToken());
-        process.exit(0);
+        // Exit code 100 = "restart requested" (will be restarted by process manager)
+        process.exit(100);
       }, 1000);
     };
   })();

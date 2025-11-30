@@ -70,7 +70,9 @@ const watch = () => {
         user: 'system', // the original user that generates the action, 'system' if the event originated in the system itself
         payload: {}, // event payload, event-specific data
       }, getServiceToken())
-      process.exit(0)
+      // Exit code 100 = "restart requested" (will be restarted by process manager)
+      // Exit code 0 would mean "clean shutdown, don't restart"
+      process.exit(100)
     }, 1000);
   })
 }

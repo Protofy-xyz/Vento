@@ -104,6 +104,34 @@ function removeProcessState(name) {
     writeState(state);
 }
 
+/**
+ * Marca un proceso como "stopped manually" para que el manager
+ * sepa que no debe reiniciarlo cuando detecte que murió.
+ */
+function markProcessAsStopped(name) {
+    const state = readState();
+    if (state.processes[name]) {
+        state.processes[name].manuallyStopped = true;
+        state.processes[name].stoppedAt = Date.now();
+        writeState(state);
+    }
+}
+
+/**
+ * Verifica si un proceso fue marcado como "stopped manually" recientemente
+ * (dentro de los últimos 5 segundos - suficiente para que el proceso muera)
+ */
+function wasStoppedManually(name) {
+    const state = readState();
+    const proc = state.processes[name];
+    if (proc && proc.manuallyStopped) {
+        // Verificar que fue hace menos de 5 segundos
+        const elapsed = Date.now() - (proc.stoppedAt || 0);
+        return elapsed < 5000;
+    }
+    return false;
+}
+
 // ============================================================================
 // Timestamp Formatting
 // ============================================================================
@@ -296,17 +324,29 @@ class ManagedProcess {
         
         this.child = null;
 
+        // Si el manager está cerrando, no reiniciar
         if (this.isShuttingDown) {
             console.log(`\x1b[33m[${this.name}]\x1b[0m Stopped`);
             removeProcessState(this.name);
             return;
         }
 
-        console.log(`\x1b[33m[${this.name}]\x1b[0m Exited (code: ${code}, signal: ${signal})`);
-        updateProcessState(this.name, { status: 'stopped', exitCode: code });
+        // Verificar si fue detenido manualmente desde otra terminal
+        if (wasStoppedManually(this.name)) {
+            console.log(`\x1b[33m[${this.name}]\x1b[0m Stopped manually (not restarting)`);
+            removeProcessState(this.name);
+            return;
+        }
 
-        // Handle autorestart
-        if (config.autorestart !== false && code !== 0) {
+        console.log(`\x1b[33m[${this.name}]\x1b[0m Exited (code: ${code}, signal: ${signal})`);
+        updateProcessState(this.name, { status: 'stopped', exitCode: code, signal: signal });
+
+        // Handle autorestart - reiniciar si:
+        // 1. autorestart está habilitado (default)
+        // 2. El proceso terminó con error (code !== 0) O terminó por una señal (crash/kill externo)
+        const shouldRestart = config.autorestart !== false && (code !== 0 || signal !== null);
+        
+        if (shouldRestart) {
             // Reset restart count if last restart was more than 5 minutes ago
             const now = Date.now();
             if (now - this.lastRestartTime > 5 * 60 * 1000) {
@@ -333,6 +373,8 @@ class ManagedProcess {
                     this.spawn();
                 }
             }, delay);
+        } else {
+            console.log(`\x1b[33m[${this.name}]\x1b[0m Exited cleanly (code 0), not restarting`);
         }
     }
 
@@ -564,22 +606,34 @@ async function stopExternal(targetName = null) {
         const proc = state.processes[targetName];
         if (proc && proc.pid) {
             console.log(`Stopping ${targetName} (PID: ${proc.pid})...`);
+            
+            // IMPORTANTE: Marcar como "stopped manually" ANTES de matar el proceso
+            // Esto evita que el manager lo reinicie automáticamente
+            markProcessAsStopped(targetName);
+            
             await new Promise(resolve => {
                 kill(proc.pid, 'SIGTERM', (err) => {
                     if (err) {
                         kill(proc.pid, 'SIGKILL', () => resolve());
                     } else {
-                        resolve();
+                        // Dar tiempo al proceso para terminar limpiamente
+                        setTimeout(resolve, 500);
                     }
                 });
             });
-            removeProcessState(targetName);
             console.log(`${targetName} stopped`);
         } else {
             console.error(`Process '${targetName}' not found or not running`);
         }
     } else {
         console.log('Stopping all processes...');
+        
+        // Marcar todos los procesos como "stopped manually" primero
+        for (const name of Object.keys(state.processes)) {
+            markProcessAsStopped(name);
+        }
+        
+        // Luego matarlos
         for (const [name, info] of Object.entries(state.processes)) {
             if (info.pid) {
                 console.log(`Stopping ${name} (PID: ${info.pid})...`);
@@ -588,7 +642,7 @@ async function stopExternal(targetName = null) {
                         if (err) {
                             kill(info.pid, 'SIGKILL', () => resolve());
                         } else {
-                            resolve();
+                            setTimeout(resolve, 500);
                         }
                     });
                 });

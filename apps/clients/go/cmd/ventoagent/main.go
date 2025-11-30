@@ -8,12 +8,14 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
 	"ventoagent/internal/agent"
 	"ventoagent/internal/config"
+	"ventoagent/internal/tray"
 	"ventoagent/internal/vento"
 )
 
@@ -27,6 +29,7 @@ type cliOptions struct {
 	Token               string
 	SkipRegisterActions bool
 	Once                bool
+	NoTray              bool
 }
 
 func parseFlags() cliOptions {
@@ -40,12 +43,37 @@ func parseFlags() cliOptions {
 	flag.StringVar(&opts.Token, "token", "", "existing vento token (skips login when provided)")
 	flag.BoolVar(&opts.SkipRegisterActions, "skip-register-actions", false, "do not trigger /devices/registerActions after ensuring the device")
 	flag.BoolVar(&opts.Once, "once", false, "run monitors once and exit (useful for debugging)")
+	flag.BoolVar(&opts.NoTray, "no-tray", false, "disable system tray icon (Windows only)")
 	flag.Parse()
 	return opts
 }
 
 func main() {
 	opts := parseFlags()
+
+	// Set up context with signal handling
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	// Initialize system tray (Windows and macOS, no-op on other platforms)
+	var trayController tray.TrayController
+	if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && !opts.NoTray {
+		trayController = tray.StartAsync(tray.TrayCallbacks{
+			OnQuit: func() {
+				log.Println("quit requested from system tray")
+				cancel()
+			},
+		})
+		// Give the tray a moment to initialize
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Helper to update tray state
+	updateTray := func(state tray.ConnectionState, host, deviceName string) {
+		if trayController != nil {
+			trayController.UpdateState(state, host, deviceName)
+		}
+	}
 
 	manager := config.NewManager(opts.ConfigPath)
 	cfg, err := manager.Load()
@@ -104,17 +132,19 @@ func main() {
 		}
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	// Update tray to show connecting state
+	updateTray(tray.StateConnecting, cfg.Host, cfg.DeviceName)
 
 	ventoClient, err := vento.NewClient(cfg.Host)
 	if err != nil {
+		updateTray(tray.StateDisconnected, cfg.Host, cfg.DeviceName)
 		log.Fatalf("invalid host %q: %v", cfg.Host, err)
 	}
 
 	// Wait for Vento server to be ready before proceeding
 	log.Printf("waiting for Vento server at %s...", cfg.Host)
 	if err := ventoClient.WaitForReady(ctx, 90*time.Second, 5*time.Second); err != nil {
+		updateTray(tray.StateDisconnected, cfg.Host, cfg.DeviceName)
 		log.Fatalf("server not available: %v", err)
 	}
 	log.Println("server is ready")
@@ -130,6 +160,7 @@ func main() {
 		}
 		token, err := ventoClient.Login(ctx, cfg.Username, password)
 		if err != nil {
+			updateTray(tray.StateDisconnected, cfg.Host, cfg.DeviceName)
 			log.Fatalf("login failed: %v", err)
 		}
 		cfg.Token = token
@@ -146,6 +177,7 @@ func main() {
 	}
 
 	if cfg.Token == "" {
+		updateTray(tray.StateDisconnected, cfg.Host, cfg.DeviceName)
 		log.Fatal("token not available after login attempt")
 	}
 
@@ -155,9 +187,16 @@ func main() {
 		ConfigWriter:        manager,
 		SkipRegisterActions: opts.SkipRegisterActions,
 		RunOnce:             opts.Once,
+		OnConnected: func() {
+			updateTray(tray.StateConnected, cfg.Host, cfg.DeviceName)
+		},
+		OnDisconnected: func() {
+			updateTray(tray.StateDisconnected, cfg.Host, cfg.DeviceName)
+		},
 	})
 
 	if err := ag.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+		updateTray(tray.StateDisconnected, cfg.Host, cfg.DeviceName)
 		msg := err.Error()
 		if !strings.HasSuffix(msg, "\n") {
 			msg += "\n"
@@ -166,5 +205,6 @@ func main() {
 		os.Exit(1)
 	}
 
+	updateTray(tray.StateDisconnected, cfg.Host, cfg.DeviceName)
 	log.Println("shutting down")
 }

@@ -58,8 +58,25 @@ ventoagent \
 | `-token` | Existing Vento token (skips login) |
 | `-skip-register-actions` | Don't trigger `/devices/registerActions` |
 | `-once` | Run monitors once and exit |
+| `-no-tray` | Disable system tray icon (Windows only) |
 
 Flags override values stored in `config.json`. Leaving the password empty triggers an interactive prompt.
+
+### System Tray (Windows & macOS)
+
+On Windows and macOS, the agent displays a system tray icon that shows the connection status:
+
+- 🟢 **Green circle**: Connected to Vento server
+- 🟡 **Yellow circle**: Connecting...
+- ⚫ **Gray/Red circle**: Disconnected
+
+The tray menu shows:
+- Connection status
+- Server URL
+- Device name
+- Quit option
+
+To disable the system tray, use the `-no-tray` flag.
 
 ### Headless mode
 

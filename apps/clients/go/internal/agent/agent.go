@@ -22,6 +22,8 @@ type Options struct {
 	ConfigWriter        ConfigWriter
 	SkipRegisterActions bool
 	RunOnce             bool
+	OnConnected         func()
+	OnDisconnected      func()
 }
 
 // Agent runs the local monitoring loop.
@@ -36,6 +38,8 @@ type Agent struct {
 
 	skipRegisterActions bool
 	runOnce             bool
+	onConnected         func()
+	onDisconnected      func()
 }
 
 // New builds a new Agent from the provided options.
@@ -47,6 +51,8 @@ func New(opts Options) *Agent {
 		subs:                subsystems.NewSet(opts.Config),
 		skipRegisterActions: opts.SkipRegisterActions,
 		runOnce:             opts.RunOnce,
+		onConnected:         opts.OnConnected,
+		onDisconnected:      opts.OnDisconnected,
 	}
 }
 
@@ -60,16 +66,40 @@ func (a *Agent) Start(ctx context.Context) error {
 
 	mqttClient, err := vento.ConnectMQTT(ctx, a.http.BaseURLObject(), a.cfg.DeviceName, a.cfg.Username, a.cfg.Token, a.handleAction)
 	if err != nil {
+		if a.onDisconnected != nil {
+			a.onDisconnected()
+		}
 		return fmt.Errorf("mqtt connection failed: %w", err)
 	}
 	a.mqtt = mqttClient
-	defer a.mqtt.Close()
+	defer func() {
+		a.mqtt.Close()
+		if a.onDisconnected != nil {
+			a.onDisconnected()
+		}
+	}()
 	log.Printf("connected to mqtt broker as %s", a.cfg.DeviceName)
+
+	// Notify connection established
+	if a.onConnected != nil {
+		a.onConnected()
+	}
 
 	// Set up reconnection handler to re-publish boot data
 	a.mqtt.SetOnReconnect(func() {
 		log.Printf("reconnected - re-publishing boot data...")
+		if a.onConnected != nil {
+			a.onConnected()
+		}
 		a.subs.PublishBoot(ctx, a.mqtt)
+	})
+
+	// Set up disconnection handler
+	a.mqtt.SetOnConnectionLost(func() {
+		log.Printf("connection lost - updating tray...")
+		if a.onDisconnected != nil {
+			a.onDisconnected()
+		}
 	})
 
 	a.subs.PublishBoot(ctx, a.mqtt)

@@ -56,17 +56,26 @@ type ActionHandler func(ActionEnvelope)
 // ReconnectCallback is called when the client reconnects after a disconnect.
 type ReconnectCallback func()
 
+// ConnectionLostCallback is called when the client loses connection.
+type ConnectionLostCallback func()
+
 // MQTTClient wraps the MQTT client helper.
 type MQTTClient struct {
-	deviceName     string
-	client         mqtt.Client
-	onReconnect    ReconnectCallback
-	isFirstConnect bool
+	deviceName       string
+	client           mqtt.Client
+	onReconnect      ReconnectCallback
+	onConnectionLost ConnectionLostCallback
+	isFirstConnect   bool
 }
 
 // SetOnReconnect sets a callback to be called when the client reconnects.
 func (m *MQTTClient) SetOnReconnect(cb ReconnectCallback) {
 	m.onReconnect = cb
+}
+
+// SetOnConnectionLost sets a callback to be called when connection is lost.
+func (m *MQTTClient) SetOnConnectionLost(cb ConnectionLostCallback) {
+	m.onConnectionLost = cb
 }
 
 // ConnectMQTT establishes an MQTT connection using username/token.
@@ -131,6 +140,9 @@ func ConnectMQTT(ctx context.Context, baseURL *url.URL, deviceName, username, to
 
 	opts.OnConnectionLost = func(c mqtt.Client, err error) {
 		log.Printf("[mqtt] connection lost: %v - will attempt to reconnect", err)
+		if mqttClient.onConnectionLost != nil {
+			go mqttClient.onConnectionLost()
+		}
 	}
 
 	opts.OnReconnecting = func(c mqtt.Client, opts *mqtt.ClientOptions) {

@@ -41,7 +41,7 @@
     "status": "node scripts/start.js status",
     "restart": "node scripts/start.js restart",
     "monit": "node scripts/start.js monit",
-    "kill": "node scripts/start.js kill",
+    "kill": "node scripts/start.js stop",
     "stop": "node scripts/start.js stop",
     "logs": "node scripts/start.js logs",
     "fix": "manypkg fix",

@@ -9,7 +9,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/getlantern/systray"
+	"fyne.io/systray"
 )
 
 // hasDisplay checks if a graphical display is available

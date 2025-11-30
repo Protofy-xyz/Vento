@@ -8,7 +8,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/getlantern/systray"
+	"fyne.io/systray"
 )
 
 // windowsTray implements TrayController for Windows.

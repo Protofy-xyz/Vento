@@ -34,7 +34,7 @@ const USE_EMBEDDED_VIEW = false
 // =====================================
 
 const SelectGrid = ({ children }) => {
-  return <XStack jc="center" ai="center" gap={25} flexWrap='wrap'>
+  return <XStack jc="flex-start" ai="flex-start" gap={25} flexWrap='wrap' width="100%" maxWidth={760} mx="auto">
     {children}
   </XStack>
 }
@@ -122,7 +122,7 @@ export default {
                   slides={[
                     {
                       name: "Add Network Element",
-                      title: "Select Type",
+                      title: "",
                       component: <CategorySlide selected={selectedOption} setSelected={setSelectedOption} />
                     }
                   ]}

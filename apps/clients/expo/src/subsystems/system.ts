@@ -1,6 +1,7 @@
 import * as Device from 'expo-device';
 
 import type { SubsystemDefinition } from './types';
+import { bytesTemplate, textTemplate } from './cardTemplates';
 
 const MemoryTotalEndpoint = '/system/monitors/memory_total';
 const OSVersionEndpoint = '/system/monitors/os_version';
@@ -19,22 +20,6 @@ export function buildSystemSubsystem(): SubsystemDefinition {
     monitors: [
       {
         descriptor: {
-          name: 'memory_total',
-          label: 'Total memory',
-          description: 'Device total memory',
-          units: 'bytes',
-          endpoint: MemoryTotalEndpoint,
-          connectionType: 'mqtt',
-          ephemeral: false,
-          cardProps: {
-            icon: 'database',
-            color: '$green10',
-          },
-        },
-        boot: async () => Device.totalMemory ?? 0,
-      },
-      {
-        descriptor: {
           name: 'os_version',
           label: 'Operating system',
           description: 'OS name and version',
@@ -44,23 +29,28 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'smartphone',
             color: '$blue10',
+            order: 1,
+            html: textTemplate,
           },
         },
         boot: async () => `${Device.osName ?? 'Unknown'} ${Device.osVersion ?? ''}`.trim(),
       },
       {
         descriptor: {
-          name: 'device_name',
-          label: 'Device name',
-          description: 'Reported device name',
-          endpoint: DeviceNameEndpoint,
+          name: 'device_model',
+          label: 'Model name',
+          description: 'Model reported by the OS',
+          endpoint: DeviceModelEndpoint,
           connectionType: 'mqtt',
           ephemeral: false,
           cardProps: {
             icon: 'smartphone',
+            color: '$orange10',
+            order: 2,
+            html: textTemplate,
           },
         },
-        boot: async () => Device.deviceName ?? 'unknown_device',
+        boot: async () => Device.modelName ?? Device.productName ?? 'unknown',
       },
       {
         descriptor: {
@@ -72,6 +62,9 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           ephemeral: false,
           cardProps: {
             icon: 'tag',
+            color: '$cyan10',
+            order: 3,
+            html: textTemplate,
           },
         },
         boot: async () => Device.brand ?? 'unknown',
@@ -86,52 +79,12 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           ephemeral: false,
           cardProps: {
             icon: 'tool',
+            color: '$cyan9',
+            order: 4,
+            html: textTemplate,
           },
         },
         boot: async () => Device.manufacturer ?? 'unknown',
-      },
-      {
-        descriptor: {
-          name: 'device_model',
-          label: 'Model name',
-          description: 'Model reported by the OS',
-          endpoint: DeviceModelEndpoint,
-          connectionType: 'mqtt',
-          ephemeral: false,
-          cardProps: {
-            icon: 'smartphone',
-            color: '$orange10',
-          },
-        },
-        boot: async () => Device.modelName ?? Device.productName ?? 'unknown',
-      },
-      {
-        descriptor: {
-          name: 'device_product',
-          label: 'Product ID',
-          description: 'Internal product identifier',
-          endpoint: DeviceProductEndpoint,
-          connectionType: 'mqtt',
-          ephemeral: false,
-          cardProps: {
-            icon: 'info',
-          },
-        },
-        boot: async () => Device.modelId ?? Device.designName ?? 'unknown',
-      },
-      {
-        descriptor: {
-          name: 'device_type',
-          label: 'Device type',
-          description: 'Physical form factor',
-          endpoint: DeviceTypeEndpoint,
-          connectionType: 'mqtt',
-          ephemeral: false,
-          cardProps: {
-            icon: 'tablet',
-          },
-        },
-        boot: async () => formatDeviceType(Device.deviceType),
       },
       {
         descriptor: {
@@ -144,9 +97,79 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'cpu',
             color: '$purple10',
+            order: 5,
+            html: textTemplate,
           },
         },
         boot: async () => (Device.supportedCpuArchitectures ?? []).join(', ') || 'unknown',
+      },
+      {
+        descriptor: {
+          name: 'memory_total',
+          label: 'Total memory',
+          description: 'Device total memory',
+          units: 'bytes',
+          endpoint: MemoryTotalEndpoint,
+          connectionType: 'mqtt',
+          ephemeral: false,
+          cardProps: {
+            icon: 'database',
+            color: '$green10',
+            order: 6,
+            html: bytesTemplate,
+          },
+        },
+        boot: async () => Device.totalMemory ?? 0,
+      },
+      {
+        descriptor: {
+          name: 'device_name',
+          label: 'Device name',
+          description: 'Reported device name',
+          endpoint: DeviceNameEndpoint,
+          connectionType: 'mqtt',
+          ephemeral: false,
+          cardProps: {
+            icon: 'user',
+            color: '$gray10',
+            order: 7,
+            html: textTemplate,
+          },
+        },
+        boot: async () => Device.deviceName ?? 'unknown_device',
+      },
+      {
+        descriptor: {
+          name: 'device_type',
+          label: 'Device type',
+          description: 'Physical form factor',
+          endpoint: DeviceTypeEndpoint,
+          connectionType: 'mqtt',
+          ephemeral: false,
+          cardProps: {
+            icon: 'tablet',
+            color: '$gray9',
+            order: 8,
+            html: textTemplate,
+          },
+        },
+        boot: async () => formatDeviceType(Device.deviceType),
+      },
+      {
+        descriptor: {
+          name: 'device_product',
+          label: 'Product ID',
+          description: 'Internal product identifier',
+          endpoint: DeviceProductEndpoint,
+          connectionType: 'mqtt',
+          ephemeral: false,
+          cardProps: {
+            icon: 'info',
+            color: '$gray8',
+            order: 9,
+          },
+        },
+        boot: async () => Device.modelId ?? Device.designName ?? 'unknown',
       },
     ],
     actions: [],
@@ -168,4 +191,3 @@ function formatDeviceType(type?: number | null) {
       return 'unknown';
   }
 }
-

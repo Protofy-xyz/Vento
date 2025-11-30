@@ -31,6 +31,7 @@ export function buildCameraSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'camera',
             color: '$blue10',
+            order: 68,
           },
           mode: 'request-reply',
           replyTimeoutMs: 30000,

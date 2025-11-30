@@ -24,6 +24,7 @@ export function buildHapticsSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'vibrate',
             color: '$purple10',
+            order: 57,
           },
           mode: 'request-reply',
         },
@@ -51,6 +52,7 @@ export function buildHapticsSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'vibrate',
             color: '$orange10',
+            order: 58,
           },
           mode: 'request-reply',
         },

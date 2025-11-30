@@ -83,6 +83,7 @@ export function buildNotificationsSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'bell',
             color: '$blue10',
+            order: 69,
           },
           mode: 'request-reply',
         },
@@ -148,6 +149,7 @@ export function buildNotificationsSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'clock',
             color: '$orange10',
+            order: 70,
           },
           mode: 'request-reply',
         },
@@ -207,6 +209,7 @@ export function buildNotificationsSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'bell-off',
             color: '$red10',
+            order: 71,
           },
           mode: 'request-reply',
         },
@@ -239,6 +242,7 @@ export function buildNotificationsSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'trash-2',
             color: '$red10',
+            order: 72,
           },
           mode: 'request-reply',
         },
@@ -273,6 +277,7 @@ export function buildNotificationsSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'hash',
             color: '$purple10',
+            order: 73,
           },
           mode: 'request-reply',
         },

@@ -74,6 +74,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'bluetooth',
             color: '$blue10',
+            order: 36,
           },
         },
         boot: getBluetoothState,
@@ -91,6 +92,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'radio',
             color: '$blue9',
+            order: 37,
           },
         },
         subscribe: subscribeDiscoveredDevices,
@@ -124,6 +126,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'search',
             color: '$blue10',
+            order: 38,
           },
           mode: 'request-reply',
         },
@@ -141,6 +144,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'stop-circle',
             color: '$orange10',
+            order: 39,
           },
           mode: 'request-reply',
         },
@@ -166,6 +170,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'link',
             color: '$green10',
+            order: 40,
           },
           mode: 'request-reply',
         },
@@ -191,6 +196,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'unlink',
             color: '$red10',
+            order: 41,
           },
           mode: 'request-reply',
         },
@@ -216,6 +222,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'layers',
             color: '$purple10',
+            order: 42,
           },
           mode: 'request-reply',
         },
@@ -249,6 +256,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'download',
             color: '$cyan10',
+            order: 43,
           },
           mode: 'request-reply',
         },
@@ -291,6 +299,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'upload',
             color: '$pink10',
+            order: 44,
           },
           mode: 'request-reply',
         },
@@ -324,6 +333,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'bell',
             color: '$amber10',
+            order: 45,
           },
           mode: 'request-reply',
         },
@@ -357,6 +367,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'bell-off',
             color: '$gray10',
+            order: 46,
           },
           mode: 'request-reply',
         },

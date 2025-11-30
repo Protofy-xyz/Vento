@@ -31,6 +31,7 @@ export function buildClipboardSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'clipboard',
             color: '$indigo10',
+            order: 61,
           },
           mode: 'request-reply',
         },
@@ -72,6 +73,7 @@ export function buildClipboardSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'file-text',
             color: '$teal10',
+            order: 62,
           },
           mode: 'request-reply',
         },

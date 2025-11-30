@@ -14,7 +14,7 @@ export function buildMicrophoneSubsystem(): SubsystemDefinition {
           units: 'dB',
           endpoint: '/microphone/monitors/decibels',
           connectionType: 'mqtt',
-          cardProps: { color: '$orange10', icon: 'mic' },
+          cardProps: { color: '$orange10', icon: 'mic', order: 65 },
           ephemeral: true,
         },
         subscribe: subscribeMicrophone,
@@ -30,7 +30,7 @@ export function buildMicrophoneSubsystem(): SubsystemDefinition {
           endpoint: '/microphone/actions/start',
           connectionType: 'mqtt',
           payload: { type: 'none' },
-          cardProps: { icon: 'mic' },
+          cardProps: { icon: 'mic', order: 66 },
         },
         handler: async (_payload, reply) => {
           // Microphone starts automatically via subscribe
@@ -45,7 +45,7 @@ export function buildMicrophoneSubsystem(): SubsystemDefinition {
           endpoint: '/microphone/actions/stop',
           connectionType: 'mqtt',
           payload: { type: 'none' },
-          cardProps: { icon: 'mic-off' },
+          cardProps: { icon: 'mic-off', order: 67 },
         },
         handler: async (_payload, reply) => {
           // Microphone stops when unsubscribed

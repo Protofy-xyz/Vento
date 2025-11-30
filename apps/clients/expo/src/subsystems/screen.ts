@@ -139,6 +139,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'hand',
             color: '$cyan10',
+            order: 47,
           },
         },
         // No boot, no interval - published on touch events from App
@@ -153,6 +154,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'code',
             color: '$purple10',
+            order: 48,
           },
         },
         boot: async (publish) => {
@@ -182,6 +184,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'palette',
             color: '$pink10',
+            order: 49,
           },
           mode: 'request-reply',
         },
@@ -258,6 +261,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'code',
             color: '$violet10',
+            order: 50,
           },
           mode: 'request-reply',
         },
@@ -319,6 +323,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'type',
             color: '$blue10',
+            order: 51,
           },
           mode: 'request-reply',
         },
@@ -373,6 +378,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'edit-3',
             color: '$green10',
+            order: 52,
           },
           mode: 'request-reply',
         },
@@ -436,6 +442,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'maximize-2',
             color: '$orange10',
+            order: 53,
           },
           mode: 'request-reply',
         },

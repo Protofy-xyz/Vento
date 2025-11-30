@@ -1,6 +1,7 @@
 import * as Battery from 'expo-battery';
 
 import type { SubsystemDefinition, EmitFn, UnsubscribeFn } from './types';
+import { percentTemplate, textTemplate } from './cardTemplates';
 
 const BATTERY_LEVEL_ENDPOINT = '/battery/monitors/level';
 const BATTERY_STATE_ENDPOINT = '/battery/monitors/state';
@@ -23,6 +24,8 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'battery',
             color: '$green10',
+            order: 11,
+            html: percentTemplate,
           },
         },
         boot: async () => {
@@ -43,6 +46,8 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'battery-charging',
             color: '$yellow10',
+            order: 12,
+            html: textTemplate,
           },
         },
         boot: async () => {
@@ -63,6 +68,8 @@ export function buildBatterySubsystem(): SubsystemDefinition {
           cardProps: {
             icon: 'zap-off',
             color: '$orange10',
+            order: 13,
+            html: textTemplate,
           },
         },
         boot: async () => {

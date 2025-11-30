@@ -262,10 +262,11 @@ const getDB = (path, req, session) => {
           template: { id: "smart ai agent" }
         });
 
-        // Get the card definitions for this object
+        // Get the card definitions for this object with its field types
         const cardDefinitions = getObjectCardDefinitions({
           modelName: objectName,
-          object: value.name
+          object: value.name,
+          keys: value.keys // Pass the object field definitions to generate proper params
         });
 
         const DEFAULT_HTML_ACTION = `//@card/react
@@ -318,7 +319,7 @@ function Widget(card) {
         for (const cardDef of cardDefinitions) {
           const uniqueKey = `${cardDef.name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           
-          const cardData = {
+          const cardData: Record<string, any> = {
             key: uniqueKey,
             type: cardDef.defaults.type || 'action',
             name: cardDef.defaults.name,
@@ -333,6 +334,14 @@ function Widget(card) {
             html: cardDef.defaults.html || (cardDef.defaults.type === 'action' ? DEFAULT_HTML_ACTION : DEFAULT_HTML_VALUE),
             layer: 'base'
           };
+
+          // Add optional properties if they exist
+          if (cardDef.defaults.presets) {
+            cardData.presets = cardDef.defaults.presets;
+          }
+          if (cardDef.defaults.method) {
+            cardData.method = cardDef.defaults.method;
+          }
 
           await API.post(`/api/core/v1/boards/${encodeURIComponent(boardName)}/management/add/card?token=${token}`, {
             card: cardData

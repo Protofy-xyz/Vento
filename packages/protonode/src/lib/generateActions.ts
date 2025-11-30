@@ -23,12 +23,78 @@ export type ObjectCardDefinition = {
     emitEvent?: boolean;
 }
 
+export type ObjectKeyDefinition = {
+    type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'record' | 'union' | 'date' | 'relation';
+    params?: string[];
+    modifiers?: Array<{ name: string; params?: string[] }>;
+}
+
 export type GetObjectCardsParams = {
     modelName: string;
     modelType?: any;
     pluralName?: string;
     object?: string;
     html?: Record<string, string>;
+    keys?: Record<string, ObjectKeyDefinition>; // Object field definitions from the schema
+}
+
+/**
+ * Maps object field types to card configParam types
+ */
+const mapFieldTypeToParamType = (fieldType: string): string => {
+    switch (fieldType) {
+        case 'number':
+            return 'number';
+        case 'boolean':
+            return 'boolean';
+        case 'array':
+        case 'object':
+        case 'record':
+            return 'json';
+        case 'string':
+        case 'date':
+        case 'relation':
+        case 'union':
+        default:
+            return 'string';
+    }
+}
+
+/**
+ * Generates params and configParams from object keys definition
+ */
+const generateParamsFromKeys = (keys: Record<string, ObjectKeyDefinition>, modelName: string) => {
+    const params: Record<string, string> = {};
+    const configParams: Record<string, any> = {};
+
+    for (const [fieldName, fieldDef] of Object.entries(keys)) {
+        // Skip auto-generated fields (those with id modifier or generate modifier)
+        const hasIdModifier = fieldDef.modifiers?.some(m => m.name === 'id');
+        const hasGenerateModifier = fieldDef.modifiers?.some(m => m.name === 'generate');
+        const isHidden = fieldDef.modifiers?.some(m => m.name === 'hidden');
+        
+        if (isHidden) continue;
+
+        // Get label from modifiers if exists
+        const labelModifier = fieldDef.modifiers?.find(m => m.name === 'label');
+        const label = labelModifier?.params?.[0]?.replace(/['"]/g, '') || fieldName;
+
+        // Get hint/description from modifiers if exists
+        const hintModifier = fieldDef.modifiers?.find(m => m.name === 'hint');
+        const hint = hintModifier?.params?.[0]?.replace(/['"]/g, '') || '';
+
+        const paramType = mapFieldTypeToParamType(fieldDef.type);
+        const description = hint || `${label} (${fieldDef.type})${hasIdModifier ? ' - this will be used as the id' : ''}`;
+
+        params[fieldName] = description;
+        configParams[fieldName] = {
+            visible: true,
+            defaultValue: fieldDef.type === 'boolean' ? false : (fieldDef.type === 'number' ? 0 : ''),
+            type: paramType
+        };
+    }
+
+    return { params, configParams };
 }
 
 const getListRules = (modelName) => {
@@ -71,7 +137,8 @@ export const getObjectCardDefinitions = ({
     modelType,
     pluralName,
     object,
-    html = {}
+    html = {},
+    keys
 }: GetObjectCardsParams): ObjectCardDefinition[] => {
     const plurName = pluralName ?? modelName;
     
@@ -82,21 +149,51 @@ export const getObjectCardDefinitions = ({
         return defaultValue;
     }
 
-    // Get params from modelType if available (for create card)
-    let createParams = {};
-    let updateParams = {
+    // Get params from keys or modelType (for create card)
+    let createParams: Record<string, string> = {};
+    let createConfigParams: Record<string, any> = {};
+    let updateParams: Record<string, string> = {
         id: `id of the ${modelName} to update`,
         field: `field to update in the ${modelName}`,
         value: `new value for the field`
     };
+    let updateConfigParams: Record<string, any> = {
+        id: { visible: true, defaultValue: '', type: 'string' },
+        field: { visible: true, defaultValue: '', type: 'string' },
+        value: { visible: true, defaultValue: '', type: 'any' }
+    };
     
-    if (modelType?.getObjectFieldsDefinition) {
+    // First priority: use keys if provided
+    if (keys && Object.keys(keys).length > 0) {
+        const generated = generateParamsFromKeys(keys, modelName);
+        createParams = generated.params;
+        createConfigParams = generated.configParams;
+        
+        const fieldNames = Object.keys(keys).filter(k => !keys[k].modifiers?.some(m => m.name === 'hidden'));
+        updateParams = {
+            id: `id of the ${modelName} to update`,
+            field: `field to update in the ${modelName}. Possible fields: ${fieldNames.join(", ")}`,
+            value: `new value for the field`
+        };
+    }
+    // Second priority: use modelType if provided
+    else if (modelType?.getObjectFieldsDefinition) {
         const def = modelType.getObjectFieldsDefinition();
         createParams = Object.keys(def).filter(key => def[key].autogenerate == false).map((key) => {
             return {
                 [key]: def[key].description + " (" + def[key].type + ")" + (def[key].isId ? " (this will be used as the id of the element)" : "")
             }
         }).reduce((acc, val) => ({ ...acc, ...val }), {});
+        
+        // Generate configParams from modelType definition
+        createConfigParams = Object.keys(def).filter(key => def[key].autogenerate == false).reduce((acc, key) => {
+            acc[key] = {
+                visible: true,
+                defaultValue: def[key].type === 'boolean' ? false : (def[key].type === 'number' ? 0 : ''),
+                type: mapFieldTypeToParamType(def[key].type)
+            };
+            return acc;
+        }, {} as Record<string, any>);
         
         updateParams = {
             id: `id of the ${modelName} to update`,
@@ -178,13 +275,14 @@ export const getObjectCardDefinitions = ({
             defaults: {
                 html: getHTML('create'),
                 width: 2,
-                height: 14,
+                height: Math.max(8, 6 + Object.keys(createParams).length * 2), // Dynamic height based on params
                 icon: 'file-plus',
                 displayResponse: true,
                 name: `create ${modelName}`,
                 type: 'action',
                 description: `Creates a ${modelName} given its content. Returns the created ${modelName}.`,
                 params: createParams,
+                configParams: createConfigParams,
                 rulesCode: `return execute_action("/api/v1/actions/${modelName}/create", userParams)`
             }
         },
@@ -227,6 +325,7 @@ export const getObjectCardDefinitions = ({
                 type: 'action',
                 description: `Updates a ${modelName} by id, changing field with a given value. Returns the updated ${modelName} if it was updated, false otherwise.`,
                 params: updateParams,
+                configParams: updateConfigParams,
                 rulesCode: `return execute_action("/api/v1/actions/${modelName}/update", userParams)`
             }
         },

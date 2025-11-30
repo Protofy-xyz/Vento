@@ -39,12 +39,6 @@ jobs:
         run: |
           zip -r vento-pages.zip data/pages
 
-      # TODO: Temporarily using a pre-built APK. In the future, this step should trigger
-      # an Expo EAS build for apps/clients/expo and use the resulting artifact.
-      - name: Download Expo client APK (pre-built)
-        run: |
-          curl -L -o vento-client.apk "https://expo.dev/artifacts/eas/iD3QZBBxqtqT1WxZmyueA5.apk"
-
       - name: Create or update development tag
         run: |
           git config user.name "github-actions"
@@ -60,7 +54,6 @@ jobs:
           files: |
             release-development.zip
             vento-pages.zip
-            vento-client.apk
           draft: false
           prerelease: false
         env:

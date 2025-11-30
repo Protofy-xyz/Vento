@@ -1,12 +1,14 @@
 import { ObjectModel } from ".";
-import { handler, requireAdmin, getSourceFile, extractChainCalls, getDefinition, AutoAPI, getRoot, addFeature, toSourceFile } from 'protonode'
+import { handler, requireAdmin, getSourceFile, extractChainCalls, getDefinition, AutoAPI, getRoot, addFeature, toSourceFile, getObjectCardDefinitions } from 'protonode'
 import { promises as fs } from 'fs';
 import syncFs from 'fs';
 import * as fspath from 'path';
 import { ObjectLiteralExpression, PropertyAssignment, Project, SyntaxKind, Node } from 'ts-morph';
 import { getServiceToken } from 'protonode'
-import { API } from 'protobase'
+import { API, getLogger } from 'protobase'
 import { APIModel } from '@extensions/apis/apisSchemas'
+
+const logger = getLogger()
 
 
 const indexFile = "/packages/app/objects/index.ts"
@@ -147,6 +149,30 @@ const getDB = (path, req, session) => {
       if (syncFs.existsSync(fspath.join(getRoot(req), 'data/automations', value.name + '.ts'))) {
         syncFs.unlinkSync(fspath.join(getRoot(req), 'data/automations', value.name + '.ts'))
       }
+
+      // Delete associated board when object is deleted
+      try {
+        const token = getServiceToken();
+        
+        // Normalize object name to get board name
+        const toBoardName = (s: string) =>
+          s.trim()
+            .replace(/\s+/g, "_")
+            .replace(/[^a-z0-9_]/gi, "_")
+            .toLowerCase();
+        
+        const objectName = toBoardName(value.name);
+        const boardName = `${objectName}_object`;
+        
+        await API.get(`/api/core/v1/boards/${encodeURIComponent(boardName)}/delete?token=${token}`);
+        logger.info({ boardName, objectName: value.name }, 'Deleted associated object board');
+      } catch (e: any) {
+        // Board doesn't exist or delete failed - log only if it's not a "not found" error
+        const status = e?.response?.status || e?.status;
+        if (status && status !== 404) {
+          logger.warn({ objectName: value.name, err: e?.message }, 'Failed to delete associated object board');
+        }
+      }
     },
 
     async put(key, value) {
@@ -217,35 +243,107 @@ const getDB = (path, req, session) => {
         })
         await API.post("/api/core/v1/apis?token=" + session.token, objectApi.create().getData())
       }
-      const createStorageBoard = false
-      if (createStorageBoard) {
+      // Auto-create board for object with its cards
       try {
-        // Solo para storages (usa el template automatic-crud)
-        if (templateName === "automatic-crud") {
-          const shouldCreateBoard = value.createAgentBoard !== false;
-          if (shouldCreateBoard) {
-            const token = session?.token ?? getServiceToken();
+        const token = session?.token ?? getServiceToken();
 
-            const toBoardName = (s: string) =>
-              s.trim()
-                .replace(/\s+/g, "_")
-                .replace(/[^a-z_]/gi, "_")
-                .toLowerCase();
+        const toBoardName = (s: string) =>
+          s.trim()
+            .replace(/\s+/g, "_")
+            .replace(/[^a-z0-9_]/gi, "_")
+            .toLowerCase();
 
-            const boardName = value.agentBoardName
-              ? toBoardName(value.agentBoardName)
-              : toBoardName(value.name);
+        const objectName = toBoardName(value.name);
+        const boardName = `${objectName}_object`;
 
-            await API.post(`/api/core/v1/import/board?token=${token}`, {
-              name: boardName,
-              template: { id: "ai agent" }
-            });
-          }
+        // Create board using 'smart ai agent' template
+        await API.post(`/api/core/v1/import/board?token=${token}`, {
+          name: boardName,
+          template: { id: "smart ai agent" }
+        });
+
+        // Get the card definitions for this object
+        const cardDefinitions = getObjectCardDefinitions({
+          modelName: objectName,
+          object: value.name
+        });
+
+        const DEFAULT_HTML_ACTION = `//@card/react
+
+function Widget(card) {
+  const value = card.value;
+
+  const content = <YStack f={1} ai="center" jc="center" width="100%">
+      {card.icon && card.displayIcon !== false && (
+          <Icon name={card.icon} size={48} color={card.color}/>
+      )}
+      {card.displayResponse !== false && (
+          <CardValue mode={card.markdownDisplay ? 'markdown' : card.htmlDisplay ? 'html' : 'normal'} value={value ?? "N/A"} />
+      )}
+  </YStack>
+
+  return (
+      <Tinted>
+        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
+          <ActionCard data={card}>
+            {card.displayButton !== false ? <ParamsForm data={card}>{content}</ParamsForm> : card.displayResponse !== false && content}
+          </ActionCard>
+        </ProtoThemeProvider>
+      </Tinted>
+  );
+}
+`;
+
+        const DEFAULT_HTML_VALUE = `//@card/react
+function Widget(card) {
+  const value = card.value;
+  return (
+    <Tinted>
+      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
+        <YStack f={1} height="100%" ai="center" jc="center" width="100%">
+          {card.icon && card.displayIcon !== false && (
+            <Icon name={card.icon} size={48} color={card.color}/>
+          )}
+          {card.displayResponse !== false && (
+            <CardValue mode={card.markdownDisplay ? 'markdown' : card.htmlDisplay ? 'html' : 'normal'} value={value ?? "N/A"} />
+          )}
+        </YStack>
+      </ProtoThemeProvider>
+    </Tinted>
+  );
+}
+`;
+
+        // Add each card to the board
+        for (const cardDef of cardDefinitions) {
+          const uniqueKey = `${cardDef.name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          const cardData = {
+            key: uniqueKey,
+            type: cardDef.defaults.type || 'action',
+            name: cardDef.defaults.name,
+            description: cardDef.defaults.description || '',
+            rulesCode: cardDef.defaults.rulesCode || '',
+            params: cardDef.defaults.params || {},
+            configParams: cardDef.defaults.configParams || {},
+            displayResponse: cardDef.defaults.displayResponse ?? true,
+            icon: cardDef.defaults.icon || 'box',
+            width: cardDef.defaults.width || 2,
+            height: cardDef.defaults.height || 8,
+            html: cardDef.defaults.html || (cardDef.defaults.type === 'action' ? DEFAULT_HTML_ACTION : DEFAULT_HTML_VALUE),
+            layer: 'base'
+          };
+
+          await API.post(`/api/core/v1/boards/${encodeURIComponent(boardName)}/management/add/card?token=${token}`, {
+            card: cardData
+          });
         }
+
+        console.log(`Auto-created board "${boardName}" with ${cardDefinitions.length} cards for object "${value.name}"`);
       } catch (e) {
-        console.error("Auto-create AI Agent board failed:", e);
+        // Log error but don't fail object creation
+        console.error("Auto-create object board failed:", e);
       }
-    }
     },
 
     async get(key) {
@@ -287,4 +385,50 @@ export default (app, context) => {
   }))
 
   ObjectsAutoAPI(app, context)
+
+  // Subscribe to board delete events to delete associated object
+  // Object boards end with '_object', e.g. 'myobject_object' for object 'myobject'
+  context.events?.onEvent?.(
+    context.mqtt,
+    context,
+    async (msg: any) => {
+      const boardName = msg?.parsed?.payload?.id
+        || msg?.payload?.id
+        || msg?.parsed?.path?.split('/')?.[2]
+        || msg?.topic?.split('/')?.[2];
+
+      if (!boardName) {
+        logger.warn('Board delete event received but could not extract board name');
+        return;
+      }
+
+      // Only process boards that end with '_object'
+      if (!boardName.endsWith('_object')) {
+        return;
+      }
+
+      // Extract object name by removing '_object' suffix
+      const objectName = boardName.slice(0, -7); // Remove '_object'
+
+      if (!objectName) {
+        return;
+      }
+
+      // Check if the object file exists and delete it
+      try {
+        const token = getServiceToken();
+
+        // Try to delete the object via API
+        await API.get(`/api/core/v1/objects/${encodeURIComponent(objectName)}Model/delete?token=${token}`);
+        logger.info({ objectName, boardName }, 'Object deleted due to board deletion');
+      } catch (err: any) {
+        // Object doesn't exist or delete failed - log only if it's not a "not found" error
+        const status = err?.response?.status || err?.status;
+        if (status && status !== 404) {
+          logger.warn({ objectName, boardName, err: err?.message }, 'Failed to delete object after board deletion');
+        }
+      }
+    },
+    'boards/delete/#'
+  );
 }

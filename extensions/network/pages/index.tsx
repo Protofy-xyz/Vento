@@ -2,7 +2,7 @@ import React from 'react'
 import { BoardModel } from '../../boards/boardsSchemas'
 import { API } from 'protobase'
 import { DataTable2 } from "protolib/components/DataTable2"
-import { DataView } from "protolib/components/DataView"
+import { DataView, DataViewActionButton } from "protolib/components/DataView"
 import { AdminPage } from "protolib/components/AdminPage"
 import { PaginatedData, SSR } from "protolib/lib/SSR"
 import { withSession } from "protolib/lib/Session"
@@ -15,10 +15,13 @@ import { AlertDialog } from 'protolib/components/AlertDialog'
 import { useState } from 'react'
 import { Slides } from 'protolib/components/Slides';
 import { TemplateCard } from '../../apis/TemplateCard';
+import { Eye, EyeOff } from '@tamagui/lucide-icons'
 import { usePageParams } from 'protolib/next'
+import { Tinted } from 'protolib/components/Tinted'
 import { Board } from '@extensions/boards/pages/view'
 import { BoardView } from '@extensions/boards/pages/view'
 import { networkOptions, NetworkOption } from '../options'
+import { shouldShowInArea } from 'protolib/helpers/Visibility'
 
 const { useParams } = createParam()
 
@@ -136,6 +139,24 @@ export default {
           itemData={itemData}
           sourceUrl={sourceUrl}
           sourceUrlParams={query}
+          hideDeleteAll={true}
+          extraActions={[
+            <Tinted key="toggle-visibility-scope">
+              <DataViewActionButton
+                id="admin-dataview-add-btn"
+                icon={query.all === 'true' ? EyeOff : Eye}
+                description={
+                  query.all === 'true'
+                    ? 'Show only boards visible in this view'
+                    : 'Show boards from all views'
+                }
+                onPress={() => {
+                  push('all', query.all === 'true' ? 'false' : 'true')
+                }}
+              />
+            </Tinted>
+          ]}
+          extraFilters={[{ queryParam: "all" }]}
           initialItems={initialItems}
           numColumnsForm={1}
           onAdd={(data) => { router.push(`/boards/view?board=${data.name}`); return data }}
@@ -150,6 +171,13 @@ export default {
           model={BoardModel}
           pageState={pageState}
           dataTableGridProps={{
+            itemsTransform: (items) => {
+              const list = Array.isArray(items) ? [...items] : [];
+              if (query.all !== 'true') {
+                return list.filter((item) => shouldShowInArea(item, 'agents'));
+              }
+              return list;
+            },
             getCard: (element, width) => USE_EMBEDDED_VIEW 
               ? <NetworkPreview 
                   board={element} 

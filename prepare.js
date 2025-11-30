@@ -72,6 +72,20 @@ directories.forEach(directory => {
     }
 })();
 
+(async () => {
+    if (!fs.existsSync('./data/public/clients/vento-client.apk')) {
+        console.log('Downloading android client...');
+        const clientUrl = 'https://github.com/Protofy-xyz/Vento/releases/download/development/vento-client.apk';
+        const response = await fetch(clientUrl);
+        if (!response.ok) {
+            console.error(`Failed to download client: ${response.status} ${response.statusText}`);
+            return;
+        }
+        const client = await response.arrayBuffer();
+        fs.writeFileSync('./data/public/clients/vento-client.apk', Buffer.from(client));
+        console.log('Android client downloaded successfully!');
+    }
+})();
 //download vento agent if it doesn't exist
 (async () => {
     if (skipDownloadClient) {

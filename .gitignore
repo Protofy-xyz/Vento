@@ -20,6 +20,7 @@ data/dendrite/*
 !data/dendrite/dendrite.yaml
 !data/themes
 !data/public
+data/public/clients
 data/public/images
 !.yarn/patches
 !.yarn/plugins

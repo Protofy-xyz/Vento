@@ -1,5 +1,5 @@
-//go:build windows || darwin
-// +build windows darwin
+//go:build (windows && amd64) || darwin
+// +build windows,amd64 darwin
 
 package gui
 

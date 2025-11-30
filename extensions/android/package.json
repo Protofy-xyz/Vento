@@ -1,0 +1,7 @@
+{
+  "name": "@extensions/android",
+  "version": "1.0.0",
+  "dependencies": {
+    "react-qr-code": "^2.0.15"
+  }
+}

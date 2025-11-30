@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Button,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as NavigationBar from 'expo-navigation-bar';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import { useAgent } from './src/hooks/useAgent';
 import { usePermissions } from './src/hooks/usePermissions';
@@ -34,20 +36,45 @@ import { WebView } from 'react-native-webview';
 import { MQTTManager } from './src/mqttClient';
 
 type ScreenMode = 'blank' | 'camera' | 'logs';
+type LoginMode = 'choose' | 'scan' | 'manual';
+
+// Parse vento:// URL scheme
+function parseVentoUrl(url: string): { host: string; user: string; token: string } | null {
+  try {
+    // vento://connect?host=xxx&user=xxx&token=xxx
+    if (!url.startsWith('vento://connect')) {
+      return null;
+    }
+    const urlObj = new URL(url);
+    const host = urlObj.searchParams.get('host');
+    const user = urlObj.searchParams.get('user');
+    const token = urlObj.searchParams.get('token');
+    
+    if (host && user && token) {
+      return { host, user, token };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export default function App() {
   const { state, connect, disconnect } = useAgent();
   const { state: permissions, requestAllPermissions } = usePermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [host, setHost] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [screenMode, setScreenMode] = useState<ScreenMode>('blank');
+  const [loginMode, setLoginMode] = useState<LoginMode>('choose');
   const [overrideColor, setOverrideColor] = useState<string | null>(null);
   const [overrideHtml, setOverrideHtml] = useState<ScreenHtmlState | null>(null);
   const [overrideText, setOverrideText] = useState<string | null>(null);
   const [overrideTextColor, setOverrideTextColor] = useState<string | null>(null);
   const [overrideTextSize, setOverrideTextSize] = useState<number | null>(null);
   const [permissionsRequested, setPermissionsRequested] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -70,6 +97,35 @@ export default function App() {
     
     return () => { mounted = false; };
   }, []); // Empty deps - run only once on mount
+
+  // Handle deep link (vento://) on app start
+  useEffect(() => {
+    const handleUrl = (event: { url: string }) => {
+      const credentials = parseVentoUrl(event.url);
+      if (credentials) {
+        setHost(credentials.host);
+        setUsername(credentials.user);
+        setPassword(credentials.token);
+        // Auto-connect
+        connect({
+          host: credentials.host,
+          username: credentials.user,
+          password: credentials.token,
+        });
+      }
+    };
+
+    // Check initial URL
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleUrl({ url });
+      }
+    });
+
+    // Listen for URL changes
+    const subscription = Linking.addEventListener('url', handleUrl);
+    return () => subscription.remove();
+  }, [connect]);
 
   // Register screen callbacks
   useEffect(() => {
@@ -147,6 +203,25 @@ export default function App() {
     };
   }, [state.status]);
 
+  const handleQrScanned = useCallback(({ data }: { data: string }) => {
+    setScanError(null);
+    const credentials = parseVentoUrl(data);
+    if (credentials) {
+      setHost(credentials.host);
+      setUsername(credentials.user);
+      setPassword(credentials.token);
+      setLoginMode('choose');
+      // Auto-connect
+      connect({
+        host: credentials.host,
+        username: credentials.user,
+        password: credentials.token,
+      });
+    } else {
+      setScanError('Invalid QR code. Please scan a Vento connection QR.');
+    }
+  }, [connect]);
+
   const isConnecting = state.status === 'connecting';
   const isConnected = state.status === 'connected';
 
@@ -156,14 +231,143 @@ export default function App() {
 
   // Login screen
   if (!isConnected) {
+    // Choose mode: Scan or Manual
+    if (loginMode === 'choose') {
+      return (
+        <View style={[styles.container, { backgroundColor: '#0b0b0f' }]}>
+          <StatusBar style="light" translucent backgroundColor="transparent" />
+          <View style={styles.chooseContainer}>
+            <Text style={styles.title}>Vento Mobile Agent</Text>
+            <Text style={styles.subtitle}>Choose how to connect</Text>
+            
+            <Pressable 
+              style={styles.chooseButton}
+              onPress={async () => {
+                if (!cameraPermission?.granted) {
+                  await requestCameraPermission();
+                }
+                setLoginMode('scan');
+              }}
+            >
+              <Text style={styles.chooseButtonIcon}>📷</Text>
+              <View style={styles.chooseButtonTextContainer}>
+                <Text style={styles.chooseButtonTitle}>Scan to Connect</Text>
+                <Text style={styles.chooseButtonDesc}>Scan QR code from Vento admin panel</Text>
+              </View>
+            </Pressable>
+
+            <Pressable 
+              style={[styles.chooseButton, styles.chooseButtonSecondary]}
+              onPress={() => setLoginMode('manual')}
+            >
+              <Text style={styles.chooseButtonIcon}>⌨️</Text>
+              <View style={styles.chooseButtonTextContainer}>
+                <Text style={styles.chooseButtonTitle}>Connect Manually</Text>
+                <Text style={styles.chooseButtonDesc}>Enter host, username and password</Text>
+              </View>
+            </Pressable>
+
+            {/* Permission status */}
+            <View style={styles.permissionsRow}>
+              <Text style={[styles.permissionItem, { color: permissions.camera === 'granted' ? '#4ade80' : '#f87171' }]}>
+                📷 {permissions.camera === 'granted' ? '✓' : '✗'}
+              </Text>
+              <Text style={[styles.permissionItem, { color: permissions.microphone === 'granted' ? '#4ade80' : '#f87171' }]}>
+                🎤 {permissions.microphone === 'granted' ? '✓' : '✗'}
+              </Text>
+              <Text style={[styles.permissionItem, { color: permissions.location === 'granted' ? '#4ade80' : '#f87171' }]}>
+                📍 {permissions.location === 'granted' ? '✓' : '✗'}
+              </Text>
+            </View>
+            {!permissions.allGranted && permissionsRequested && (
+              <Pressable onPress={requestAllPermissions} style={styles.permissionButton}>
+                <Text style={styles.permissionButtonText}>Grant Permissions</Text>
+              </Pressable>
+            )}
+          </View>
+          {isConnecting && (
+            <View style={styles.overlay}>
+              <ActivityIndicator size="large" color="#fff" />
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    // Scan mode: QR Scanner
+    if (loginMode === 'scan') {
+      if (!cameraPermission?.granted) {
+        return (
+          <View style={[styles.container, { backgroundColor: '#0b0b0f' }]}>
+            <StatusBar style="light" translucent backgroundColor="transparent" />
+            <View style={styles.form}>
+              <Text style={styles.title}>Camera Permission Required</Text>
+              <Text style={[styles.subtitle, { marginBottom: 20 }]}>
+                Camera access is needed to scan QR codes
+              </Text>
+              <Button title="Grant Permission" onPress={requestCameraPermission} />
+              <View style={{ height: 12 }} />
+              <Button title="Back" onPress={() => setLoginMode('choose')} color="#666" />
+            </View>
+          </View>
+        );
+      }
+
+      return (
+        <View style={[styles.container, { backgroundColor: '#0b0b0f' }]}>
+          <StatusBar style="light" translucent backgroundColor="transparent" />
+          <CameraView
+            style={StyleSheet.absoluteFillObject}
+            facing="back"
+            barcodeScannerSettings={{
+              barcodeTypes: ['qr'],
+            }}
+            onBarcodeScanned={handleQrScanned}
+          />
+          
+          {/* Overlay with scan frame */}
+          <View style={styles.scanOverlay}>
+            <View style={styles.scanHeader}>
+              <Pressable onPress={() => setLoginMode('choose')} style={styles.backButton}>
+                <Text style={styles.backButtonText}>← Back</Text>
+              </Pressable>
+              <Text style={styles.scanTitle}>Scan QR Code</Text>
+            </View>
+            
+            <View style={styles.scanFrameContainer}>
+              <View style={styles.scanFrame} />
+              <Text style={styles.scanHint}>
+                Point camera at Vento connection QR code
+              </Text>
+              {scanError && (
+                <Text style={styles.scanError}>{scanError}</Text>
+              )}
+            </View>
+          </View>
+          
+          {isConnecting && (
+            <View style={styles.overlay}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={{ color: '#fff', marginTop: 12 }}>Connecting...</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    // Manual mode: Classic form
     return (
       <View style={[styles.container, { backgroundColor: '#0b0b0f' }]}>
         <StatusBar style="light" translucent backgroundColor="transparent" />
         <View style={styles.form}>
+          <Pressable onPress={() => setLoginMode('choose')} style={styles.backButtonForm}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </Pressable>
+          
           <Text style={styles.title}>Vento Mobile Agent</Text>
           <TextInput
             style={styles.input}
-            placeholder="Vento host (e.g. http://localhost:8000)"
+            placeholder="Vento host (e.g. http://192.168.1.100:8000)"
             placeholderTextColor="#666"
             autoCapitalize="none"
             autoCorrect={false}
@@ -364,6 +568,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
+  subtitle: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#333',
@@ -400,7 +610,101 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+
+  // Choose mode styles
+  chooseContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  chooseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1d1d24',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  chooseButtonSecondary: {
+    backgroundColor: '#141418',
+    borderColor: '#222',
+  },
+  chooseButtonIcon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  chooseButtonTextContainer: {
+    flex: 1,
+  },
+  chooseButtonTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  chooseButtonDesc: {
+    fontSize: 14,
+    color: '#888',
+  },
+
+  // Scan mode styles
+  scanOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
+  scanHeader: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  backButtonForm: {
+    marginBottom: 20,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  scanTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  scanFrameContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanFrame: {
+    width: 250,
+    height: 250,
+    borderWidth: 3,
+    borderColor: '#fff',
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+  },
+  scanHint: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 20,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  scanError: {
+    color: '#ff6b6b',
+    fontSize: 14,
+    marginTop: 12,
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
 
   // Blank mode

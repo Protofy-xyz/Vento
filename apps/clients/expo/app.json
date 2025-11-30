@@ -3,6 +3,7 @@
     "name": "vento",
     "slug": "vento",
     "version": "1.0.0",
+    "scheme": "vento",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

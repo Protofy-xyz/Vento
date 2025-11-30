@@ -1,7 +1,7 @@
-import { XStack, YStack } from '@my/ui'
+import { XStack, YStack, Button } from '@my/ui'
 import { PanelMenu } from './PanelMenu';
 import { atom, useAtom } from 'jotai';
-import { useContext, useEffect, useState, useRef } from 'react'
+import { useContext, useEffect, useState, useRef, useCallback } from 'react'
 import { atomWithStorage } from 'jotai/utils'
 import { API } from 'protobase'
 import useSubscription from '../lib/mqtt/useSubscription'
@@ -9,15 +9,37 @@ import { AppConfContext, SiteConfigType } from "../providers/AppConf"
 import { useWorkspace } from '../lib/useWorkspace';
 import { useAgents } from '@extensions/boards/hooks/useAgents'
 import { useThemeSetting } from '@tamagui/next-theme'
+import { MessageCircle, X } from '@tamagui/lucide-icons'
 
 const initialLevels = ['info', 'warn', 'error', 'fatal']
+
+// Breakpoint for mobile view
+const MOBILE_BREAKPOINT = 768
 
 export const AppState = atomWithStorage("adminPanelAppState", {
   logsPanelOpened: false,
   chatPanelOpened: true, // Abierto por defecto
   chatExpanded: false, // Si el chat está expandido a pantalla completa
+  mobileChatOpen: false, // Para controlar el chat en móvil
   levels: initialLevels
 })
+
+// Hook para detectar si es móvil
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+  
+  return isMobile
+}
 
 export const RightPanelAtom = atom(20)
 
@@ -93,6 +115,7 @@ export const AdminPanel = ({ children }) => {
   const [appState, setAppState] = useAtom(AppState)
   const SiteConfig = useContext<SiteConfigType>(AppConfContext);
   const { PanelLayout } = SiteConfig.layout
+  const isMobile = useIsMobile()
 
   const { message } = useSubscription('notifications/object/#')
 
@@ -216,6 +239,10 @@ export const AdminPanel = ({ children }) => {
     document.addEventListener('mousemove', handleMouseMove)
     document.addEventListener('mouseup', handleMouseUp)
   }
+
+  const toggleMobileChat = useCallback(() => {
+    setAppState(prev => ({ ...prev, mobileChatOpen: !prev.mobileChatOpen }))
+  }, [setAppState])
   
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100%', position: 'relative' }}>
@@ -243,25 +270,82 @@ export const AdminPanel = ({ children }) => {
         </PanelLayout>}
       </div>
       
-      {/* Resize handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        style={{
-          width: '2px',
-          cursor: appState.chatExpanded ? 'default' : 'col-resize',
-          backgroundColor: 'var(--borderColor)',
-          flexShrink: 0,
-        }}
-      />
-      {/* Chat iframe */}
-      <div style={{ 
-        width: chatWidth, 
-        flexShrink: 0,
-        height: '100vh',
-        backgroundColor: 'var(--bgPanel)',
-      }}>
-        <ChatPanel isVisible={true} />
-      </div>
+      {/* Desktop: Resize handle and Chat panel */}
+      {!isMobile && (
+        <>
+          <div
+            onMouseDown={handleMouseDown}
+            style={{
+              width: '2px',
+              cursor: appState.chatExpanded ? 'default' : 'col-resize',
+              backgroundColor: 'var(--borderColor)',
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ 
+            width: chatWidth, 
+            flexShrink: 0,
+            height: '100vh',
+            backgroundColor: 'var(--bgPanel)',
+          }}>
+            <ChatPanel isVisible={true} />
+          </div>
+        </>
+      )}
+
+      {/* Mobile: Floating chat button and overlay */}
+      {isMobile && (
+        <>
+          {/* Floating button to toggle chat */}
+          <Button
+            size="$4"
+            circular
+            icon={appState.mobileChatOpen ? X : MessageCircle}
+            onPress={toggleMobileChat}
+            position="absolute"
+            bottom={20}
+            right={20}
+            zIndex={100000}
+            elevation={10}
+            backgroundColor="$color8"
+            pressStyle={{ scale: 0.95 }}
+            animation="quick"
+          />
+          
+          {/* Mobile chat overlay */}
+          {appState.mobileChatOpen && (
+            <>
+              {/* Backdrop */}
+              <div
+                onClick={toggleMobileChat}
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  zIndex: 99998,
+                }}
+              />
+              {/* Chat panel */}
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: '100%',
+                maxWidth: '400px',
+                backgroundColor: 'var(--bgPanel)',
+                zIndex: 99999,
+                boxShadow: '-4px 0 20px rgba(0, 0, 0, 0.3)',
+              }}>
+                <ChatPanel isVisible={true} />
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 }

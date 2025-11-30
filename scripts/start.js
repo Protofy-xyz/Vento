@@ -431,8 +431,8 @@ class ManagedProcess {
                 this.restartCount = 0;
             }
 
-            // Backoff: 1s, 2s, 4s, 8s... max 30s
-            const delay = Math.min(1000 * Math.pow(2, this.restartCount), 30000);
+            // Backoff: 0.5s, 0.65s, 0.85s, 1.1s, 1.4s, 1.9s, 2.4s, 3.1s, 4.1s, 5.3s... max 15s
+            const delay = Math.min(500 * Math.pow(1.3, this.restartCount), 15000);
             this.restartCount++;
             this.lastRestartTime = now;
 

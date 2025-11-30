@@ -21,7 +21,8 @@
     "packages/ui",
     "packages/visualui",
     "extensions/*",
-    "scripts"
+    "scripts",
+    "data/automations"
   ],
   "scripts": {
     "dev-service": "FULL_DEV=1 yarn prepare-dev && FULL_DEV=1 yarn start-service-fast",

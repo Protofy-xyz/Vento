@@ -171,6 +171,7 @@ export default {
           itemData={itemData}
           sourceUrl={sourceUrl}
           sourceUrlParams={query}
+          hideDeleteAll={true}
           extraActions={[
             <Tinted key="toggle-visibility-scope">
               <DataViewActionButton

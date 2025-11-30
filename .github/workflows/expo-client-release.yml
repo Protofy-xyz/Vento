@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Download Expo client APK (pre-built)
         run: |
-          curl -L -o vento-client.apk "https://expo.dev/artifacts/eas/iD3QZBBxqtqT1WxZmyueA5.apk"
+          curl -L -o vento-client.apk "https://expo.dev/artifacts/eas/hTFLWxNvyUcREoPHjcwo85.apk"
 
       - name: Upload to development release
         uses: softprops/action-gh-release@v2
@@ -42,7 +42,7 @@ jobs:
     steps:
       - name: Download Expo client APK (pre-built)
         run: |
-          curl -L -o vento-client.apk "https://expo.dev/artifacts/eas/iD3QZBBxqtqT1WxZmyueA5.apk"
+          curl -L -o vento-client.apk "https://expo.dev/artifacts/eas/hTFLWxNvyUcREoPHjcwo85.apk"
 
       - name: Upload to version release
         uses: softprops/action-gh-release@v2

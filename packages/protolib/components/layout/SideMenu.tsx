@@ -1,7 +1,7 @@
 import React from 'react'
-import { YStack, useMedia, Button, Square, XStack, TooltipSimple } from '@my/ui'
+import { YStack, Button, Square, XStack, TooltipSimple } from '@my/ui'
 import { useState } from 'react'
-import { PanelLeftOpen, PanelLeftClose, PanelLeft, Globe, Settings, MessageCircle } from '@tamagui/lucide-icons'
+import { PanelLeft, Globe, Settings, MessageCircle } from '@tamagui/lucide-icons'
 import { SiteConfig } from '@my/config/dist/AppConfig'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { ColorToggleButton } from '../../components/ColorToggleButton'
@@ -16,11 +16,8 @@ import { useRouter } from 'solito/navigation'
 export const CollapsedSideMenuAtom = atomWithStorage('collapsedSideMenu', false)
 
 export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher = true, tintSwitcher = true, logo, collapsedLogo, ...props }: any) => {
-    const disableOpenMenu = false
     const router = useRouter()
 
-    const isXs = useMedia().xs
-    const [open, setOpen] = useState(false)
     const [collapsed, setCollapsed] = useState(true) //useAtom(CollapsedSideMenuAtom)
     const width = collapsed ? 64 : 260
     const [appState, setAppState] = useAtom(AppState)
@@ -162,33 +159,5 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                 </YStack>
             )}
         </XStack>
-        {
-            isXs && !disableOpenMenu && <>
-                <YStack
-                    backgroundColor="$background"
-                    h="100%"
-                    width='100vw'
-                    display={open ? 'flex' : 'none'}
-                    onPress={e => {
-                        setOpen(false)
-                        e.stopPropagation()
-                    }}
-                ></YStack>
-
-                <Button
-                    onPress={() => setOpen(!open)}
-                    position="fixed"
-                    zIndex={99999}
-                    left="16px"
-                    top="15px"
-                    icon={open ? PanelLeftClose : PanelLeftOpen}
-                    scaleIcon={1.5}
-                    size="$3"
-                    backgroundColor="transparent"
-                    circular
-                >
-                </Button>
-            </>
-        }
     </YStack >
 }

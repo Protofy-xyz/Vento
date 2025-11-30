@@ -142,6 +142,75 @@ function formatTimestamp(date = new Date()) {
 }
 
 // ============================================================================
+// Console Colors
+// ============================================================================
+
+// Tabla de colores para servicios (sin rojo, reservado para errores)
+const ALL_SERVICE_COLORS = [
+    '\x1b[32m',    // Verde
+    '\x1b[33m',    // Amarillo
+    '\x1b[34m',    // Azul
+    '\x1b[35m',    // Magenta
+    '\x1b[36m',    // Cyan
+    '\x1b[92m',    // Verde brillante
+    '\x1b[93m',    // Amarillo brillante
+    '\x1b[94m',    // Azul brillante
+    '\x1b[95m',    // Magenta brillante
+    '\x1b[96m',    // Cyan brillante
+];
+
+const RESET = '\x1b[0m';
+const RED = '\x1b[31m';
+const WHITE = '\x1b[37m';
+
+// Cache de colores por servicio
+const serviceColorCache = new Map();
+// Lista de colores disponibles (se va vaciando y se restaura cuando se agota)
+let availableColors = [...ALL_SERVICE_COLORS];
+
+/**
+ * Calcula un hash simple de un string
+ */
+function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = hash & hash; // Convertir a 32bit integer
+    }
+    return Math.abs(hash);
+}
+
+/**
+ * Obtiene un color consistente para un servicio basado en su nombre.
+ * Los colores no se repiten hasta que se agotan todos.
+ * El mismo nombre siempre devuelve el mismo color (determinista).
+ */
+function getServiceColor(serviceName) {
+    // Si ya tiene color asignado, devolverlo
+    if (serviceColorCache.has(serviceName)) {
+        return serviceColorCache.get(serviceName);
+    }
+    
+    // Si no quedan colores disponibles, restaurar la lista completa
+    if (availableColors.length === 0) {
+        availableColors = [...ALL_SERVICE_COLORS];
+    }
+    
+    // Usar hash del nombre para seleccionar de los colores disponibles
+    const hash = hashString(serviceName);
+    const colorIndex = hash % availableColors.length;
+    const color = availableColors[colorIndex];
+    
+    // Remover el color de la lista de disponibles
+    availableColors.splice(colorIndex, 1);
+    
+    // Guardar en cache
+    serviceColorCache.set(serviceName, color);
+    
+    return color;
+}
+
+// ============================================================================
 // Log Stream Handler
 // ============================================================================
 
@@ -153,20 +222,26 @@ function createLogHandler(name, logFile, isError = false) {
     }
 
     const writeStream = fs.createWriteStream(logFile, { flags: 'a' });
-    const prefix = isError ? `[${name}:err]` : `[${name}]`;
-    const color = isError ? '\x1b[31m' : '\x1b[36m';
-    const reset = '\x1b[0m';
+    const serviceColor = getServiceColor(name);
 
     return {
         write(line) {
             const timestamp = formatTimestamp();
             const logLine = `${timestamp} | ${line}`;
             
-            // Write to file
+            // Write to file (sin colores)
             writeStream.write(logLine + '\n');
             
-            // Write to console with color
-            console.log(`${color}${prefix}${reset} ${line}`);
+            // Write to console con colores
+            if (isError) {
+                // stderr: [nombre_servicio] [ERROR] mensaje
+                // nombre en color del servicio, [ERROR] en rojo, mensaje en blanco
+                console.log(`${serviceColor}[${name}]${RESET} ${RED}[ERROR]${RESET} ${WHITE}${line}${RESET}`);
+            } else {
+                // stdout: [nombre_servicio] mensaje
+                // nombre en color del servicio, mensaje en blanco
+                console.log(`${serviceColor}[${name}]${RESET} ${WHITE}${line}${RESET}`);
+            }
         },
         close() {
             writeStream.end();
@@ -260,8 +335,9 @@ class ManagedProcess {
         // Build environment
         const env = { ...process.env, ...config.env };
 
-        console.log(`\x1b[32m[${this.name}]\x1b[0m Starting: ${command} ${args.join(' ')}`);
-        console.log(`\x1b[32m[${this.name}]\x1b[0m CWD: ${cwd}`);
+        const serviceColor = getServiceColor(this.name);
+        console.log(`${serviceColor}[${this.name}]${RESET} Starting: ${command} ${args.join(' ')}`);
+        console.log(`${serviceColor}[${this.name}]${RESET} CWD: ${cwd}`);
 
         try {
             this.child = spawn(command, args, {
@@ -281,7 +357,7 @@ class ManagedProcess {
                 startedAt: new Date().toISOString()
             });
 
-            console.log(`\x1b[32m[${this.name}]\x1b[0m Started (PID: ${this.child.pid})`);
+            console.log(`${serviceColor}[${this.name}]${RESET} Started (PID: ${this.child.pid})`);
 
             // Handle stdout
             if (this.child.stdout) {
@@ -305,18 +381,20 @@ class ManagedProcess {
             });
 
             this.child.on('error', (err) => {
-                console.error(`\x1b[31m[${this.name}]\x1b[0m Error: ${err.message}`);
+                console.error(`${serviceColor}[${this.name}]${RESET} ${RED}[ERROR]${RESET} ${err.message}`);
                 this.stderrHandler.write(`Error: ${err.message}`);
             });
 
         } catch (err) {
-            console.error(`\x1b[31m[${this.name}]\x1b[0m Failed to spawn: ${err.message}`);
+            const serviceColor = getServiceColor(this.name);
+            console.error(`${serviceColor}[${this.name}]${RESET} ${RED}[ERROR]${RESET} Failed to spawn: ${err.message}`);
             updateProcessState(this.name, { status: 'error', error: err.message });
         }
     }
 
     onExit(code, signal) {
         const { config } = this;
+        const serviceColor = getServiceColor(this.name);
         
         // Close log handlers
         if (this.stdoutHandler) this.stdoutHandler.close();
@@ -326,19 +404,19 @@ class ManagedProcess {
 
         // Si el manager está cerrando, no reiniciar
         if (this.isShuttingDown) {
-            console.log(`\x1b[33m[${this.name}]\x1b[0m Stopped`);
+            console.log(`${serviceColor}[${this.name}]${RESET} Stopped`);
             removeProcessState(this.name);
             return;
         }
 
         // Verificar si fue detenido manualmente desde otra terminal
         if (wasStoppedManually(this.name)) {
-            console.log(`\x1b[33m[${this.name}]\x1b[0m Stopped manually (not restarting)`);
+            console.log(`${serviceColor}[${this.name}]${RESET} Stopped manually (not restarting)`);
             removeProcessState(this.name);
             return;
         }
 
-        console.log(`\x1b[33m[${this.name}]\x1b[0m Exited (code: ${code}, signal: ${signal})`);
+        console.log(`${serviceColor}[${this.name}]${RESET} Exited (code: ${code}, signal: ${signal})`);
         updateProcessState(this.name, { status: 'stopped', exitCode: code, signal: signal });
 
         // Handle autorestart - reiniciar si:
@@ -348,7 +426,7 @@ class ManagedProcess {
         
         if (shouldRestart) {
             // Reset restart count if last restart was more than 5 minutes ago
-            const now = Date.now();
+    const now = Date.now();
             if (now - this.lastRestartTime > 5 * 60 * 1000) {
                 this.restartCount = 0;
             }
@@ -360,12 +438,12 @@ class ManagedProcess {
 
             // Max 10 restarts before giving up
             if (this.restartCount > 10) {
-                console.error(`\x1b[31m[${this.name}]\x1b[0m Too many restarts, giving up`);
+                console.error(`${serviceColor}[${this.name}]${RESET} ${RED}[ERROR]${RESET} Too many restarts, giving up`);
                 updateProcessState(this.name, { status: 'failed' });
                 return;
             }
 
-            console.log(`\x1b[33m[${this.name}]\x1b[0m Restarting in ${delay / 1000}s (attempt ${this.restartCount})...`);
+            console.log(`${serviceColor}[${this.name}]${RESET} Restarting in ${delay / 1000}s (attempt ${this.restartCount})...`);
             updateProcessState(this.name, { status: 'restarting' });
 
             setTimeout(() => {
@@ -374,7 +452,7 @@ class ManagedProcess {
                 }
             }, delay);
         } else {
-            console.log(`\x1b[33m[${this.name}]\x1b[0m Exited cleanly (code 0), not restarting`);
+            console.log(`${serviceColor}[${this.name}]${RESET} Exited cleanly (code 0), not restarting`);
         }
     }
 
@@ -388,8 +466,9 @@ class ManagedProcess {
             this.isShuttingDown = true;
             const pid = this.child.pid;
             const timeout = this.config.kill_timeout || 5000;
+            const serviceColor = getServiceColor(this.name);
 
-            console.log(`\x1b[33m[${this.name}]\x1b[0m Stopping (PID: ${pid})...`);
+            console.log(`${serviceColor}[${this.name}]${RESET} Stopping (PID: ${pid})...`);
 
             // Try graceful kill first
             kill(pid, 'SIGTERM', (err) => {
@@ -402,7 +481,7 @@ class ManagedProcess {
                     // Wait for process to exit or force kill after timeout
                     const forceKillTimer = setTimeout(() => {
                         if (this.child) {
-                            console.log(`\x1b[33m[${this.name}]\x1b[0m Force killing after timeout...`);
+                            console.log(`${serviceColor}[${this.name}]${RESET} Force killing after timeout...`);
                             kill(pid, 'SIGKILL', () => {
                                 resolve();
                             });
@@ -472,7 +551,7 @@ class ProcessManager {
             console.log('No apps configured (no service.config.js files found)');
             return;
         }
-
+        
         // Update state
         const state = readState();
         state.startedAt = new Date().toISOString();
@@ -556,7 +635,7 @@ class ProcessManager {
         
         if (entries.length === 0) {
             console.log('No processes running');
-        } else {
+            } else {
             for (const [name, info] of entries) {
                 const statusColor = info.status === 'running' ? '\x1b[32m' : '\x1b[31m';
                 const reset = '\x1b[0m';
@@ -579,16 +658,16 @@ class ProcessManager {
             process.exit(0);
         };
 
-        process.on('SIGINT', cleanup);
-        process.on('SIGTERM', cleanup);
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
 
         // Windows-specific handling
-        if (process.platform === 'win32') {
+if (process.platform === 'win32') {
             const rl = readline.createInterface({
-                input: process.stdin,
-                output: process.stdout
-            });
-            
+        input: process.stdin,
+        output: process.stdout
+    });
+    
             rl.on('SIGINT', cleanup);
             rl.on('close', cleanup);
         }

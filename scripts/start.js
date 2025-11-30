@@ -431,17 +431,11 @@ class ManagedProcess {
                 this.restartCount = 0;
             }
 
-            // Backoff: 0.5s, 0.65s, 0.85s, 1.1s, 1.4s, 1.9s, 2.4s, 3.1s, 4.1s, 5.3s... max 15s
-            const delay = Math.min(500 * Math.pow(1.3, this.restartCount), 15000);
+            // Backoff: 0.5s, 0.65s, 0.85s, 1.1s, 1.4s, 1.9s, 2.4s, 3.1s, 4.1s, 5s max
+            // Never give up - just cap at 5 seconds
+            const delay = Math.min(500 * Math.pow(1.3, this.restartCount), 5000);
             this.restartCount++;
             this.lastRestartTime = now;
-
-            // Max 10 restarts before giving up
-            if (this.restartCount > 10) {
-                console.error(`${serviceColor}[${this.name}]${RESET} ${RED}[ERROR]${RESET} Too many restarts, giving up`);
-                updateProcessState(this.name, { status: 'failed' });
-                return;
-            }
 
             console.log(`${serviceColor}[${this.name}]${RESET} Restarting in ${delay / 1000}s (attempt ${this.restartCount})...`);
             updateProcessState(this.name, { status: 'restarting' });

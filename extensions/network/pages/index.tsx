@@ -10,12 +10,12 @@ import { useRouter } from 'solito/navigation';
 import BoardPreview from 'protolib/components/board/BoardPreview'
 import { createParam } from 'solito'
 import { AsyncView } from 'protolib/components/AsyncView'
-import { YStack, XStack, Spacer, ScrollView } from "@my/ui";
+import { YStack, XStack, Spacer, ScrollView, Text, Paragraph } from "@my/ui";
 import { AlertDialog } from 'protolib/components/AlertDialog'
 import { useState } from 'react'
 import { Slides } from 'protolib/components/Slides';
 import { TemplateCard } from '../../apis/TemplateCard';
-import { Eye, EyeOff } from '@tamagui/lucide-icons'
+import { Eye, EyeOff, Plus, Bot, Sparkles } from '@tamagui/lucide-icons'
 import { usePageParams } from 'protolib/next'
 import { Tinted } from 'protolib/components/Tinted'
 import { Board } from '@extensions/boards/pages/view'
@@ -37,6 +37,108 @@ const SelectGrid = ({ children }) => {
   return <XStack jc="flex-start" ai="flex-start" gap={25} flexWrap='wrap' width="100%" maxWidth={760} mx="auto">
     {children}
   </XStack>
+}
+
+// Empty state component when there are no agents
+const EmptyAgentsState = ({ onCreateClick }: { onCreateClick: () => void }) => {
+  return (
+    <YStack 
+      flex={1} 
+      alignItems="center" 
+      justifyContent="center" 
+      paddingVertical="$10"
+      gap="$6"
+      marginTop="$8"
+    >
+      {/* Decorative icon with effect */}
+      <YStack 
+        position="relative"
+        alignItems="center" 
+        justifyContent="center"
+      >
+        <YStack
+          position="absolute"
+          width={120}
+          height={120}
+          borderRadius={60}
+          opacity={0.2}
+          backgroundColor="$color9"
+          // @ts-ignore
+          style={{
+            filter: 'blur(40px)',
+          }}
+        />
+        <Tinted>
+          <Bot size={72} color="$color9" strokeWidth={1.2} />
+        </Tinted>
+      </YStack>
+
+      {/* Main text */}
+      <YStack alignItems="center" gap="$2" maxWidth={400}>
+        <Text 
+          fontSize="$8" 
+          fontWeight="700" 
+          color="$color12"
+          textAlign="center"
+          fontFamily="$heading"
+        >
+          No agents yet
+        </Text>
+        <Paragraph 
+          size="$4" 
+          color="$color10" 
+          textAlign="center"
+          lineHeight="$5"
+        >
+          Create your first AI agent to automate tasks, connect devices, and build intelligent workflows.
+        </Paragraph>
+      </YStack>
+
+      {/* Large create button */}
+      <Tinted>
+        <YStack
+          // @ts-ignore
+          tag="button"
+          onPress={onCreateClick}
+          backgroundColor="$color9"
+          paddingHorizontal="$6"
+          paddingVertical="$4"
+          borderRadius="$5"
+          cursor="pointer"
+          hoverStyle={{
+            backgroundColor: '$color10',
+            scale: 1.02,
+          }}
+          pressStyle={{
+            backgroundColor: '$color8',
+            scale: 0.98,
+          }}
+          animation="quick"
+          elevation="$3"
+          gap="$2"
+          alignItems="center"
+          flexDirection="row"
+        >
+          <Plus size={24} color="white" strokeWidth={2.5} />
+          <Text 
+            fontSize="$5" 
+            fontWeight="600" 
+            color="white"
+          >
+            Create your first agent
+          </Text>
+        </YStack>
+      </Tinted>
+
+      {/* Hint subtle */}
+      <XStack alignItems="center" gap="$2" opacity={0.5}>
+        <Sparkles size={14} color="$color9" />
+        <Text fontSize="$2" color="$color9">
+          Agents can control devices, process data, and respond to events
+        </Text>
+      </XStack>
+    </YStack>
+  )
 }
 
 const CategorySlide = ({ selected, setSelected }: { selected: NetworkOption | null, setSelected: (option: NetworkOption) => void }) => {
@@ -171,6 +273,7 @@ export default {
           model={BoardModel}
           pageState={pageState}
           dataTableGridProps={{
+            emptyMessage: <EmptyAgentsState onCreateClick={() => setAddOpen(true)} />,
             itemsTransform: (items) => {
               const list = Array.isArray(items) ? [...items] : [];
               if (query.all !== 'true') {

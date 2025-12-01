@@ -10,7 +10,7 @@ import { useRouter } from 'solito/navigation';
 import BoardPreview from 'protolib/components/board/BoardPreview'
 import { createParam } from 'solito'
 import { AsyncView } from 'protolib/components/AsyncView'
-import { YStack, XStack, Spacer, ScrollView, Text, Paragraph } from "@my/ui";
+import { YStack, XStack, Spacer, ScrollView, Text, Paragraph, Button } from "@my/ui";
 import { AlertDialog } from 'protolib/components/AlertDialog'
 import { useState } from 'react'
 import { Slides } from 'protolib/components/Slides';
@@ -42,31 +42,18 @@ const SelectGrid = ({ children }) => {
 // Empty state component when there are no agents
 const EmptyAgentsState = ({ onCreateClick }: { onCreateClick: () => void }) => {
   return (
-    <YStack 
-      flex={1} 
-      alignItems="center" 
-      justifyContent="center" 
-      paddingVertical="$10"
-      gap="$6"
-      marginTop="$8"
-    >
+    <YStack f={1} ai="center" jc="center" py="$10" gap="$6" mt="$8">
       {/* Decorative icon with effect */}
-      <YStack 
-        position="relative"
-        alignItems="center" 
-        justifyContent="center"
-      >
+      <YStack position="relative" ai="center" jc="center">
         <YStack
           position="absolute"
           width={120}
           height={120}
-          borderRadius={60}
+          br={60}
           opacity={0.2}
-          backgroundColor="$color9"
+          bg="$color9"
           // @ts-ignore
-          style={{
-            filter: 'blur(40px)',
-          }}
+          style={{ filter: 'blur(40px)' }}
         />
         <Tinted>
           <Bot size={72} color="$color9" strokeWidth={1.2} />
@@ -74,64 +61,24 @@ const EmptyAgentsState = ({ onCreateClick }: { onCreateClick: () => void }) => {
       </YStack>
 
       {/* Main text */}
-      <YStack alignItems="center" gap="$2" maxWidth={400}>
-        <Text 
-          fontSize="$8" 
-          fontWeight="700" 
-          color="$color12"
-          textAlign="center"
-          fontFamily="$heading"
-        >
+      <YStack ai="center" gap="$2" maw={400}>
+        <Text fontSize="$8" fontWeight="700" color="$color12" ta="center" fontFamily="$heading">
           No agents yet
         </Text>
-        <Paragraph 
-          size="$4" 
-          color="$color10" 
-          textAlign="center"
-          lineHeight="$5"
-        >
+        <Paragraph size="$4" color="$color10" ta="center" lh="$5">
           Create your first AI agent to automate tasks, connect devices, and build intelligent workflows.
         </Paragraph>
       </YStack>
 
       {/* Large create button */}
       <Tinted>
-        <YStack
-          // @ts-ignore
-          tag="button"
-          onPress={onCreateClick}
-          backgroundColor="$color9"
-          paddingHorizontal="$6"
-          paddingVertical="$4"
-          borderRadius="$5"
-          cursor="pointer"
-          hoverStyle={{
-            backgroundColor: '$color10',
-            scale: 1.02,
-          }}
-          pressStyle={{
-            backgroundColor: '$color8',
-            scale: 0.98,
-          }}
-          animation="quick"
-          elevation="$3"
-          gap="$2"
-          alignItems="center"
-          flexDirection="row"
-        >
-          <Plus size={24} color="white" strokeWidth={2.5} />
-          <Text 
-            fontSize="$5" 
-            fontWeight="600" 
-            color="white"
-          >
-            Create your first agent
-          </Text>
-        </YStack>
+        <Button size="$5" icon={Plus} onPress={onCreateClick}>
+          Create your first agent
+        </Button>
       </Tinted>
 
       {/* Hint subtle */}
-      <XStack alignItems="center" gap="$2" opacity={0.5}>
+      <XStack ai="center" gap="$2" opacity={0.5}>
         <Sparkles size={14} color="$color9" />
         <Text fontSize="$2" color="$color9">
           Agents can control devices, process data, and respond to events

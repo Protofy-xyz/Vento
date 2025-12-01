@@ -9,6 +9,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/pion/mediadevices v0.7.2
 	github.com/shirou/gopsutil/v4 v4.24.7
+	github.com/warthog618/go-gpiocdev v0.9.1
 )
 
 require (

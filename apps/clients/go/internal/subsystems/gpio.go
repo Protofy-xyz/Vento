@@ -10,48 +10,89 @@ import (
 	"strings"
 
 	"github.com/stianeikeland/go-rpio/v4"
+	gpiocdev "github.com/warthog618/go-gpiocdev"
 
 	"ventoagent/internal/vento"
 )
 
-// GPIOTemplate creates GPIO subsystem for Raspberry Pi
+type gpioBackendKind int
+
+const (
+	backendUnknown gpioBackendKind = iota
+	backendRPIO
+	backendGPIOD
+)
+
+var activeBackend = backendUnknown
+
+const (
+	gpioChipName      = "gpiochip0"
+	gpioConsumerLabel = "ventoagent"
+)
+
 type GPIOTemplate struct {
 	available bool
 }
 
-// NewGPIOTemplate creates a new GPIO template
 func NewGPIOTemplate() *GPIOTemplate {
-	tpl := &GPIOTemplate{}
-	tpl.available = isRaspberryPi() && canAccessGPIO()
-	if tpl.available {
-		log.Printf("[gpio] Raspberry Pi GPIO available")
-	} else {
-		log.Printf("[gpio] GPIO not available (not a Raspberry Pi or no access)")
+	t := &GPIOTemplate{}
+
+	if !isRaspberryPi() {
+		log.Printf("[gpio] Not a Raspberry Pi → GPIO disabled")
+		return t
 	}
-	return tpl
+
+	// Raspberry Pi 5 backend
+	if canAccessGPIOD() {
+		activeBackend = backendGPIOD
+		t.available = true
+		log.Printf("[gpio] Using gpiocdev backend (RPi 5)")
+		return t
+	}
+
+	// RPi 3/4 fallback
+	if canAccessRPIO() {
+		activeBackend = backendRPIO
+		t.available = true
+		log.Printf("[gpio] Using rpio backend (/dev/gpiomem)")
+		return t
+	}
+
+	return t
 }
 
-// isRaspberryPi checks if we're running on a Raspberry Pi
 func isRaspberryPi() bool {
-	data, err := os.ReadFile("/proc/cpuinfo")
-	if err != nil {
-		return false
-	}
-	content := strings.ToLower(string(data))
-	return strings.Contains(content, "raspberry") || strings.Contains(content, "bcm2")
+	b, _ := os.ReadFile("/proc/cpuinfo")
+	s := strings.ToLower(string(b))
+	return strings.Contains(s, "raspberry") || strings.Contains(s, "bcm2")
 }
 
-// canAccessGPIO checks if we can access GPIO
-func canAccessGPIO() bool {
-	err := rpio.Open()
-	if err != nil {
+func canAccessRPIO() bool {
+	if err := rpio.Open(); err != nil {
 		return false
 	}
 	rpio.Close()
 	return true
 }
 
-// Build returns the GPIO Definition
+func canAccessGPIOD() bool {
+	// Request a harmless GPIO (pin 0) as input
+	l, err := gpiocdev.RequestLine(
+		gpioChipName,
+		0,
+		gpiocdev.AsInput,
+	)
+	if err != nil {
+		return false
+	}
+	l.Close()
+	return true
+}
+
+//
+// BUILD ACTIONS
+//
+
 func (t *GPIOTemplate) Build(deviceName string) Definition {
 	if !t.available {
 		return Definition{}
@@ -62,332 +103,283 @@ func (t *GPIOTemplate) Build(deviceName string) Definition {
 		Actions: []ActionConfig{
 			{
 				Action: vento.Action{
-					Name:           "set_mode",
-					Label:          "Set Pin Mode",
-					Description:    "Configure a GPIO pin as input or output",
-					Endpoint:       "/gpio/actions/set_mode",
-					ConnectionType: "mqtt",
-					Mode:           "request-reply",
-					ReplyTimeoutMs: 5000,
+					Name:        "set_mode",
+					Label:       "Set Pin Mode",
+					Description: "Configure a GPIO pin as input or output",
+					Endpoint:    "/gpio/actions/set_mode",
+					Mode:        "request-reply",
 					Payload: vento.ActionPayload{
 						Type: "json-schema",
 						Schema: map[string]any{
-							"pin": map[string]any{
-								"type":        "number",
-								"description": "GPIO pin number (BCM)",
-								"default":     17,
-							},
-							"mode": map[string]any{
-								"type":        "string",
-								"description": "Pin mode: input or output",
-								"default":     "output",
-								"enum":        []string{"input", "output"},
-							},
+							"pin":  map[string]any{"type": "number", "default": 17},
+							"mode": map[string]any{"type": "string", "default": "output"},
 						},
-					},
-					CardProps: map[string]any{
-						"icon":  "settings",
-						"color": "$orange10",
-						"order": 120,
 					},
 				},
 				Handler: handleSetMode,
 			},
 			{
 				Action: vento.Action{
-					Name:           "write",
-					Label:          "Write Pin",
-					Description:    "Set a GPIO pin HIGH or LOW",
-					Endpoint:       "/gpio/actions/write",
-					ConnectionType: "mqtt",
-					Mode:           "request-reply",
-					ReplyTimeoutMs: 5000,
+					Name:        "write",
+					Label:       "Write Pin",
+					Description: "Set GPIO HIGH or LOW",
+					Endpoint:    "/gpio/actions/write",
+					Mode:        "request-reply",
 					Payload: vento.ActionPayload{
 						Type: "json-schema",
 						Schema: map[string]any{
-							"pin": map[string]any{
-								"type":        "number",
-								"description": "GPIO pin number (BCM)",
-								"default":     17,
-							},
-							"value": map[string]any{
-								"type":        "number",
-								"description": "Pin value: 0 (LOW) or 1 (HIGH)",
-								"default":     1,
-							},
+							"pin":   map[string]any{"type": "number", "default": 17},
+							"value": map[string]any{"type": "number", "default": 1},
 						},
-					},
-					CardProps: map[string]any{
-						"icon":  "zap",
-						"color": "$green10",
-						"order": 121,
 					},
 				},
 				Handler: handleWrite,
 			},
 			{
 				Action: vento.Action{
-					Name:           "read",
-					Label:          "Read Pin",
-					Description:    "Read the current state of a GPIO pin",
-					Endpoint:       "/gpio/actions/read",
-					ConnectionType: "mqtt",
-					Mode:           "request-reply",
-					ReplyTimeoutMs: 5000,
+					Name:        "read",
+					Label:       "Read Pin",
+					Description: "Read GPIO value",
+					Endpoint:    "/gpio/actions/read",
+					Mode:        "request-reply",
 					Payload: vento.ActionPayload{
 						Type: "json-schema",
 						Schema: map[string]any{
-							"pin": map[string]any{
-								"type":        "number",
-								"description": "GPIO pin number (BCM)",
-								"default":     17,
-							},
+							"pin": map[string]any{"type": "number", "default": 17},
 						},
-					},
-					CardProps: map[string]any{
-						"icon":  "eye",
-						"color": "$blue10",
-						"order": 122,
 					},
 				},
 				Handler: handleRead,
 			},
 			{
 				Action: vento.Action{
-					Name:           "toggle",
-					Label:          "Toggle Pin",
-					Description:    "Toggle a GPIO pin state",
-					Endpoint:       "/gpio/actions/toggle",
-					ConnectionType: "mqtt",
-					Mode:           "request-reply",
-					ReplyTimeoutMs: 5000,
+					Name:        "toggle",
+					Label:       "Toggle Pin",
+					Description: "Toggle GPIO",
+					Endpoint:    "/gpio/actions/toggle",
+					Mode:        "request-reply",
 					Payload: vento.ActionPayload{
 						Type: "json-schema",
 						Schema: map[string]any{
-							"pin": map[string]any{
-								"type":        "number",
-								"description": "GPIO pin number (BCM)",
-								"default":     17,
-							},
+							"pin": map[string]any{"type": "number", "default": 17},
 						},
-					},
-					CardProps: map[string]any{
-						"icon":  "refresh-cw",
-						"color": "$purple10",
-						"order": 123,
 					},
 				},
 				Handler: handleToggle,
-			},
-			{
-				Action: vento.Action{
-					Name:           "pwm",
-					Label:          "PWM Output",
-					Description:    "Set PWM duty cycle on a pin (hardware PWM on pins 12, 13, 18, 19)",
-					Endpoint:       "/gpio/actions/pwm",
-					ConnectionType: "mqtt",
-					Mode:           "request-reply",
-					ReplyTimeoutMs: 5000,
-					Payload: vento.ActionPayload{
-						Type: "json-schema",
-						Schema: map[string]any{
-							"pin": map[string]any{
-								"type":        "number",
-								"description": "GPIO pin number (BCM) - hardware PWM on 12, 13, 18, 19",
-								"default":     18,
-							},
-							"duty": map[string]any{
-								"type":        "number",
-								"description": "Duty cycle 0-100",
-								"default":     50,
-							},
-						},
-					},
-					CardProps: map[string]any{
-						"icon":  "activity",
-						"color": "$yellow10",
-						"order": 124,
-					},
-				},
-				Handler: handlePWM,
 			},
 		},
 	}
 }
 
+//
+// ACTION HANDLERS
+//
+
 func handleSetMode(msg vento.ActionEnvelope) error {
-	var params struct {
+	var p struct {
 		Pin  int    `json:"pin"`
 		Mode string `json:"mode"`
 	}
-	params.Pin = 17
-	params.Mode = "output"
+	json.Unmarshal(msg.Payload, &p)
 
-	if len(msg.Payload) > 0 {
-		json.Unmarshal(msg.Payload, &params)
+	if err := setPinMode(p.Pin, p.Mode); err != nil {
+		return replyGPIOError(msg, err.Error())
 	}
 
-	if err := rpio.Open(); err != nil {
-		return replyGPIOError(msg, "failed to open GPIO: "+err.Error())
-	}
-	defer rpio.Close()
-
-	pin := rpio.Pin(params.Pin)
-	
-	switch strings.ToLower(params.Mode) {
-	case "input":
-		pin.Input()
-	case "output":
-		pin.Output()
-	default:
-		return replyGPIOError(msg, "invalid mode: "+params.Mode)
-	}
-
-	log.Printf("[gpio] pin %d set to %s", params.Pin, params.Mode)
-	return replyGPIOSuccess(msg, map[string]any{
-		"pin":    params.Pin,
-		"mode":   params.Mode,
-		"status": "configured",
-	})
+	return replyGPIOSuccess(msg, map[string]any{"pin": p.Pin, "mode": p.Mode})
 }
 
 func handleWrite(msg vento.ActionEnvelope) error {
-	var params struct {
+	var p struct {
 		Pin   int `json:"pin"`
 		Value int `json:"value"`
 	}
-	params.Pin = 17
-	params.Value = 1
+	json.Unmarshal(msg.Payload, &p)
 
-	if len(msg.Payload) > 0 {
-		json.Unmarshal(msg.Payload, &params)
+	if err := writePin(p.Pin, p.Value); err != nil {
+		return replyGPIOError(msg, err.Error())
 	}
 
-	if err := rpio.Open(); err != nil {
-		return replyGPIOError(msg, "failed to open GPIO: "+err.Error())
-	}
-	defer rpio.Close()
-
-	pin := rpio.Pin(params.Pin)
-	pin.Output()
-	
-	if params.Value != 0 {
-		pin.High()
-	} else {
-		pin.Low()
-	}
-
-	log.Printf("[gpio] pin %d set to %d", params.Pin, params.Value)
-	return replyGPIOSuccess(msg, map[string]any{
-		"pin":    params.Pin,
-		"value":  params.Value,
-		"status": "written",
-	})
+	return replyGPIOSuccess(msg, map[string]any{"pin": p.Pin, "value": p.Value})
 }
 
 func handleRead(msg vento.ActionEnvelope) error {
-	var params struct {
+	var p struct {
 		Pin int `json:"pin"`
 	}
-	params.Pin = 17
+	json.Unmarshal(msg.Payload, &p)
 
-	if len(msg.Payload) > 0 {
-		json.Unmarshal(msg.Payload, &params)
+	v, err := readPin(p.Pin)
+	if err != nil {
+		return replyGPIOError(msg, err.Error())
 	}
 
-	if err := rpio.Open(); err != nil {
-		return replyGPIOError(msg, "failed to open GPIO: "+err.Error())
-	}
-	defer rpio.Close()
-
-	pin := rpio.Pin(params.Pin)
-	value := pin.Read()
-
-	log.Printf("[gpio] pin %d read: %d", params.Pin, value)
-	return replyGPIOSuccess(msg, map[string]any{
-		"pin":   params.Pin,
-		"value": int(value),
-	})
+	return replyGPIOSuccess(msg, map[string]any{"pin": p.Pin, "value": v})
 }
 
 func handleToggle(msg vento.ActionEnvelope) error {
-	var params struct {
+	var p struct {
 		Pin int `json:"pin"`
 	}
-	params.Pin = 17
+	json.Unmarshal(msg.Payload, &p)
 
-	if len(msg.Payload) > 0 {
-		json.Unmarshal(msg.Payload, &params)
+	v, err := readPin(p.Pin)
+	if err != nil {
+		return replyGPIOError(msg, err.Error())
 	}
 
-	if err := rpio.Open(); err != nil {
-		return replyGPIOError(msg, "failed to open GPIO: "+err.Error())
+	newv := 1 - v
+
+	if err := writePin(p.Pin, newv); err != nil {
+		return replyGPIOError(msg, err.Error())
 	}
-	defer rpio.Close()
 
-	pin := rpio.Pin(params.Pin)
-	pin.Output()
-	pin.Toggle()
-	
-	newValue := pin.Read()
-
-	log.Printf("[gpio] pin %d toggled to %d", params.Pin, newValue)
-	return replyGPIOSuccess(msg, map[string]any{
-		"pin":   params.Pin,
-		"value": int(newValue),
-	})
+	return replyGPIOSuccess(msg, map[string]any{"pin": p.Pin, "value": newv})
 }
 
-func handlePWM(msg vento.ActionEnvelope) error {
-	var params struct {
-		Pin  int `json:"pin"`
-		Duty int `json:"duty"`
-	}
-	params.Pin = 18
-	params.Duty = 50
+//
+// BACKEND DISPATCH
+//
 
-	if len(msg.Payload) > 0 {
-		json.Unmarshal(msg.Payload, &params)
+func setPinMode(pin int, mode string) error {
+	switch activeBackend {
+	case backendGPIOD:
+		return setPinModeGPIOD(pin, mode)
+	case backendRPIO:
+		return setPinModeRPIO(pin, mode)
+	default:
+		return fmt.Errorf("no GPIO backend")
 	}
-
-	if params.Duty < 0 {
-		params.Duty = 0
-	}
-	if params.Duty > 100 {
-		params.Duty = 100
-	}
-
-	if err := rpio.Open(); err != nil {
-		return replyGPIOError(msg, "failed to open GPIO: "+err.Error())
-	}
-	defer rpio.Close()
-
-	pin := rpio.Pin(params.Pin)
-	pin.Mode(rpio.Pwm)
-	pin.Freq(64000) // 64kHz base frequency
-	pin.DutyCycle(uint32(params.Duty), 100)
-
-	log.Printf("[gpio] pin %d PWM duty: %d%%", params.Pin, params.Duty)
-	return replyGPIOSuccess(msg, map[string]any{
-		"pin":    params.Pin,
-		"duty":   params.Duty,
-		"status": "pwm_set",
-	})
 }
 
-func replyGPIOSuccess(msg vento.ActionEnvelope, data map[string]any) error {
-	jsonBytes, err := json.Marshal(data)
+func writePin(pin int, value int) error {
+	switch activeBackend {
+	case backendGPIOD:
+		return writePinGPIOD(pin, value)
+	case backendRPIO:
+		return writePinRPIO(pin, value)
+	default:
+		return fmt.Errorf("no GPIO backend")
+	}
+}
+
+func readPin(pin int) (int, error) {
+	switch activeBackend {
+	case backendGPIOD:
+		return readPinGPIOD(pin)
+	case backendRPIO:
+		return readPinRPIO(pin)
+	default:
+		return 0, fmt.Errorf("no GPIO backend")
+	}
+}
+
+//
+// GPIOD BACKEND (RPi 5)
+//
+
+func setPinModeGPIOD(pin int, mode string) error {
+	if mode == "output" {
+		l, err := gpiocdev.RequestLine(gpioChipName, pin, gpiocdev.AsOutput(0))
+		if err != nil {
+			return err
+		}
+		l.Close()
+		return nil
+	}
+
+	l, err := gpiocdev.RequestLine(gpioChipName, pin, gpiocdev.AsInput)
 	if err != nil {
 		return err
 	}
-	return msg.Reply(jsonBytes)
+	l.Close()
+	return nil
 }
 
-func replyGPIOError(msg vento.ActionEnvelope, errMsg string) error {
-	log.Printf("[gpio] error: %s", errMsg)
-	data := map[string]any{"error": errMsg}
-	jsonBytes, _ := json.Marshal(data)
-	msg.Reply(jsonBytes)
-	return fmt.Errorf(errMsg)
+func writePinGPIOD(pin int, value int) error {
+	initial := 0
+	if value != 0 {
+		initial = 1
+	}
+
+	l, err := gpiocdev.RequestLine(gpioChipName, pin, gpiocdev.AsOutput(initial))
+	if err != nil {
+		return err
+	}
+	defer l.Close()
+
+	return l.SetValue(initial)
 }
 
+func readPinGPIOD(pin int) (int, error) {
+	l, err := gpiocdev.RequestLine(gpioChipName, pin, gpiocdev.AsInput)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+
+	return l.Value()
+}
+
+//
+// RPIO BACKEND (RPi 3/4)
+//
+
+func setPinModeRPIO(pin int, mode string) error {
+	if err := rpio.Open(); err != nil {
+		return err
+	}
+	defer rpio.Close()
+
+	g := rpio.Pin(pin)
+	if mode == "output" {
+		g.Output()
+	} else {
+		g.Input()
+	}
+
+	return nil
+}
+
+func writePinRPIO(pin int, value int) error {
+	if err := rpio.Open(); err != nil {
+		return err
+	}
+	defer rpio.Close()
+
+	g := rpio.Pin(pin)
+	g.Output()
+	if value != 0 {
+		g.High()
+	} else {
+		g.Low()
+	}
+	return nil
+}
+
+func readPinRPIO(pin int) (int, error) {
+	if err := rpio.Open(); err != nil {
+		return 0, err
+	}
+	defer rpio.Close()
+
+	g := rpio.Pin(pin)
+	g.Input()
+	return int(g.Read()), nil
+}
+
+//
+// REPLY HELPERS
+//
+
+func replyGPIOSuccess(msg vento.ActionEnvelope, data map[string]any) error {
+	b, _ := json.Marshal(data)
+	return msg.Reply(b)
+}
+
+func replyGPIOError(msg vento.ActionEnvelope, s string) error {
+	log.Printf("[gpio] error: %s", s)
+	b, _ := json.Marshal(map[string]any{"error": s})
+	msg.Reply(b)
+	return fmt.Errorf(s)
+}

@@ -3,8 +3,15 @@ import remarkGfm from "remark-gfm";
 import { Tinted } from "./Tinted";
 import { Pencil, Save, X, Check, ClipboardPaste } from "@tamagui/lucide-icons";
 import { useEffect, useRef, useState } from "react";
-import { Monaco } from "./Monaco";
 import { useThemeSetting } from "@tamagui/next-theme";
+import dynamic from "next/dynamic";
+import { Spinner } from "@my/ui";
+
+// Dynamic import Monaco with ssr: false to prevent server-side errors
+const Monaco = dynamic(() => import("./Monaco").then(m => m.Monaco), {
+  ssr: false,
+  loading: () => <Spinner />
+});
 import useKeypress from "react-use-keypress";
 import { StackProps, XStack, YStack } from "@my/ui";
 import { v4 as uuid } from "uuid";

@@ -1,17 +1,13 @@
 import React, { useEffect, useMemo } from 'react';
-import Editor, { EditorProps, useMonaco, loader } from '@monaco-editor/react';
+import Editor, { EditorProps, useMonaco } from '@monaco-editor/react';
 import useKeypress from 'react-use-keypress';
 import { useThemeSetting } from '@tamagui/next-theme';
-import { useTheme } from '@my/ui';
+import { useTheme, Text, YStack } from '@my/ui';
 import { useTint } from '../lib/Tints'
 import { Tinted } from './Tinted'
 import convert from 'color-convert';
 
-// loader.config({
-//     paths: {
-//         vs: '/public/monaco',
-//     },
-// });
+// Monaco loading is handled by the Editor component itself - no manual init needed
 
 function toHex(colorStr) {
     // Hex directo
@@ -116,8 +112,17 @@ export const Monaco = ({
     onLoad = (monaco) => { },
     colors = {},
     autofocus = false,
+    disabled = false,  // Add option to disable Monaco
     ...props
-}: Props & EditorProps) => {
+}: Props & EditorProps & { disabled?: boolean }) => {
+    // If disabled, show a simple text display instead
+    if (disabled) {
+        return (
+            <YStack f={1} p="$2" bc="$gray2" br="$4">
+                <Text fontFamily="monospace" fontSize="$3">{sourceCode}</Text>
+            </YStack>
+        );
+    }
     const { options, ...restProps } = props;
     const { resolvedTheme } = useThemeSetting();
     const monaco = useMonaco();
@@ -243,6 +248,7 @@ export const Monaco = ({
         'feature': 'gherkin'
     }
     const ext = path.split('.').pop()
+    
     return (
         <Tinted><Editor
             onMount={handleEditorDidMount}
@@ -252,6 +258,7 @@ export const Monaco = ({
             onChange={onChange}
             defaultLanguage={extensionToLang[ext]}
             options={editorOptions}
+            loading={<YStack f={1} ai="center" jc="center"><Text>Loading editor...</Text></YStack>}
             {...restProps}
         /></Tinted>
     );

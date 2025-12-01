@@ -1,7 +1,13 @@
 import { useState, useCallback } from "react";
-import { XStack, YStack, Text, Switch, Input, TextArea, Button, TooltipSimple, Stack } from "@my/ui";
+import { XStack, YStack, Text, Switch, Input, TextArea, Button, TooltipSimple, Stack, Spinner } from "@my/ui";
 import { useThemeSetting } from '@tamagui/next-theme'
-import { Monaco } from "../Monaco";
+import dynamic from "next/dynamic";
+
+// Dynamic import Monaco with ssr: false to prevent server-side errors
+const Monaco = dynamic(() => import("../Monaco").then(m => m.Monaco), {
+  ssr: false,
+  loading: () => <Spinner />
+});
 import { TextEditDialog } from "../TextEditDialog";
 import { FilePicker } from "../FilePicker";
 import { SelectList } from "../SelectList";

@@ -1,8 +1,18 @@
-import { ScrollView, XStack } from "tamagui";
+import { ScrollView, XStack, Spinner } from "tamagui";
 import { JSONView } from "../JSONView";
-import { Markdown } from "../Markdown";
 import { useEffect, useState } from "react";
-import { Html } from "../Html";
+import dynamic from "next/dynamic";
+
+// Only load Html and Markdown when actually needed (mode === 'html' or 'markdown')
+// This prevents Monaco from being loaded for all cards
+const Html = dynamic(() => import("../Html").then(m => m.Html), {
+    ssr: false,
+    loading: () => <Spinner />
+});
+const Markdown = dynamic(() => import("../Markdown").then(m => m.Markdown), {
+    ssr: false,
+    loading: () => <Spinner />
+});
 
 type CardValueProps = {
     value: any,

@@ -16,7 +16,6 @@ import { useProtoStates } from '@extensions/protomemdb/lib/useProtoStates'
 import { CardSelector } from 'protolib/components/board/CardSelector'
 import { ActionCardSettings } from 'protolib/components/autopilot/ActionCardSettings'
 import { useThemeSetting } from '@tamagui/next-theme'
-import { Monaco } from 'protolib/components/Monaco'
 import { IconContainer } from 'protolib/components/IconContainer'
 import { usePageParams } from 'protolib/next'
 import { usePendingEffect } from 'protolib/lib/usePendingEffect'
@@ -24,6 +23,12 @@ import { createParam } from 'solito'
 import { AsyncView } from 'protolib/components/AsyncView'
 import { Center } from 'protolib/components/Center'
 import dynamic from 'next/dynamic'
+
+const Monaco = dynamic(() => import('protolib/components/Monaco').then(m => m.Monaco), {
+  ssr: false,
+  loading: () => <Spinner />
+})
+
 import { BoardControlsProvider, useBoardControls } from '../BoardControlsContext'
 import { BoardSettingsEditor } from '../components/BoardSettingsEditor'
 import { JSONView } from 'protolib/components/JSONView'

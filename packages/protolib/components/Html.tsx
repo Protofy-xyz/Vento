@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { StackProps, XStack, YStack, Text } from "@my/ui";
+import { StackProps, XStack, YStack, Text, Spinner } from "@my/ui";
 import { useThemeSetting } from "@tamagui/next-theme";
-import { Monaco } from "./Monaco";
 import { Tinted } from "./Tinted";
+import dynamic from "next/dynamic";
+
+// Dynamic import Monaco with ssr: false to prevent server-side errors
+const Monaco = dynamic(() => import("./Monaco").then(m => m.Monaco), {
+  ssr: false,
+  loading: () => <Spinner />
+});
 import { InteractiveIcon } from "./InteractiveIcon";
 import { Pencil, Save, X, Check, ClipboardPaste } from "@tamagui/lucide-icons";
 import useKeypress from "react-use-keypress";

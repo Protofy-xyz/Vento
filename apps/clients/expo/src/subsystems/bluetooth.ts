@@ -91,7 +91,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           ephemeral: true,
           cardProps: {
             icon: 'radio',
-            color: '$blue9',
+            color: '$blue10',
             order: 37,
           },
         },
@@ -142,7 +142,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           connectionType: 'mqtt',
           payload: { type: 'empty' },
           cardProps: {
-            icon: 'stop-circle',
+            icon: 'circle-stop',
             color: '$orange10',
             order: 39,
           },
@@ -255,7 +255,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           },
           cardProps: {
             icon: 'download',
-            color: '$cyan10',
+            color: '$blue10',
             order: 43,
           },
           mode: 'request-reply',
@@ -332,7 +332,7 @@ export function buildBluetoothSubsystem(): SubsystemDefinition {
           },
           cardProps: {
             icon: 'bell',
-            color: '$amber10',
+            color: '$yellow10',
             order: 45,
           },
           mode: 'request-reply',

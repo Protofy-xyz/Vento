@@ -62,7 +62,7 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           ephemeral: false,
           cardProps: {
             icon: 'tag',
-            color: '$cyan10',
+            color: '$blue10',
             order: 3,
             html: textTemplate,
           },
@@ -78,8 +78,8 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           connectionType: 'mqtt',
           ephemeral: false,
           cardProps: {
-            icon: 'tool',
-            color: '$cyan9',
+            icon: 'wrench',
+            color: '$blue10',
             order: 4,
             html: textTemplate,
           },
@@ -131,7 +131,7 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           ephemeral: false,
           cardProps: {
             icon: 'user',
-            color: '$gray10',
+            color: '$purple10',
             order: 7,
             html: textTemplate,
           },
@@ -148,7 +148,7 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           ephemeral: false,
           cardProps: {
             icon: 'tablet',
-            color: '$gray9',
+            color: '$gray10',
             order: 8,
             html: textTemplate,
           },
@@ -165,7 +165,7 @@ export function buildSystemSubsystem(): SubsystemDefinition {
           ephemeral: false,
           cardProps: {
             icon: 'info',
-            color: '$gray8',
+            color: '$gray10',
             order: 9,
           },
         },

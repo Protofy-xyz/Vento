@@ -10,7 +10,6 @@ import {
 import { hasTorchController, requestTorchState } from '../torch/controller';
 
 import type { SubsystemDefinition, EmitFn, UnsubscribeFn } from './types';
-import { jsonTemplate } from './cardTemplates';
 
 const GPS_ENDPOINT = '/sensors/monitors/gps';
 const ACCEL_ENDPOINT = '/sensors/monitors/accelerometer';
@@ -37,10 +36,9 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           connectionType: 'mqtt',
           ephemeral: true,
           cardProps: {
-            icon: 'navigation',
-            color: '$cyan10',
+            icon: 'map-pin',
+            color: '$blue10',
             order: 21,
-            html: jsonTemplate,
           },
         },
         boot: readLocationOnce,
@@ -59,7 +57,6 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
             icon: 'activity',
             color: '$pink10',
             order: 22,
-            html: jsonTemplate,
           },
         },
         subscribe: subscribeAccelerometer,
@@ -75,9 +72,8 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           ephemeral: true,
           cardProps: {
             icon: 'refresh-cw',
-            color: '$purple9',
+            color: '$purple10',
             order: 23,
-            html: jsonTemplate,
           },
         },
         subscribe: subscribeGyroscope,
@@ -95,7 +91,6 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
             icon: 'compass',
             color: '$red10',
             order: 24,
-            html: jsonTemplate,
           },
         },
         subscribe: subscribeMagnetometer,
@@ -111,9 +106,8 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           ephemeral: true,
           cardProps: {
             icon: 'cloud',
-            color: '$blue9',
+            color: '$blue10',
             order: 25,
-            html: jsonTemplate,
           },
         },
         subscribe: subscribeBarometer,
@@ -129,9 +123,8 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           ephemeral: true,
           cardProps: {
             icon: 'sun',
-            color: '$amber10',
+            color: '$yellow10',
             order: 26,
-            html: jsonTemplate,
           },
         },
         subscribe: subscribeLightSensor,
@@ -147,9 +140,8 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
           ephemeral: true,
           cardProps: {
             icon: 'footprints',
-            color: '$green9',
+            color: '$green10',
             order: 27,
-            html: jsonTemplate,
           },
         },
         subscribe: subscribePedometer,

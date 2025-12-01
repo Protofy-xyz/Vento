@@ -138,7 +138,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           ephemeral: true,
           cardProps: {
             icon: 'hand',
-            color: '$cyan10',
+            color: '$blue10',
             order: 47,
           },
         },
@@ -260,7 +260,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
           },
           cardProps: {
             icon: 'code',
-            color: '$violet10',
+            color: '$purple10',
             order: 50,
           },
           mode: 'request-reply',
@@ -376,7 +376,7 @@ export function buildScreenSubsystem(): SubsystemDefinition {
             },
           },
           cardProps: {
-            icon: 'edit-3',
+            icon: 'pencil',
             color: '$green10',
             order: 52,
           },

@@ -79,6 +79,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                     {isElectron() && <TooltipSimple
                         groupId="header-actions-theme"
                         label={`Open with browser`}
+                        placement="right"
                     >
                         <Button
                             size="$3"
@@ -96,12 +97,11 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
 
             {collapsed ? (
                 <YStack gap="$2" ai="center">
-                    <TooltipSimple label={appState.chatExpanded ? "Collapse chat" : "Expand chat"}>
+                    <TooltipSimple label={appState.chatExpanded ? "Collapse chat" : "Expand chat"} placement="right">
                         <YStack
                             p="$2"
                             cursor='pointer'
                             br="$4"
-                            hoverStyle={{ backgroundColor: '$backgroundHover' }}
                             pressStyle={{ backgroundColor: '$backgroundPress' }}
                             onPress={toggleChatExpand}
                         >
@@ -112,12 +112,11 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                             />
                         </YStack>
                     </TooltipSimple>
-                    <TooltipSimple label="Config">
+                    <TooltipSimple label="Config" placement="right">
                         <YStack
                             p="$2"
                             cursor='pointer'
                             br="$4"
-                            hoverStyle={{ backgroundColor: '$backgroundHover' }}
                             pressStyle={{ backgroundColor: '$backgroundPress' }}
                             onPress={() => router.push('/config')}
                         >
@@ -142,7 +141,7 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
                             {tintSwitcher && settingsTintSwitcherEnabled && <ColorToggleButton borderWidth={0} chromeless />}
                             {!isElectron() && <SessionLogoutButton borderWidth={0} chromeless />}
                             {isElectron() && (
-                                <TooltipSimple label="Open in browser">
+                                <TooltipSimple label="Open in browser" placement="right">
                                     <Button
                                         size="$3"
                                         chromeless

@@ -8,14 +8,17 @@ import { Protofy } from "protobase";
 import SpotLight from 'protolib/components/SpotLight'
 import { DefaultLayout } from 'protolib/components/layout/DefaultLayout'
 import { Section } from 'protolib/components/Section'
+import { useThemeName } from '@my/ui'
 
 const Home = () => {
   const initParticles = useSetAtom(initParticlesAtom)
+  const themeName = useThemeName()
+  const isDark = typeof themeName === 'string' && themeName.toLowerCase().includes('dark')
 
   useEffect(() => {
     initParticles()
   }, [initParticles])
-
+  
   return (
     <Page
       style={{
@@ -65,7 +68,7 @@ const Home = () => {
               alt="Vento logo"
               style={{
                 width: '240px',
-                filter: 'invert(1)',
+                filter: isDark ? 'invert(1)' : 'invert(0)',
                 animation: 'float 5s ease-in-out infinite',
                 marginBottom: '2.5rem',
               }}

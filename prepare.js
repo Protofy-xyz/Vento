@@ -16,6 +16,7 @@ const directories = [
     "./data",
     "./data/public",
     "./data/public/clients",
+    "./data/public/clients/desktop",
     "./data/tmp",
     "./logs/raw",
     "./data/databases"
@@ -84,6 +85,50 @@ directories.forEach(directory => {
         const client = await response.arrayBuffer();
         fs.writeFileSync('./data/public/clients/vento-client.apk', Buffer.from(client));
         console.log('Android client downloaded successfully!');
+    }
+    
+    // Download all agents to data/public/clients/desktop
+    const agents = [
+        'ventoagent-darwin-amd64',
+        'ventoagent-darwin-arm64',
+        'ventoagent-linux-amd64',
+        'ventoagent-linux-arm64',
+        'ventoagent-linux-armv7',
+        'ventoagent-windows-amd64.exe',
+        'ventoagent-windows-arm64.exe'
+    ];
+
+    const baseUrl = 'https://github.com/Protofy-xyz/Vento/releases/download/development/';
+    const destDir = './data/public/clients/desktop';
+
+    const maxRetries = 3;
+    const retryDelay = 3000;
+
+    for (const agent of agents) {
+        const destPath = `${destDir}/${agent}`;
+        if (!fs.existsSync(destPath)) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    console.log(`Downloading ${agent} (attempt ${attempt}/${maxRetries})...`);
+                    const response = await fetch(`${baseUrl}${agent}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+                    }
+                    const data = await response.arrayBuffer();
+                    fs.writeFileSync(destPath, Buffer.from(data));
+                    console.log(`${agent} downloaded successfully!`);
+                    break;
+                } catch (error) {
+                    console.error(`Attempt ${attempt} failed for ${agent}: ${error.message}`);
+                    if (attempt < maxRetries) {
+                        console.log(`Retrying in ${retryDelay / 1000} seconds...`);
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    } else {
+                        console.error(`Failed to download ${agent} after ${maxRetries} attempts.`);
+                    }
+                }
+            }
+        }
     }
 })();
 //download vento agent if it doesn't exist

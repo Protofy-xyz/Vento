@@ -15,11 +15,13 @@ import { devicesOption } from '../../devices/networkOption'
 import { androidOption } from '../../android/networkOption'
 import { objectsOption } from '../../objects/networkOption'
 import { desktopOption } from '../../desktop/networkOption'
+import { raspberryPiOption } from '../../raspberrypi/networkOption'
 
 export const networkOptions: NetworkOption[] = [
   androidOption,
   desktopOption,
   devicesOption,
+  raspberryPiOption,
   objectsOption,
   virtualAgentsOption,
   tasksOption,

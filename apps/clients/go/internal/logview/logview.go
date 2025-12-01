@@ -27,7 +27,7 @@ func (b *Buffer) Write(p []byte) (n int, err error) {
 	defer b.mu.Unlock()
 
 	b.data = append(b.data, p...)
-	
+
 	// Trim if over max size (keep last maxSize bytes)
 	if len(b.data) > b.maxSize {
 		b.data = b.data[len(b.data)-b.maxSize:]
@@ -85,4 +85,3 @@ var globalBuffer = NewBuffer(1024 * 1024) // 1MB buffer
 func GetGlobalBuffer() *Buffer {
 	return globalBuffer
 }
-

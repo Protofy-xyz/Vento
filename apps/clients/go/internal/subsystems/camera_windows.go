@@ -29,6 +29,7 @@ import (
 	"time"
 	"unsafe"
 
+	"ventoagent/internal/cards"
 	"ventoagent/internal/vento"
 )
 
@@ -47,7 +48,7 @@ func initCameras() int {
 func getCameraName(device int) string {
 	buf := make([]byte, 256)
 	C.camera_get_name(C.int(device), (*C.char)(unsafe.Pointer(&buf[0])), C.int(len(buf)))
-	
+
 	// Find null terminator
 	for i, b := range buf {
 		if b == 0 {
@@ -65,7 +66,8 @@ func captureFrame(device, width, height, quality int) ([]byte, int, int, error) 
 		&outData, &outSize)
 
 	if result == 0 || outData == nil {
-		return nil, 0, 0, fmt.Errorf("capture failed")
+		lastErr := C.camera_get_last_error()
+		return nil, 0, 0, fmt.Errorf("capture failed (HRESULT: 0x%08X)", uint32(lastErr))
 	}
 
 	defer C.camera_free_buffer(outData)
@@ -150,13 +152,13 @@ func (t *CameraMultiTemplate) detectCameras() {
 	for i := 0; i < count; i++ {
 		name := getCameraName(i)
 		sanitized := sanitizeCameraName(name, i)
-		
+
 		// Handle duplicate names
 		if count := usedNames[sanitized]; count > 0 {
 			sanitized = fmt.Sprintf("%s_%d", sanitized, count)
 		}
 		usedNames[sanitized]++
-		
+
 		t.cameras = append(t.cameras, cameraInfo{
 			id:       sanitized,
 			name:     name,
@@ -171,26 +173,26 @@ func sanitizeCameraName(name string, index int) string {
 	if name == "" {
 		return fmt.Sprintf("camera_%d", index)
 	}
-	
+
 	// Convert to lowercase
 	s := strings.ToLower(name)
-	
+
 	// Replace spaces and special chars with underscores
 	re := regexp.MustCompile(`[^a-z0-9]+`)
 	s = re.ReplaceAllString(s, "_")
-	
+
 	// Remove leading/trailing underscores
 	s = strings.Trim(s, "_")
-	
+
 	// Limit length
 	if len(s) > 40 {
 		s = s[:40]
 	}
-	
+
 	if s == "" {
 		return fmt.Sprintf("camera_%d", index)
 	}
-	
+
 	return s
 }
 
@@ -201,45 +203,57 @@ func (t *CameraMultiTemplate) BuildAll(deviceName string) []Definition {
 	}
 
 	defs := make([]Definition, 0, len(t.cameras))
+	singleCamera := len(t.cameras) == 1
 	for _, cam := range t.cameras {
-		defs = append(defs, t.buildCameraDefinition(deviceName, cam))
+		defs = append(defs, t.buildCameraDefinition(deviceName, cam, singleCamera))
 	}
 	return defs
 }
 
-func (t *CameraMultiTemplate) buildCameraDefinition(deviceName string, cam cameraInfo) Definition {
+func (t *CameraMultiTemplate) buildCameraDefinition(deviceName string, cam cameraInfo, singleCamera bool) Definition {
 	subsystemName := cam.id
 	cameraLabel := cam.name
 	if cameraLabel == "" {
 		cameraLabel = fmt.Sprintf("Camera %d", cam.deviceNo)
 	}
-	
+
+	// Use simpler labels if there's only one camera
+	monitorLabel := "Last Frame"
+	actionLabel := "Take Picture"
+	if !singleCamera {
+		monitorLabel = fmt.Sprintf("%s - Last Frame", cameraLabel)
+		actionLabel = fmt.Sprintf("%s - Take Picture", cameraLabel)
+	}
+
 	// Copy variables for closure
 	camCopy := cam
-	infoTopic := fmt.Sprintf("devices/%s/%s/monitors/info", deviceName, subsystemName)
+	monitorEndpoint := fmt.Sprintf("/%s/monitors/last_capture", subsystemName)
 
 	return Definition{
 		Name: subsystemName,
 		Monitors: []MonitorConfig{
 			{
 				Monitor: vento.Monitor{
-					Name:        "info",
-					Label:       cameraLabel,
-					Description: fmt.Sprintf("Camera info: %s", cameraLabel),
-					Endpoint:    fmt.Sprintf("/%s/monitors/info", subsystemName),
+					Name:        "last_capture",
+					Label:       monitorLabel,
+					Description: fmt.Sprintf("Last captured photo from %s", cameraLabel),
+					Endpoint:    monitorEndpoint,
 					CardProps: map[string]any{
 						"icon":  "camera",
 						"color": "$blue10",
 						"order": 110,
+						"html":  cards.Frame,
 					},
 				},
 				Boot: func(ctx context.Context, mqtt *vento.MQTTClient) error {
 					info := map[string]any{
-						"name":     camCopy.name,
+						"type":     "frame",
+						"status":   "ready",
+						"camera":   camCopy.name,
 						"device":   camCopy.deviceNo,
 						"platform": "windows",
 					}
-					return mqtt.Publish(infoTopic, info)
+					return mqtt.Publish(fmt.Sprintf("devices/%s%s", deviceName, monitorEndpoint), info)
 				},
 			},
 		},
@@ -247,10 +261,12 @@ func (t *CameraMultiTemplate) buildCameraDefinition(deviceName string, cam camer
 			{
 				Action: vento.Action{
 					Name:           "take_picture",
-					Label:          fmt.Sprintf("%s - Take Picture", cameraLabel),
+					Label:          actionLabel,
 					Description:    fmt.Sprintf("Capture a photo from %s", cameraLabel),
 					Endpoint:       fmt.Sprintf("/%s/actions/take_picture", subsystemName),
 					ConnectionType: "mqtt",
+					Mode:           "request-reply",
+					ReplyTimeoutMs: 30000,
 					Payload: vento.ActionPayload{
 						Type: "json-schema",
 						Schema: map[string]any{
@@ -277,13 +293,13 @@ func (t *CameraMultiTemplate) buildCameraDefinition(deviceName string, cam camer
 						"order": 111,
 					},
 				},
-				Handler: t.createTakePictureHandler(camCopy),
+				Handler: t.createTakePictureHandler(camCopy, monitorEndpoint),
 			},
 		},
 	}
 }
 
-func (t *CameraMultiTemplate) createTakePictureHandler(cam cameraInfo) func(vento.ActionEnvelope) error {
+func (t *CameraMultiTemplate) createTakePictureHandler(cam cameraInfo, monitorEndpoint string) func(vento.ActionEnvelope) error {
 	return func(msg vento.ActionEnvelope) error {
 		var params struct {
 			Quality int `json:"quality"`
@@ -329,11 +345,26 @@ func (t *CameraMultiTemplate) createTakePictureHandler(cam cameraInfo) func(vent
 
 		log.Printf("[%s] photo uploaded to %s", cam.id, remotePath)
 
-		replyJSONWin(msg, map[string]any{
-			"path":   remotePath,
-			"width":  actualWidth,
-			"height": actualHeight,
-		})
+		timestamp := time.Now().Unix()
+		imageUrl := fmt.Sprintf("%s/api/core/v1/files/%s?key=%d", t.httpClient.BaseURL(), remotePath, timestamp)
+		result := map[string]any{
+			"type":      "frame",
+			"frame":     remotePath,
+			"imageUrl":  imageUrl,
+			"key":       timestamp,
+			"width":     actualWidth,
+			"height":    actualHeight,
+			"timestamp": timestamp,
+			"camera":    cam.name,
+		}
+
+		// Update monitor with last capture info
+		if err := msg.PublishJSON(monitorEndpoint, result); err != nil {
+			log.Printf("[%s] failed to update monitor: %v", cam.id, err)
+		}
+
+		// Reply to action
+		replyJSONWin(msg, result)
 
 		return nil
 	}

@@ -136,9 +136,19 @@ static int encode_jpeg(unsigned char* rgb, int width, int height, int quality,
     return 1;
 }
 
+// Error code for debugging
+static HRESULT g_last_error = S_OK;
+
+HRESULT camera_get_last_error(void) {
+    return g_last_error;
+}
+
 int camera_capture(int device, int width, int height, int quality,
                    unsigned char** out_data, int* out_size) {
+    g_last_error = S_OK;
+    
     if (!g_initialized || device < 0 || device >= g_device_count) {
+        g_last_error = E_INVALIDARG;
         return 0;
     }
 
@@ -149,6 +159,7 @@ int camera_capture(int device, int width, int height, int quality,
     IMFMediaSource* pSource = NULL;
     HRESULT hr = g_devices[device]->ActivateObject(IID_PPV_ARGS(&pSource));
     if (FAILED(hr)) {
+        g_last_error = hr;
         return 0;
     }
 
@@ -165,6 +176,7 @@ int camera_capture(int device, int width, int height, int quality,
     if (pReaderAttrs) pReaderAttrs->Release();
     
     if (FAILED(hr)) {
+        g_last_error = hr;
         pSource->Release();
         return 0;
     }
@@ -264,7 +276,13 @@ int camera_capture(int device, int width, int height, int quality,
     }
 
     pReader->Release();
+    
+    // Shutdown the source to properly release the camera
+    pSource->Shutdown();
     pSource->Release();
+    
+    // Shutdown the activate object so it can be reactivated next time
+    g_devices[device]->ShutdownObject();
     
     return result;
 }

@@ -20,7 +20,8 @@ type ActionEnvelope struct {
 	Topic     string
 	RequestID string
 
-	reply func([]byte) error
+	reply   func([]byte) error
+	publish func(topic string, payload []byte) error
 }
 
 // Reply sends a raw payload back to the reply topic.
@@ -48,6 +49,23 @@ func (e ActionEnvelope) ReplyJSON(v any) error {
 // CanReply indicates whether a reply topic was provided.
 func (e ActionEnvelope) CanReply() bool {
 	return e.reply != nil
+}
+
+// Publish sends a payload to an arbitrary topic (relative to device).
+func (e ActionEnvelope) Publish(topic string, payload []byte) error {
+	if e.publish == nil {
+		return fmt.Errorf("publish channel not available")
+	}
+	return e.publish(topic, payload)
+}
+
+// PublishJSON marshals v to JSON and publishes to the topic.
+func (e ActionEnvelope) PublishJSON(topic string, v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return e.Publish(topic, data)
 }
 
 // ActionHandler handles action messages.
@@ -114,6 +132,12 @@ func ConnectMQTT(ctx context.Context, baseURL *url.URL, deviceName, username, to
 				Payload:   msg.Payload(),
 				Topic:     msg.Topic(),
 				RequestID: requestID,
+				publish: func(topic string, payload []byte) error {
+					fullTopic := fmt.Sprintf("devices/%s%s", deviceName, topic)
+					token := c.Publish(fullTopic, 1, false, payload)
+					token.Wait()
+					return token.Error()
+				},
 			}
 			if requestID != "" {
 				replyTopic := msg.Topic() + "/reply"

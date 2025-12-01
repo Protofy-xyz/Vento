@@ -22,6 +22,7 @@ import (
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/prop"
 
+	"ventoagent/internal/cards"
 	"ventoagent/internal/vento"
 
 	// Import camera drivers for each platform
@@ -122,45 +123,57 @@ func (t *CameraMultiTemplate) BuildAll(deviceName string) []Definition {
 	}
 
 	defs := make([]Definition, 0, len(t.cameras))
+	singleCamera := len(t.cameras) == 1
 	for _, cam := range t.cameras {
-		defs = append(defs, t.buildCameraDefinition(deviceName, cam))
+		defs = append(defs, t.buildCameraDefinition(deviceName, cam, singleCamera))
 	}
 	return defs
 }
 
-func (t *CameraMultiTemplate) buildCameraDefinition(deviceName string, cam cameraInfo) Definition {
+func (t *CameraMultiTemplate) buildCameraDefinition(deviceName string, cam cameraInfo, singleCamera bool) Definition {
 	subsystemName := cam.id
 	cameraLabel := cam.name
 	if cameraLabel == "" {
 		cameraLabel = fmt.Sprintf("Camera %d", 0) // deviceID is string on Linux/macOS
 	}
 
+	// Use simpler labels if there's only one camera
+	monitorLabel := "Last Frame"
+	actionLabel := "Take Picture"
+	if !singleCamera {
+		monitorLabel = fmt.Sprintf("%s - Last Frame", cameraLabel)
+		actionLabel = fmt.Sprintf("%s - Take Picture", cameraLabel)
+	}
+
 	// Copy variables for closure
 	camCopy := cam
-	infoTopic := fmt.Sprintf("devices/%s/%s/monitors/info", deviceName, subsystemName)
+	monitorEndpoint := fmt.Sprintf("/%s/monitors/last_capture", subsystemName)
 
 	return Definition{
 		Name: subsystemName,
 		Monitors: []MonitorConfig{
 			{
 				Monitor: vento.Monitor{
-					Name:        "info",
-					Label:       cameraLabel,
-					Description: fmt.Sprintf("Camera info: %s", cameraLabel),
-					Endpoint:    fmt.Sprintf("/%s/monitors/info", subsystemName),
+					Name:        "last_capture",
+					Label:       monitorLabel,
+					Description: fmt.Sprintf("Last captured photo from %s", cameraLabel),
+					Endpoint:    monitorEndpoint,
 					CardProps: map[string]any{
 						"icon":  "camera",
 						"color": "$blue10",
 						"order": 110,
+						"html":  cards.Frame,
 					},
 				},
 				Boot: func(ctx context.Context, mqtt *vento.MQTTClient) error {
 					info := map[string]any{
-						"name":      camCopy.name,
+						"type":      "frame",
+						"status":    "ready",
+						"camera":    camCopy.name,
 						"device_id": camCopy.deviceID,
 						"platform":  runtime.GOOS,
 					}
-					return mqtt.Publish(infoTopic, info)
+					return mqtt.Publish(fmt.Sprintf("devices/%s%s", deviceName, monitorEndpoint), info)
 				},
 			},
 		},
@@ -168,10 +181,12 @@ func (t *CameraMultiTemplate) buildCameraDefinition(deviceName string, cam camer
 			{
 				Action: vento.Action{
 					Name:           "take_picture",
-					Label:          fmt.Sprintf("%s - Take Picture", cameraLabel),
+					Label:          actionLabel,
 					Description:    fmt.Sprintf("Capture a photo from %s", cameraLabel),
 					Endpoint:       fmt.Sprintf("/%s/actions/take_picture", subsystemName),
 					ConnectionType: "mqtt",
+					Mode:           "request-reply",
+					ReplyTimeoutMs: 30000,
 					Payload: vento.ActionPayload{
 						Type: "json-schema",
 						Schema: map[string]any{
@@ -188,13 +203,13 @@ func (t *CameraMultiTemplate) buildCameraDefinition(deviceName string, cam camer
 						"order": 111,
 					},
 				},
-				Handler: t.createTakePictureHandler(camCopy),
+				Handler: t.createTakePictureHandler(camCopy, monitorEndpoint),
 			},
 		},
 	}
 }
 
-func (t *CameraMultiTemplate) createTakePictureHandler(cam cameraInfo) func(vento.ActionEnvelope) error {
+func (t *CameraMultiTemplate) createTakePictureHandler(cam cameraInfo, monitorEndpoint string) func(vento.ActionEnvelope) error {
 	return func(msg vento.ActionEnvelope) error {
 		// Parse payload
 		var params struct {
@@ -233,12 +248,26 @@ func (t *CameraMultiTemplate) createTakePictureHandler(cam cameraInfo) func(vent
 
 		log.Printf("[%s] photo uploaded to %s", cam.id, remotePath)
 
+		timestamp := time.Now().Unix()
+		imageUrl := fmt.Sprintf("%s/api/core/v1/files/%s?key=%d", t.httpClient.BaseURL(), remotePath, timestamp)
+		result := map[string]any{
+			"type":      "frame",
+			"frame":     remotePath,
+			"imageUrl":  imageUrl,
+			"key":       timestamp,
+			"width":     width,
+			"height":    height,
+			"timestamp": timestamp,
+			"camera":    cam.name,
+		}
+
+		// Update monitor with last capture info
+		if err := msg.PublishJSON(monitorEndpoint, result); err != nil {
+			log.Printf("[%s] failed to update monitor: %v", cam.id, err)
+		}
+
 		// Reply with path
-		replyJSON(msg, map[string]any{
-			"path":   remotePath,
-			"width":  width,
-			"height": height,
-		})
+		replyJSON(msg, result)
 
 		return nil
 	}

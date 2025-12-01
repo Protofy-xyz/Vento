@@ -1,4 +1,4 @@
-//go:build !((linux && amd64) || darwin || windows)
+//go:build !((linux && amd64) || darwin || (windows && amd64))
 
 package subsystems
 
@@ -16,4 +16,3 @@ func NewCameraMultiTemplate(httpClient *vento.Client, token string) *CameraMulti
 func (t *CameraMultiTemplate) BuildAll(deviceName string) []Definition {
 	return nil
 }
-

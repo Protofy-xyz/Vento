@@ -128,9 +128,25 @@ const SIZE = {
 // --- Smarter board generator: groups by subsystem, uses gridSizes totals ---
 const generateDeviceBoard = async (
   boardName: string = 'devices_all',
-  deviceName?: string          // <- NEW
+  deviceName?: string
 ) => {
     const token = getServiceToken();
+    
+    // Check if board already exists - if so, skip generation entirely
+    // User must delete the board manually if they want to regenerate it
+    try {
+        const existingBoard = await API.get(`/api/core/v1/boards/${encodeURIComponent(boardName)}?token=${token}`);
+        if (existingBoard?.data) {
+            logger.debug({ boardName }, 'Board already exists, skipping generation (delete board manually to regenerate)');
+            return;
+        }
+    } catch (e: any) {
+        // 404 means board doesn't exist - continue with generation
+        const status = e?.response?.status || e?.status;
+        if (status !== 404) {
+            logger.warn({ boardName, err: e?.response?.data || e }, 'Error checking board existence');
+        }
+    }
 
     const DEFAULT_HTML_VALUE = `//@card/react
 function Widget(card) {
@@ -397,16 +413,6 @@ function Widget(card) {
             savedAt: Date.now()
         };
 
-        try {
-            await API.get(`/api/core/v1/boards/${encodeURIComponent(boardName)}/delete?token=${token}`);
-            logger.info({ boardName }, 'Deleted existing board before re-creating');
-        } catch (e: any) {
-            const status = e?.response?.status || e?.status;
-            if (status !== 404) {
-                logger.warn({ boardName, err: e?.response?.data || e }, 'Delete board failed (non-404)');
-            }
-        }
-
         await API.post(`/api/core/v1/boards?token=${token}`, payload);
         logger.info({ boardName, count: cards.length }, 'Generated devices board with grouped subsystem layouts');
     } catch (err) {
@@ -523,6 +529,7 @@ const getDB = (path, req, session) => {
 }
 
 // Regenerate board for a single device - registers actions, cards and generates the board
+// Note: If board already exists, it will NOT be regenerated. User must delete the board manually first.
 const regenerateBoardForDevice = async (deviceName: string) => {
     const db = getDB('devices')
     let deviceData
@@ -941,8 +948,9 @@ export default (app, context) => {
         
         const deviceName = req.params.device
         try {
+            // Note: If board exists, this won't recreate it. User must delete board first.
             await regenerateBoardForDevice(deviceName)
-            res.send({message: 'Board regenerated successfully', device: deviceName})
+            res.send({message: 'Board regenerated (or skipped if already exists)', device: deviceName})
         } catch (err: any) {
             logger.error({ deviceName, err: err.message }, 'Failed to regenerate board')
             res.status(404).send({error: err.message || 'Failed to regenerate board'})

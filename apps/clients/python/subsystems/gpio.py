@@ -34,37 +34,25 @@ class GPIOTemplate:
                     action=Action(
                         name="gpio_write",
                         label="Drive GPIO Output",
-                        description=(
-                            "Drive a Raspberry Pi GPIO pin HIGH (3.3V) or LOW (0V) using the official BCM numbering. "
-                            "Use this action to toggle relays, LEDs or any digital actuator connected to the Pi header. "
-                            "Remember to use proper level shifting or transistor drivers for loads that draw more than a few milliamps."
-                        ),
+                        description="Drive a Raspberry Pi GPIO pin high or low using BCM numbering.",
                         endpoint=GPIO_SET_PIN_ENDPOINT,
                         connection_type="mqtt",
                         payload=ActionPayload(
                             type="json-schema",
                             schema={
                                 "type": "object",
-                                "required": ["bcm_pin", "level"],
+                                "required": ["pin", "state"],
                                 "properties": {
-                                    "bcm_pin": {
+                                    "pin": {
                                         "type": "integer",
-                                        "title": "BCM pin number",
-                                        "description": (
-                                            "Broadcom GPIO identifier as shown in Raspberry Pi documentation (e.g. 17 = physical pin 11). "
-                                            "Only BCM numbers between 0 and 27 are typically available on Raspberry Pi boards."
-                                        ),
+                                        "title": "BCM pin",
+                                        "description": "Broadcom pin number (e.g. 17).",
                                         "minimum": 0,
-                                        "maximum": 27,
                                     },
-                                    "level": {
+                                    "state": {
                                         "type": "boolean",
                                         "title": "Output level",
-                                        "description": (
-                                            "Digital level to drive on the selected pin. "
-                                            "true keeps the pin HIGH (3.3V) and false keeps it LOW (0V). "
-                                            "Combine with GPIO_READ to verify the line changed as expected."
-                                        ),
+                                        "description": "true = HIGH (3.3V). false = LOW (0V).",
                                         "default": True,
                                     },
                                 },
@@ -78,27 +66,20 @@ class GPIOTemplate:
                     action=Action(
                         name="gpio_read",
                         label="Read GPIO Input",
-                        description=(
-                            "Sample the current HIGH/LOW level of a Raspberry Pi GPIO pin (BCM numbering). "
-                            "Use this to check sensors, button states or to confirm that a previous gpio_write call succeeded."
-                        ),
+                        description="Read the current digital level of a Raspberry Pi GPIO pin (BCM numbering).",
                         endpoint=GPIO_READ_PIN_ENDPOINT,
                         connection_type="mqtt",
                         payload=ActionPayload(
                             type="json-schema",
                             schema={
                                 "type": "object",
-                                "required": ["bcm_pin"],
+                                "required": ["pin"],
                                 "properties": {
-                                    "bcm_pin": {
+                                    "pin": {
                                         "type": "integer",
-                                        "title": "BCM pin number",
-                                        "description": (
-                                            "Broadcom GPIO identifier you want to read (e.g. 4 = physical pin 7). "
-                                            "Ensure the pin is configured as an input or has a pull-up/pull-down resistor."
-                                        ),
+                                        "title": "BCM pin",
+                                        "description": "Broadcom pin number (e.g. 4).",
                                         "minimum": 0,
-                                        "maximum": 27,
                                     },
                                 },
                             },
@@ -114,8 +95,10 @@ class GPIOTemplate:
     def handle_set_pin(self, msg: ActionEnvelope) -> None:
         try:
             payload = json.loads(msg.payload or b"{}")
-            pin = parse_pin(payload)
-            state = first_bool(payload.get("level"), payload.get("state"), payload.get("value"), payload.get("high"))
+            pin = int(payload.get("pin") or 0)
+            if pin == 0:
+                raise ValueError("payload must include non-zero pin")
+            state = first_bool(payload.get("state"), payload.get("value"), payload.get("high"))
             if state is None:
                 raise ValueError("missing state; provide true/false")
             self.ctrl.set_pin(pin, bool(state))
@@ -126,7 +109,9 @@ class GPIOTemplate:
     def handle_read_pin(self, msg: ActionEnvelope) -> None:
         try:
             payload = json.loads(msg.payload or b"{}")
-            pin = parse_pin(payload)
+            pin = int(payload.get("pin") or 0)
+            if pin == 0:
+                raise ValueError("payload must include non-zero pin")
             state = self.ctrl.read_pin(pin)
             reply_with_data(msg, {"pin": pin, "state": state})
         except Exception as err:
@@ -183,16 +168,3 @@ def first_bool(*values: Any) -> Optional[bool]:
         if isinstance(value, bool):
             return value
     return None
-
-
-def parse_pin(payload: Any) -> int:
-    """
-    Accept both the new `bcm_pin` field and the legacy `pin` field to remain backwards compatible.
-    """
-    pin_value = payload.get("bcm_pin")
-    if pin_value is None:
-        pin_value = payload.get("pin")
-    pin = int(pin_value or 0)
-    if pin <= 0:
-        raise ValueError("payload must include a valid BCM pin number")
-    return pin

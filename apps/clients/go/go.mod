@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/0xcafed00d/joystick v1.0.1 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fredbi/uri v1.1.1 // indirect

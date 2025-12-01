@@ -267,6 +267,28 @@ export default function App() {
               </View>
             </Pressable>
 
+            {/* Reconnect button - only shown if we have stored credentials */}
+            {state.storedConfig?.host && state.storedConfig?.token && (
+              <Pressable 
+                style={[styles.chooseButton, styles.chooseButtonReconnect]}
+                onPress={() => {
+                  connect({
+                    host: state.storedConfig!.host!,
+                    username: state.storedConfig!.username!,
+                    token: state.storedConfig!.token!,
+                  });
+                }}
+              >
+                <Text style={styles.chooseButtonIcon}>🔄</Text>
+                <View style={styles.chooseButtonTextContainer}>
+                  <Text style={styles.chooseButtonTitle}>Reconnect</Text>
+                  <Text style={styles.chooseButtonDesc} numberOfLines={1}>
+                    {state.storedConfig.username}@{state.storedConfig.host?.replace(/^https?:\/\//, '')}
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+
             {/* Permission status */}
             <View style={styles.permissionsRow}>
               <Text style={[styles.permissionItem, { color: permissions.camera === 'granted' ? '#4ade80' : '#f87171' }]}>
@@ -632,6 +654,10 @@ const styles = StyleSheet.create({
   chooseButtonSecondary: {
     backgroundColor: '#141418',
     borderColor: '#222',
+  },
+  chooseButtonReconnect: {
+    backgroundColor: '#1a2a1a',
+    borderColor: '#2a4a2a',
   },
   chooseButtonIcon: {
     fontSize: 32,

@@ -45,7 +45,7 @@ export function buildSpeechSubsystem(): SubsystemDefinition {
           },
           cardProps: {
             icon: 'volume-2',
-            color: '$cyan10',
+            color: '$blue10',
             order: 59,
           },
           mode: 'request-reply',

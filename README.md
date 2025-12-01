@@ -145,7 +145,7 @@ cd vento
 yarn
 
 # Start Vento
-yarn dev
+yarn start
 ```
 
 ### Access the UI

@@ -31,6 +31,7 @@ interface AgentState {
   host?: string;
   username?: string;
   token?: string;
+  storedConfig?: StoredConfig;
 }
 
 interface AgentControls {
@@ -198,21 +199,13 @@ export function useAgent(): AgentControls {
       disconnectRef.current();
     });
 
+    // Load stored config but DO NOT auto-connect
+    // App.tsx will use storedConfig to pre-fill the form
     loadStoredConfig().then((cfg) => {
-      if (cfg && cfg.host && cfg.username && cfg.token) {
-        // Auto-connect with stored credentials
-        console.log('[agent] found stored config, auto-connecting...');
-        connect({
-          host: cfg.host,
-          username: cfg.username,
-          token: cfg.token,
-        });
-      } else if (cfg) {
-        // Just populate the form
+      if (cfg) {
         setState((prev) => ({
           ...prev,
-          host: cfg.host,
-          username: cfg.username,
+          storedConfig: cfg,
         }));
       }
     });

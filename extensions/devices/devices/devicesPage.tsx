@@ -244,7 +244,7 @@ export default {
 
             const buttonLabel = hasDefinition ? "Upload definition" : "Upload config";
 
-            return (
+            return device.data.platform == "esphome" ? (
               <ButtonSimple
                 onPress={async () => {
                   if (!hasDefinition) {
@@ -256,7 +256,7 @@ export default {
               >
                 {buttonLabel}
               </ButtonSimple>
-            );
+            ):(<></>)
           })
         )}
         customFields={{

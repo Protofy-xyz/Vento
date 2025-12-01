@@ -131,7 +131,7 @@ Create data models with automatic REST API generation. Define your schema, and V
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+ (20 prefered) 
 - Yarn
 
 ### Installation

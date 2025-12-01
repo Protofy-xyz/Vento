@@ -905,10 +905,32 @@ export default (app, context) => {
 
     registerActions()
 
-    // NOTE: We intentionally do NOT delete the device when its board is deleted.
-    // The board is regenerated on server restart and during device updates,
-    // which would incorrectly delete the device. If you want to delete a device,
-    // delete it directly via the devices API - the board will be cleaned up automatically.
+    // When a board is deleted, also delete the associated device
+    // This is safe now because boards are NOT regenerated automatically anymore
+    topicSub(mqtt, 'boards/delete/#', async (message, topic) => {
+        try {
+            const boardName = topic.replace('boards/delete/', '')
+            if (!boardName) return
+            
+            const db = getDB('devices')
+            // Check if there's a device with this name
+            try {
+                const deviceData = await db.get(boardName)
+                if (deviceData) {
+                    const deviceInfo = DevicesModel.load(JSON.parse(deviceData))
+                    // Delete actions and cards
+                    await deleteDeviceActions(deviceInfo.data.name)
+                    // Delete the device file
+                    await db.del(boardName, deviceData)
+                    logger.info({ deviceName: boardName }, 'Deleted device because its board was deleted')
+                }
+            } catch (err) {
+                // Device doesn't exist, that's fine
+            }
+        } catch (err) {
+            logger.error({ err, topic }, 'Error handling board delete')
+        }
+    })
 
     const devicePlatforms = {}
     const getDevicePlatforms = () => Object.keys(devicePlatforms)

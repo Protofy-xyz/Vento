@@ -1,5 +1,5 @@
-//go:build (windows && amd64) || darwin
-// +build windows,amd64 darwin
+//go:build windows && amd64
+// +build windows,amd64
 
 package tray
 

@@ -31,6 +31,7 @@ func NewSet(cfg *config.Config) *Set {
 	return &Set{
 		templates: []Template{
 			NewSystemInfoTemplate(),
+			NewGPIOTemplate(),
 		},
 		multiTemplates: []MultiTemplate{
 			NewGamepadMultiTemplate(),
@@ -52,6 +53,7 @@ func NewSetWithOptions(opts SetOptions) *Set {
 	return &Set{
 		templates: []Template{
 			NewSystemInfoTemplate(),
+			NewGPIOTemplate(),
 		},
 		multiTemplates: multiTemplates,
 	}

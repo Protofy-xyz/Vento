@@ -72,7 +72,7 @@ jobs:
           CGO_ENABLED: "1"
         run: |
           cd apps/clients/go
-          go build -mod=mod -ldflags="-s -w" -o ventoagent-linux-amd64 ./cmd/ventoagent
+          go build -mod=mod -tags "gl" -ldflags="-s -w" -o ventoagent-linux-amd64 ./cmd/ventoagent
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -128,8 +128,8 @@ jobs:
           path: apps/clients/go/ventoagent-${{ matrix.suffix }}
           retention-days: 1
 
-  # Build Windows binaries (with GUI, CGO enabled)
-  build-windows:
+  # Build Windows amd64 binary (with GUI, CGO enabled)
+  build-windows-amd64:
     needs: changes
     if: |
       github.repository == 'Protofy-xyz/Vento' && 
@@ -137,15 +137,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - goarch: amd64
-            suffix: windows-amd64
-          - goarch: arm64
-            suffix: windows-arm64
 
     steps:
       - name: Checkout repo
@@ -160,17 +151,53 @@ jobs:
       - name: Build binary
         env:
           GOOS: windows
-          GOARCH: ${{ matrix.goarch }}
+          GOARCH: amd64
           CGO_ENABLED: "1"
         run: |
           cd apps/clients/go
-          go build -mod=mod -ldflags="-s -w -H windowsgui" -o ventoagent-${{ matrix.suffix }}.exe ./cmd/ventoagent
+          go build -mod=mod -ldflags="-s -w -H windowsgui" -o ventoagent-windows-amd64.exe ./cmd/ventoagent
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ventoagent-${{ matrix.suffix }}
-          path: apps/clients/go/ventoagent-${{ matrix.suffix }}.exe
+          name: ventoagent-windows-amd64
+          path: apps/clients/go/ventoagent-windows-amd64.exe
+          retention-days: 1
+
+  # Build Windows ARM64 binary (no GUI, CGO disabled for cross-compilation)
+  build-windows-arm64:
+    needs: changes
+    if: |
+      github.repository == 'Protofy-xyz/Vento' && 
+      (needs.changes.outputs.is-tag == 'true' || needs.changes.outputs.go-client == 'true')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: apps/clients/go/go.sum
+
+      - name: Build binary
+        env:
+          GOOS: windows
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+        run: |
+          cd apps/clients/go
+          go build -mod=mod -ldflags="-s -w" -o ventoagent-windows-arm64.exe ./cmd/ventoagent
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ventoagent-windows-arm64
+          path: apps/clients/go/ventoagent-windows-arm64.exe
           retention-days: 1
 
   # Build macOS binaries (with GUI, CGO enabled)
@@ -219,7 +246,7 @@ jobs:
           retention-days: 1
 
   release-development:
-    needs: [build-linux-amd64, build-linux-arm, build-windows, build-macos]
+    needs: [build-linux-amd64, build-linux-arm, build-windows-amd64, build-windows-arm64, build-macos]
     if: github.repository == 'Protofy-xyz/Vento' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -250,7 +277,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-version:
-    needs: [build-linux-amd64, build-linux-arm, build-windows, build-macos]
+    needs: [build-linux-amd64, build-linux-arm, build-windows-amd64, build-windows-arm64, build-macos]
     if: github.repository == 'Protofy-xyz/Vento' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:

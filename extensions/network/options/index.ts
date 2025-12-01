@@ -14,9 +14,11 @@ import { tasksOption } from '../../apis/networkOption'
 import { devicesOption } from '../../devices/networkOption'
 import { androidOption } from '../../android/networkOption'
 import { objectsOption } from '../../objects/networkOption'
+import { desktopOption } from '../../desktop/networkOption'
 
 export const networkOptions: NetworkOption[] = [
   androidOption,
+  desktopOption,
   devicesOption,
   objectsOption,
   virtualAgentsOption,

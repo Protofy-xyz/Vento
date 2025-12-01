@@ -309,62 +309,57 @@ function Widget(card) {
 
         // --- after computing groupMinOrder + the order log ---
         const buildGroupedLayout = (bp: 'lg' | 'md' | 'sm' | 'xs', cols: number) => {
-            // Sort groups by their minimum order (so cards appear in the order defined by their 'order' field)
-            const groupKeys = Array.from(buckets[bp].keys()).sort((a, b) => {
-                const orderA = groupMinOrder.get(a) ?? Infinity;
-                const orderB = groupMinOrder.get(b) ?? Infinity;
-                if (orderA !== orderB) return orderA - orderB;
-                // Fallback: alphabetical by subsystem name
-                const [da, sa] = a.split('::');
-                const [db, sb] = b.split('::');
-                return da === db ? sa.localeCompare(sb) : da.localeCompare(db);
+            // Collect ALL cards from all groups, then sort by order globally
+            const allItems: Sized[] = [];
+            for (const [gk, items] of buckets[bp].entries()) {
+                allItems.push(...items);
+            }
+            
+            // Sort all cards by their order value (cards without order go last)
+            const sortedItems = allItems.sort((a, b) => {
+                const orderA = a.order ?? Infinity;
+                const orderB = b.order ?? Infinity;
+                return orderA - orderB;
             });
 
             // log final order
-            console.groupCollapsed(`[devices_board] Order @ ${bp} (cols=${cols})`);
-            groupKeys.forEach((gk, i) => {
-                const [device, subsystem] = gk.split('::');
-                const minOrd = groupMinOrder.get(gk) ?? Infinity;
-                console.log(`${i + 1}. ${device} :: ${subsystem} (minOrder=${minOrd})`);
+            console.groupCollapsed(`[devices_board] Card order @ ${bp} (cols=${cols})`);
+            sortedItems.slice(0, 20).forEach((item, i) => {
+                console.log(`${i + 1}. ${item.i} (order=${item.order ?? 'none'})`);
             });
+            if (sortedItems.length > 20) console.log(`... and ${sortedItems.length - 20} more`);
             console.groupEnd();
 
-            let curX = 0;      // current column
-            let curY = 0;      // current row (y coord)
-            let rowH = 0;      // tallest group height in the current row
+            // Simple row-based layout: place cards one by one, wrapping to next row when needed
+            let curX = 0;
+            let curY = 0;
+            let rowH = 0;
             const result: any[] = [];
 
-            for (const gk of groupKeys) {
-                const items = buckets[bp].get(gk)!;
+            for (const item of sortedItems) {
+                const w = item.w;
+                const h = item.h;
 
-                // Sort items by order if available (items without order go last)
-                const sortedItems = [...items].sort((a, b) => {
-                    const orderA = a.order ?? Infinity;
-                    const orderB = b.order ?? Infinity;
-                    return orderA - orderB;
-                });
-
-                // Pack this group's cards locally (origin at 0,0)
-                const local = pack(sortedItems.map(({ i, w, h }) => ({ i, w, h })), cols);
-
-                // Measure this group's footprint
-                const gW = Math.min(groupWidth(local), cols);   // cols occupied
-                const gH = sectionHeight(local);                // rows occupied
-
-                // If it doesn't fit in the remaining columns, wrap to next row
-                if (curX + gW > cols) {
+                // If card doesn't fit in remaining space, wrap to next row
+                if (curX + w > cols) {
                     curX = 0;
-                    curY += rowH + 1;    // +1 row spacer between rows of groups
+                    curY += rowH + 1; // +1 row spacer
                     rowH = 0;
                 }
 
-                // Place this group at (curX, curY)
-                const placed = shiftXY(local, curX, curY);
-                result.push(...placed);
+                // Place this card
+                result.push({
+                    i: item.i,
+                    x: curX,
+                    y: curY,
+                    w: w,
+                    h: h,
+                    isResizable: true,
+                });
 
                 // Advance cursor
-                curX += gW;            // move to the right after the block
-                rowH = Math.max(rowH, gH);
+                curX += w;
+                rowH = Math.max(rowH, h);
             }
 
             return result;

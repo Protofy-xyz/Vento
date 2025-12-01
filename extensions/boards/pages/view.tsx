@@ -24,7 +24,6 @@ import { AsyncView } from 'protolib/components/AsyncView'
 import { Center } from 'protolib/components/Center'
 import dynamic from 'next/dynamic'
 
-// Lazy load Monaco to prevent "Y.create is not a function" errors with many cards
 const Monaco = dynamic(() => import('protolib/components/Monaco').then(m => m.Monaco), {
   ssr: false,
   loading: () => <Spinner />

@@ -19,3 +19,8 @@ var Frequency string
 //
 //go:embed text.js
 var Text string
+
+// Frame displays camera frame/image with the captured photo
+//
+//go:embed frame.js
+var Frame string

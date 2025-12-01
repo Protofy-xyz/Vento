@@ -1,7 +1,7 @@
 import { API } from "protobase";
 import { DevicesModel } from ".";
 import { AutoAPI, handler, getServiceToken, getDeviceToken,getRoot } from 'protonode'
-import { getLogger, generateEvent } from 'protobase';
+import { getLogger, generateEvent, ProtoMemDB } from 'protobase';
 import * as fs from 'fs';
 import { promises as promisesFs } from 'fs';
 import * as fspath from 'path';
@@ -425,23 +425,35 @@ const deleteDeviceCards = async (deviceName: string) => {
         const deviceCards = cardsTree?.data?.devices?.[deviceName] || {};
         const names = Object.keys(deviceCards);
 
-        if (!names.length) return;
-
-        // POST-based delete per card: /api/core/v1/cards/:group/:tag/:name/delete
-        await Promise.all(
-            names.map((name) =>
-                API.post(
-                    `/api/core/v1/cards/devices/${encodeURIComponent(
-                        deviceName
-                    )}/${encodeURIComponent(name)}/delete?token=${token}`,
-                    {}
-                ).catch((err) => {
-                    logger.error({ deviceName, name, err }, 'Failed deleting device card');
+        if (names.length) {
+            // POST-based delete per card: /api/core/v1/cards/:group/:tag/:name/delete
+            // Also clear from ProtoMemDB cache
+            await Promise.all(
+                names.map(async (name) => {
+                    try {
+                        // Clear from in-memory cache
+                        ProtoMemDB('cards').remove('devices', deviceName, name);
+                        // Delete from disk via API
+                        await API.post(
+                            `/api/core/v1/cards/devices/${encodeURIComponent(
+                                deviceName
+                            )}/${encodeURIComponent(name)}/delete?token=${token}`,
+                            {}
+                        );
+                    } catch (err) {
+                        logger.error({ deviceName, name, err }, 'Failed deleting device card');
+                    }
                 })
-            )
-        );
+            );
+            logger.info({ deviceName, count: names.length }, 'Deleted device cards via API and cache');
+        }
 
-        logger.info({ deviceName, count: names.length }, 'Deleted device cards');
+        // Also directly delete the cards folder from disk to ensure no stale files remain
+        const cardsDir = fspath.join(process.cwd(), 'data', 'cards', 'devices', deviceName);
+        if (fs.existsSync(cardsDir)) {
+            fs.rmSync(cardsDir, { recursive: true, force: true });
+            logger.info({ deviceName, cardsDir }, 'Deleted device cards folder from disk');
+        }
     } catch (err) {
         logger.error({ err }, 'Failed deleting cards for device');
     }

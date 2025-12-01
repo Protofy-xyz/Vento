@@ -109,11 +109,8 @@ const getDB = (path, req, session, context) => {
                 fsSync.mkdirSync(tagDir, { recursive: true });
             }
             const cardPath = fspath.join(tagDir, card.id + '.json');
-            if(!fsSync.existsSync(cardPath)) {
-                fsSync.writeFileSync(cardPath, JSON.stringify(card, null, 2));
-            } else {
-                //getLogger().debug({}, "Card already exists: " + cardPath);
-            }
+            // Always overwrite card to ensure updates are applied
+            fsSync.writeFileSync(cardPath, JSON.stringify(card, null, 2));
         },
 
         async get(key) {

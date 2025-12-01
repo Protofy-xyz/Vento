@@ -16,6 +16,9 @@ int camera_get_name(int device, char* buffer, int buflen);
 int camera_capture(int device, int width, int height, int quality, 
                    unsigned char** out_data, int* out_size);
 
+// Get last HRESULT error code from capture
+long camera_get_last_error(void);
+
 // Free buffer allocated by camera_capture
 void camera_free_buffer(unsigned char* buffer);
 

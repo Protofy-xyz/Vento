@@ -10,12 +10,12 @@ import { useRouter } from 'solito/navigation';
 import BoardPreview from 'protolib/components/board/BoardPreview'
 import { createParam } from 'solito'
 import { AsyncView } from 'protolib/components/AsyncView'
-import { YStack, XStack, Spacer, ScrollView } from "@my/ui";
+import { YStack, XStack, Spacer, ScrollView, Text, Paragraph, Button } from "@my/ui";
 import { AlertDialog } from 'protolib/components/AlertDialog'
 import { useState } from 'react'
 import { Slides } from 'protolib/components/Slides';
 import { TemplateCard } from '../../apis/TemplateCard';
-import { Eye, EyeOff } from '@tamagui/lucide-icons'
+import { Eye, EyeOff, Plus, Bot, Sparkles } from '@tamagui/lucide-icons'
 import { usePageParams } from 'protolib/next'
 import { Tinted } from 'protolib/components/Tinted'
 import { Board } from '@extensions/boards/pages/view'
@@ -37,6 +37,55 @@ const SelectGrid = ({ children }) => {
   return <XStack jc="flex-start" ai="flex-start" gap={25} flexWrap='wrap' width="100%" maxWidth={760} mx="auto">
     {children}
   </XStack>
+}
+
+// Empty state component when there are no agents
+const EmptyAgentsState = ({ onCreateClick }: { onCreateClick: () => void }) => {
+  return (
+    <YStack f={1} ai="center" jc="center" py="$10" gap="$6" mt="$8">
+      {/* Decorative icon with effect */}
+      <YStack position="relative" ai="center" jc="center">
+        <YStack
+          position="absolute"
+          width={120}
+          height={120}
+          br={60}
+          opacity={0.2}
+          bg="$color9"
+          // @ts-ignore
+          style={{ filter: 'blur(40px)' }}
+        />
+        <Tinted>
+          <Bot size={72} color="$color9" strokeWidth={1.2} />
+        </Tinted>
+      </YStack>
+
+      {/* Main text */}
+      <YStack ai="center" gap="$2" maw={400}>
+        <Text fontSize="$8" fontWeight="700" color="$color12" ta="center" fontFamily="$heading">
+          No agents yet
+        </Text>
+        <Paragraph size="$4" color="$color10" ta="center" lh="$5">
+          Create your first AI agent to automate tasks, connect devices, and build intelligent workflows.
+        </Paragraph>
+      </YStack>
+
+      {/* Large create button */}
+      <Tinted>
+        <Button size="$5" icon={Plus} onPress={onCreateClick}>
+          Create your first agent
+        </Button>
+      </Tinted>
+
+      {/* Hint subtle */}
+      <XStack ai="center" gap="$2" opacity={0.5}>
+        <Sparkles size={14} color="$color9" />
+        <Text fontSize="$2" color="$color9">
+          Agents can control devices, process data, and respond to events
+        </Text>
+      </XStack>
+    </YStack>
+  )
 }
 
 const CategorySlide = ({ selected, setSelected }: { selected: NetworkOption | null, setSelected: (option: NetworkOption) => void }) => {
@@ -171,6 +220,7 @@ export default {
           model={BoardModel}
           pageState={pageState}
           dataTableGridProps={{
+            emptyMessage: <EmptyAgentsState onCreateClick={() => setAddOpen(true)} />,
             itemsTransform: (items) => {
               const list = Array.isArray(items) ? [...items] : [];
               if (query.all !== 'true') {

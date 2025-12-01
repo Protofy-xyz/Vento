@@ -13,6 +13,12 @@ type Template interface {
 	Build(deviceName string) Definition
 }
 
+// MultiTemplate is like Template but can return multiple definitions.
+// Useful for dynamic subsystems like gamepads where each device gets its own subsystem.
+type MultiTemplate interface {
+	BuildAll(deviceName string) []Definition
+}
+
 // Definition captures everything needed to expose a subsystem in Vento and run it locally.
 type Definition struct {
 	Name     string

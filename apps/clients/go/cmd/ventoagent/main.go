@@ -16,6 +16,7 @@ import (
 	"ventoagent/internal/agent"
 	"ventoagent/internal/config"
 	"ventoagent/internal/gui"
+	"ventoagent/internal/logview"
 	"ventoagent/internal/tray"
 	"ventoagent/internal/vento"
 )
@@ -86,6 +87,16 @@ func needsGUILogin(opts cliOptions, cfg *config.Config) bool {
 }
 
 func main() {
+	// Set up log capture for the log viewer
+	logBuffer := logview.GetGlobalBuffer()
+	log.SetOutput(logBuffer.MultiWriter(os.Stderr))
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+
+	// Initialize log viewer (starts Fyne in background)
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
+		logview.InitLogViewer()
+	}
+
 	opts := parseFlags()
 
 	manager := config.NewManager(opts.ConfigPath)
@@ -132,6 +143,9 @@ func main() {
 			OnQuit: func() {
 				log.Println("quit requested from system tray")
 				cancel()
+			},
+			OnViewLogs: func() {
+				logview.ShowLogWindow()
 			},
 		})
 		// Give the tray a moment to initialize

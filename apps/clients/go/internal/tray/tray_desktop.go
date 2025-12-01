@@ -22,6 +22,7 @@ type windowsTray struct {
 	mStatus     *systray.MenuItem
 	mHost       *systray.MenuItem
 	mDevice     *systray.MenuItem
+	mLogs       *systray.MenuItem
 	mQuit       *systray.MenuItem
 	initialized bool
 	quitChan    chan struct{}
@@ -78,6 +79,10 @@ func (t *windowsTray) onReady() {
 
 	systray.AddSeparator()
 
+	t.mLogs = systray.AddMenuItem("View Logs", "Show agent logs")
+
+	systray.AddSeparator()
+
 	t.mQuit = systray.AddMenuItem("Quit", "Close Vento Agent")
 
 	t.initialized = true
@@ -86,6 +91,11 @@ func (t *windowsTray) onReady() {
 	go func() {
 		for {
 			select {
+			case <-t.mLogs.ClickedCh:
+				log.Println("[tray] view logs requested")
+				if t.callbacks.OnViewLogs != nil {
+					t.callbacks.OnViewLogs()
+				}
 			case <-t.mQuit.ClickedCh:
 				log.Println("[tray] quit requested via system tray")
 				if t.callbacks.OnQuit != nil {

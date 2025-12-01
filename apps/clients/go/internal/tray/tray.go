@@ -20,6 +20,7 @@ type TrayController interface {
 
 // TrayCallbacks contains callbacks for tray events.
 type TrayCallbacks struct {
-	OnQuit func()
+	OnQuit     func()
+	OnViewLogs func()
 }
 

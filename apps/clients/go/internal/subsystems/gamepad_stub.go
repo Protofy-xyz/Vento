@@ -3,18 +3,25 @@
 
 package subsystems
 
-// GamepadTemplate stub for unsupported platforms (macOS, etc.)
-type GamepadTemplate struct{}
+// GamepadMultiTemplate stub for unsupported platforms (macOS, etc.)
+type GamepadMultiTemplate struct{}
 
+func NewGamepadMultiTemplate() MultiTemplate {
+	return &GamepadMultiTemplate{}
+}
+
+func (t *GamepadMultiTemplate) BuildAll(deviceName string) []Definition {
+	// No gamepad support on this platform - return empty slice
+	return nil
+}
+
+// Legacy function for compatibility
 func NewGamepadTemplate() Template {
-	return &GamepadTemplate{}
+	return &legacyGamepadTemplate{}
 }
 
-func (t *GamepadTemplate) Build(deviceName string) Definition {
-	// Return empty definition - no gamepad support on this platform
-	return Definition{
-		Name: "gamepads",
-		Type: "virtual",
-	}
-}
+type legacyGamepadTemplate struct{}
 
+func (t *legacyGamepadTemplate) Build(deviceName string) Definition {
+	return Definition{}
+}

@@ -13,8 +13,16 @@ import (
 // Set glues all templates together for the agent runtime.
 type Set struct {
 	templates      []Template
+	multiTemplates []MultiTemplate
 	definitions    []Definition
 	actionHandlers map[string]ActionConfig
+}
+
+// SetOptions contains options for creating a new Set.
+type SetOptions struct {
+	Config     *config.Config
+	HTTPClient *vento.Client
+	Token      string
 }
 
 // NewSet constructs the default subsystem set. Duplicate the template entries
@@ -23,8 +31,29 @@ func NewSet(cfg *config.Config) *Set {
 	return &Set{
 		templates: []Template{
 			NewSystemInfoTemplate(),
-			NewGamepadTemplate(),
 		},
+		multiTemplates: []MultiTemplate{
+			NewGamepadMultiTemplate(),
+		},
+	}
+}
+
+// NewSetWithOptions constructs the subsystem set with additional options like HTTP client.
+func NewSetWithOptions(opts SetOptions) *Set {
+	multiTemplates := []MultiTemplate{
+		NewGamepadMultiTemplate(),
+	}
+
+	// Add camera template if we have HTTP client and token
+	if opts.HTTPClient != nil && opts.Token != "" {
+		multiTemplates = append(multiTemplates, NewCameraMultiTemplate(opts.HTTPClient, opts.Token))
+	}
+
+	return &Set{
+		templates: []Template{
+			NewSystemInfoTemplate(),
+		},
+		multiTemplates: multiTemplates,
 	}
 }
 
@@ -32,12 +61,30 @@ func NewSet(cfg *config.Config) *Set {
 func (s *Set) Prepare(deviceName string) {
 	s.definitions = make([]Definition, 0, len(s.templates))
 	s.actionHandlers = make(map[string]ActionConfig)
+
+	// Process single templates
 	for _, tpl := range s.templates {
 		def := tpl.Build(deviceName)
-		s.definitions = append(s.definitions, def)
-		for _, action := range def.Actions {
-			s.actionHandlers[actionKey(def.Name, action.Action.Name)] = action
+		s.addDefinition(def)
+	}
+
+	// Process multi templates
+	for _, tpl := range s.multiTemplates {
+		defs := tpl.BuildAll(deviceName)
+		for _, def := range defs {
+			s.addDefinition(def)
 		}
+	}
+}
+
+func (s *Set) addDefinition(def Definition) {
+	// Skip empty definitions
+	if def.Name == "" || (len(def.Monitors) == 0 && len(def.Actions) == 0) {
+		return
+	}
+	s.definitions = append(s.definitions, def)
+	for _, action := range def.Actions {
+		s.actionHandlers[actionKey(def.Name, action.Action.Name)] = action
 	}
 }
 

@@ -44,11 +44,18 @@ type Agent struct {
 
 // New builds a new Agent from the provided options.
 func New(opts Options) *Agent {
+	// Create subsystems with HTTP client and token for camera support
+	subs := subsystems.NewSetWithOptions(subsystems.SetOptions{
+		Config:     opts.Config,
+		HTTPClient: opts.Client,
+		Token:      opts.Config.Token,
+	})
+
 	return &Agent{
 		cfg:                 opts.Config,
 		http:                opts.Client,
 		store:               opts.ConfigWriter,
-		subs:                subsystems.NewSet(opts.Config),
+		subs:                subs,
 		skipRegisterActions: opts.SkipRegisterActions,
 		runOnce:             opts.RunOnce,
 		onConnected:         opts.OnConnected,

@@ -1,7 +1,6 @@
 import * as Battery from 'expo-battery';
 
 import type { SubsystemDefinition, EmitFn, UnsubscribeFn } from './types';
-import { percentTemplate, textTemplate } from './cardTemplates';
 
 const BATTERY_LEVEL_ENDPOINT = '/battery/monitors/level';
 const BATTERY_STATE_ENDPOINT = '/battery/monitors/state';
@@ -25,7 +24,28 @@ export function buildBatterySubsystem(): SubsystemDefinition {
             icon: 'battery',
             color: '$green10',
             order: 11,
-            html: percentTemplate,
+            html: `//@card/react
+function Widget(card) {
+  const level = parseInt(card.value) || 0;
+  const color = level > 50 ? '#22c55e' : level > 20 ? '#eab308' : '#ef4444';
+  return (
+    <Tinted>
+      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
+        <YStack f={1} height="100%" ai="center" jc="center" width="100%">
+          {card.icon && card.displayIcon !== false && (
+            <Icon name={card.icon} size={48} color={color}/>
+          )}
+          <div style={{fontSize: '36px', fontWeight: 'bold', marginTop: '12px', color: color}}>
+            {level}%
+          </div>
+          <div style={{width: '80%', height: '8px', background: '#333', borderRadius: '4px', marginTop: '8px', overflow: 'hidden'}}>
+            <div style={{width: level + '%', height: '100%', background: color, borderRadius: '4px', transition: 'width 0.3s'}}/>
+          </div>
+        </YStack>
+      </ProtoThemeProvider>
+    </Tinted>
+  );
+}`,
           },
         },
         boot: async () => {
@@ -47,7 +67,6 @@ export function buildBatterySubsystem(): SubsystemDefinition {
             icon: 'battery-charging',
             color: '$yellow10',
             order: 12,
-            html: textTemplate,
           },
         },
         boot: async () => {
@@ -69,7 +88,6 @@ export function buildBatterySubsystem(): SubsystemDefinition {
             icon: 'zap-off',
             color: '$orange10',
             order: 13,
-            html: textTemplate,
           },
         },
         boot: async () => {

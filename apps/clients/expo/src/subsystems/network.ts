@@ -1,7 +1,6 @@
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 
 import type { SubsystemDefinition, EmitFn, UnsubscribeFn } from './types';
-import { textTemplate, jsonTemplate } from './cardTemplates';
 
 const NETWORK_TYPE_ENDPOINT = '/network/monitors/type';
 const NETWORK_CONNECTED_ENDPOINT = '/network/monitors/connected';
@@ -24,7 +23,6 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
             icon: 'globe',
             color: '$green10',
             order: 16,
-            html: textTemplate,
           },
         },
         boot: async () => {
@@ -48,7 +46,6 @@ export function buildNetworkSubsystem(): SubsystemDefinition {
             icon: 'wifi',
             color: '$blue10',
             order: 17,
-            html: textTemplate,
           },
         },
         boot: async () => {

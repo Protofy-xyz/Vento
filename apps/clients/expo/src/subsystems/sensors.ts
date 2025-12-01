@@ -39,6 +39,55 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
             icon: 'map-pin',
             color: '$blue10',
             order: 21,
+            html: `//@card/react
+function Widget(card) {
+  const v = card.value || {};
+  const lat = v.latitude;
+  const lon = v.longitude;
+  const hasCoords = lat !== undefined && lon !== undefined && !v.error;
+  
+  // OpenStreetMap embed - formato limpio
+  const delta = 0.005;
+  const bbox = (lon - delta).toFixed(4) + ',' + (lat - delta).toFixed(4) + ',' + (lon + delta).toFixed(4) + ',' + (lat + delta).toFixed(4);
+  const osmUrl = hasCoords 
+    ? 'https://www.openstreetmap.org/export/embed.html?bbox=' + bbox + '&layer=mapnik&marker=' + lat.toFixed(5) + ',' + lon.toFixed(5)
+    : null;
+  
+  return (
+    <Tinted>
+      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
+        <YStack f={1} height="100%" ai="center" jc="center" width="100%">
+          {hasCoords ? (
+            <>
+              <iframe 
+                src={osmUrl}
+                style={{
+                  width: '100%',
+                  height: '140px',
+                  border: 'none',
+                  borderRadius: '8px',
+                }}
+              />
+              <div style={{fontSize: '11px', opacity: 0.6, marginTop: '4px'}}>
+                {lat?.toFixed(5)}, {lon?.toFixed(5)}
+                {v.accuracy ? ' ±' + v.accuracy?.toFixed(0) + 'm' : ''}
+              </div>
+            </>
+          ) : (
+            <>
+              <Icon name="map-pin" size={48} color="#ef4444"/>
+              <div style={{fontSize: '14px', marginTop: '8px', opacity: 0.7}}>
+                {v.error === 'permission-denied' ? 'Permiso denegado' : 
+                 v.error === 'no-cached-location' ? 'Esperando GPS...' :
+                 v.error || 'Cargando...'}
+              </div>
+            </>
+          )}
+        </YStack>
+      </ProtoThemeProvider>
+    </Tinted>
+  );
+}`,
           },
         },
         boot: readLocationOnce,
@@ -171,6 +220,8 @@ export function buildSensorsSubsystem(): SubsystemDefinition {
             icon: 'flashlight',
             color: '$yellow10',
             order: 28,
+            buttonMode: true,
+            buttonLabel: 'Toggle',
           },
           mode: 'request-reply',
         },

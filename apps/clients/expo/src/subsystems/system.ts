@@ -1,7 +1,6 @@
 import * as Device from 'expo-device';
 
 import type { SubsystemDefinition } from './types';
-import { bytesTemplate, textTemplate } from './cardTemplates';
 
 const MemoryTotalEndpoint = '/system/monitors/memory_total';
 const OSVersionEndpoint = '/system/monitors/os_version';
@@ -30,7 +29,6 @@ export function buildSystemSubsystem(): SubsystemDefinition {
             icon: 'smartphone',
             color: '$blue10',
             order: 1,
-            html: textTemplate,
           },
         },
         boot: async () => `${Device.osName ?? 'Unknown'} ${Device.osVersion ?? ''}`.trim(),
@@ -47,7 +45,6 @@ export function buildSystemSubsystem(): SubsystemDefinition {
             icon: 'smartphone',
             color: '$orange10',
             order: 2,
-            html: textTemplate,
           },
         },
         boot: async () => Device.modelName ?? Device.productName ?? 'unknown',
@@ -64,7 +61,6 @@ export function buildSystemSubsystem(): SubsystemDefinition {
             icon: 'tag',
             color: '$blue10',
             order: 3,
-            html: textTemplate,
           },
         },
         boot: async () => Device.brand ?? 'unknown',
@@ -81,7 +77,6 @@ export function buildSystemSubsystem(): SubsystemDefinition {
             icon: 'wrench',
             color: '$blue10',
             order: 4,
-            html: textTemplate,
           },
         },
         boot: async () => Device.manufacturer ?? 'unknown',
@@ -98,7 +93,6 @@ export function buildSystemSubsystem(): SubsystemDefinition {
             icon: 'cpu',
             color: '$purple10',
             order: 5,
-            html: textTemplate,
           },
         },
         boot: async () => (Device.supportedCpuArchitectures ?? []).join(', ') || 'unknown',
@@ -116,7 +110,33 @@ export function buildSystemSubsystem(): SubsystemDefinition {
             icon: 'database',
             color: '$green10',
             order: 6,
-            html: bytesTemplate,
+            html: `//@card/react
+function Widget(card) {
+  const formatBytes = (bytes) => {
+    if (bytes === undefined || bytes === null || bytes === "N/A") return "N/A";
+    const b = typeof bytes === 'string' ? parseInt(bytes, 10) : bytes;
+    if (isNaN(b)) return bytes;
+    const KB = 1024, MB = KB * 1024, GB = MB * 1024;
+    if (b >= GB) return (b / GB).toFixed(1) + " GB";
+    if (b >= MB) return (b / MB).toFixed(0) + " MB";
+    if (b >= KB) return (b / KB).toFixed(0) + " KB";
+    return b + " B";
+  };
+  return (
+    <Tinted>
+      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
+        <YStack f={1} height="100%" ai="center" jc="center" width="100%">
+          {card.icon && card.displayIcon !== false && (
+            <Icon name={card.icon} size={48} color={card.color}/>
+          )}
+          <div style={{fontSize: '32px', fontWeight: 'bold', marginTop: '12px'}}>
+            {formatBytes(card.value)}
+          </div>
+        </YStack>
+      </ProtoThemeProvider>
+    </Tinted>
+  );
+}`,
           },
         },
         boot: async () => Device.totalMemory ?? 0,
@@ -133,7 +153,6 @@ export function buildSystemSubsystem(): SubsystemDefinition {
             icon: 'user',
             color: '$purple10',
             order: 7,
-            html: textTemplate,
           },
         },
         boot: async () => Device.deviceName ?? 'unknown_device',
@@ -150,7 +169,6 @@ export function buildSystemSubsystem(): SubsystemDefinition {
             icon: 'tablet',
             color: '$gray10',
             order: 8,
-            html: textTemplate,
           },
         },
         boot: async () => formatDeviceType(Device.deviceType),

@@ -1,5 +1,5 @@
-//go:build (!windows && !linux) || (linux && !amd64) || (windows && !amd64) || darwin
-// +build !windows,!linux linux,!amd64 windows,!amd64 darwin
+//go:build (!windows && !darwin && !linux) || (linux && !amd64) || (windows && !amd64)
+// +build !windows,!darwin,!linux linux,!amd64 windows,!amd64
 
 package tray
 

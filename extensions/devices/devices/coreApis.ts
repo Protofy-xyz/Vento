@@ -557,7 +557,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                 return 'number';
             case 'array':
             case 'object':
-                return 'json';
+                return 'string';
             case 'boolean':
                 return 'boolean';
             default:

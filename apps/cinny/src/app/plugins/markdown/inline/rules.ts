@@ -111,6 +111,25 @@ export const LinkRule: InlineMDRule = {
   },
 };
 
+// Image rule: ![alt](url)
+// Must use a different pattern that captures the ! to distinguish from links
+const IMAGE_REG_1 = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/;
+export const ImageRule: InlineMDRule = {
+  match: (text) => {
+    const result = text.match(IMAGE_REG_1);
+    if (result) {
+      console.log('[ImageRule] Matched:', result[0], 'alt:', result[1], 'src:', result[2]);
+    }
+    return result;
+  },
+  html: (parse, match) => {
+    const [, g1, g2] = match;
+    const alt = g1 || 'image';
+    console.log('[ImageRule] Generating img tag for:', g2);
+    return `<img data-md src="${g2}" alt="${alt}" title="${alt}" />`;
+  },
+};
+
 export const INLINE_SEQUENCE_SET = '[*_~`|]';
 export const CAP_INLINE_SEQ = `${URL_NEG_LB}${INLINE_SEQUENCE_SET}`;
 const ESC_SEQ_1 = `\\\\(${INLINE_SEQUENCE_SET})`;

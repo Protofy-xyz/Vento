@@ -2,6 +2,7 @@ import {
   BoldRule,
   CodeRule,
   EscapeRule,
+  ImageRule,
   ItalicRule1,
   ItalicRule2,
   LinkRule,
@@ -19,6 +20,7 @@ const LeveledRules = [
   ItalicRule2,
   StrikeRule,
   SpoilerRule,
+  ImageRule, // Must be before LinkRule because ![ is more specific than [
   LinkRule,
   EscapeRule,
 ];

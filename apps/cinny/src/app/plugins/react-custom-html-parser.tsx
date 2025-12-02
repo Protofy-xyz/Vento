@@ -474,12 +474,9 @@ export const getReactCustomHtmlParser = (
 
         if (name === 'img') {
           const htmlSrc = mxcUrlToHttp(mx, props.src, params.useAuthentication);
-          if (htmlSrc && props.src.startsWith('mxc://') === false) {
-            return (
-              <a href={htmlSrc} target="_blank" rel="noreferrer noopener">
-                {props.alt || props.title || htmlSrc}
-              </a>
-            );
+          // Handle external HTTP/HTTPS images (e.g., from markdown ![](url))
+          if (props.src && (props.src.startsWith('http://') || props.src.startsWith('https://'))) {
+            return <img {...props} className={css.Img} src={props.src} />;
           }
           if (htmlSrc && 'data-mx-emoticon' in props) {
             return (

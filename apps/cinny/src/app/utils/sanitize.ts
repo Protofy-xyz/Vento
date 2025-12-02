@@ -107,7 +107,20 @@ const transformATag: Transformer = (tagName, attribs) => ({
 
 const transformImgTag: Transformer = (tagName, attribs) => {
   const { src } = attribs;
-  if (typeof src === 'string' && src.startsWith('mxc://') === false) {
+  // Allow mxc:// URLs (Matrix media) and http/https URLs (external images from markdown)
+  if (
+    typeof src === 'string' &&
+    (src.startsWith('mxc://') || src.startsWith('http://') || src.startsWith('https://'))
+  ) {
+    return {
+      tagName,
+      attribs: {
+        ...attribs,
+      },
+    };
+  }
+  // Convert other image sources to links for safety
+  if (typeof src === 'string') {
     return {
       tagName: 'a',
       attribs: {
@@ -134,8 +147,9 @@ export const sanitizeCustomHtml = (customHtml: string): string =>
     allowedSchemes: urlSchemes,
     allowedSchemesByTag: {
       a: urlSchemes,
+      img: urlSchemes,
     },
-    allowedSchemesAppliedToAttributes: ['href'],
+    allowedSchemesAppliedToAttributes: ['href', 'src'],
     allowProtocolRelative: false,
     allowedClasses: {
       code: ['language-*'],

@@ -36,6 +36,7 @@ import { AppConfContext } from 'protolib/providers/AppConf'
 import { getBrokerUrl } from 'protolib/lib/Broker'
 import { Connector } from 'protolib/lib/mqtt'
 import { MqttWrapper } from 'protolib/components/MqttWrapper'
+import { AISetupProvider } from 'protolib/components/AISetupProvider'
 import { Toast, YStack } from '@my/ui'
 import { SiteConfig } from 'app/conf'
 import Workspaces from 'app/bundles/workspaces'
@@ -64,7 +65,9 @@ const getApp = (AppConfig, options = { disablePreviewMode: false }) => {
                   PanelLayout
                 }
               }}>
-                <Component {...pageProps} />
+                <AISetupProvider>
+                  <Component {...pageProps} />
+                </AISetupProvider>
               </AppConfContext.Provider>
             </ThemeProvider>
           </MqttWrapper>

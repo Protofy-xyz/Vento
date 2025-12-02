@@ -132,10 +132,16 @@ export const DataTableList = ({
                     return validTypes.includes(def?.typeName)
                 }).map(key => {
                     const def = fields.shape[key]._def?.innerType?._def ?? fields.shape[key]._def
+                    const isRelation = def?.typeName === 'ZodObject' && def?.relation
+                    const sortableField = isRelation ? key : (fields.shape[key]._def?.indexed ? key : false)
                     return DataTable2.column(
                         fields.shape[key]._def?.label ?? key,
                         row => getFieldPreview(key, row, def),
-                        fields.shape[key]._def?.indexed ? key : false
+                        sortableField,
+                        undefined,
+                        undefined,
+                        '',
+                        { relationDisplay: isRelation }
                     )
                 })
         )
@@ -149,7 +155,19 @@ export const DataTableList = ({
                 conditionalRowStyles={conditionalRowStyles}
                 rowsPerPage={state.itemsPerPage ? state.itemsPerPage : 25}
                 handleSort={(column, orderDirection) => {
-                    mergePush({ orderBy: column.sortField, orderDirection })
+                    if (column?.relationDisplay) {
+                        const dir = orderDirection === 'asc' ? 1 : -1
+                        const sorted = [...rows].sort((a, b) => {
+                            const aVal = a?.[column.sortField] ?? ''
+                            const bVal = b?.[column.sortField] ?? ''
+                            if (aVal > bVal) return dir
+                            if (aVal < bVal) return -dir
+                            return 0
+                        })
+                        setRows(sorted)
+                    } else {
+                        mergePush({ orderBy: column.sortField, orderDirection })
+                    }
                 }}
                 handlePerRowsChange={(itemsPerPage) => push('itemsPerPage', itemsPerPage)}
                 handlePageChange={(page) => push('page', parseInt(page, 10) - 1)}

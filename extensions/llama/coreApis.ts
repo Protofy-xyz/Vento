@@ -4,7 +4,9 @@ import {
     llamaChat,
     llamaPrompt,
     llamaListModels,
-    llamaDownloadModel,
+    llamaStartDownload,
+    llamaGetDownloadProgress,
+    llamaListDownloads,
     llamaDeleteModel,
     llamaUnloadModel,
     llamaStatus
@@ -105,9 +107,10 @@ export default (app, context) => {
 
     /**
      * POST /api/core/v1/llama/models/download
-     * Download a GGUF model from URL (e.g., HuggingFace)
+     * Start downloading a GGUF model (returns downloadId for progress tracking)
      * 
      * Body: { url: "https://huggingface.co/.../model.gguf", filename?: "custom-name.gguf" }
+     * Response: { downloadId: "uuid" }
      */
     app.post('/api/core/v1/llama/models/download', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -123,27 +126,57 @@ export default (app, context) => {
         }
 
         try {
-            logger.info({ url, filename }, 'Starting model download');
-            
-            const result = await llamaDownloadModel({
-                url,
-                filename,
-                onProgress: (progress) => {
-                    logger.debug({ progress }, 'Model download progress');
-                }
-            });
+            const result = await llamaStartDownload({ url, filename });
 
-            if (!result.success) {
-                res.status(500).send({ error: result.error });
+            if ('error' in result) {
+                res.status(400).send({ error: result.error });
                 return;
             }
 
-            logger.info({ result }, 'Model download completed');
+            logger.info({ downloadId: result.downloadId, url }, 'Download started');
             res.json(result);
         } catch (err: any) {
             logger.error({ error: err?.message, url }, 'Error in /llama/models/download');
             res.status(500).send({ error: err?.message || 'Internal server error' });
         }
+    }));
+
+    /**
+     * GET /api/core/v1/llama/models/download/:downloadId
+     * Get download progress by ID
+     * 
+     * Response: { id, url, filename, status, percent, downloaded, total, error?, path? }
+     */
+    app.get('/api/core/v1/llama/models/download/:downloadId', handler(async (req, res, session) => {
+        if (!session || !session.user.admin) {
+            res.status(401).send({ error: 'Unauthorized' });
+            return;
+        }
+
+        const { downloadId } = req.params;
+
+        const progress = llamaGetDownloadProgress(downloadId);
+
+        if (!progress) {
+            res.status(404).send({ error: 'Download not found' });
+            return;
+        }
+
+        res.json(progress);
+    }));
+
+    /**
+     * GET /api/core/v1/llama/models/downloads
+     * List all active/recent downloads
+     */
+    app.get('/api/core/v1/llama/models/downloads', handler(async (req, res, session) => {
+        if (!session || !session.user.admin) {
+            res.status(401).send({ error: 'Unauthorized' });
+            return;
+        }
+
+        const downloads = llamaListDownloads();
+        res.json({ downloads });
     }));
 
     /**
@@ -164,8 +197,6 @@ export default (app, context) => {
         }
 
         try {
-            logger.info({ model }, 'Deleting model');
-            
             const result = await llamaDeleteModel(model);
 
             if (!result.success) {
@@ -173,7 +204,6 @@ export default (app, context) => {
                 return;
             }
 
-            logger.info({ model }, 'Model deleted');
             res.json(result);
         } catch (err: any) {
             logger.error({ error: err?.message, model }, 'Error in /llama/models/delete');
@@ -226,4 +256,3 @@ export default (app, context) => {
         }
     }));
 };
-

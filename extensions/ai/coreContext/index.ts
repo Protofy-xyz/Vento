@@ -1,16 +1,25 @@
 import { API, getServiceToken } from "protobase";
 
-const callModel = async (prompt) => {
+/**
+ * Call the default LLM agent with a prompt
+ */
+export const callModel = async (prompt: string) => {
     const res = await API.post("/api/agents/v1/llm_agent/agent_input?token=" + getServiceToken(), {
         prompt
-    })
+    });
+    return res.data;
+};
 
-    return res.data
-}
-
-//TODO: mover aqui getSystemPrompt
-
-const getSystemPrompt = ({ prompt, done = async (prompt) => prompt, error = (e) => e }) => {
+/**
+ * Generate a system prompt message structure
+ */
+export const getSystemPrompt = (options: { 
+    prompt: string; 
+    done?: (result: any) => any; 
+    error?: (e: any) => any;
+}) => {
+    const { prompt, done = async (p) => p, error = (e) => e } = options;
+    
     const result = [
         {
             role: "system",
@@ -21,23 +30,44 @@ const getSystemPrompt = ({ prompt, done = async (prompt) => prompt, error = (e) 
                 },
             ],
         },
-    ]
-    done(result)
-    return result
-}
+    ];
+    
+    done(result);
+    return result;
+};
 
-const cleanCode = (code) => {
-    //remove ```(plus anything is not an space) from the beginning of the code
-    //remove ``` from the end of the code
-    let cleaned = code.replace(/^```[^\s]+/g, '').replace(/```/g, '').trim()
-    //remove 'javascript' from the beginning of the code if it exists
+/**
+ * Clean code from markdown code blocks
+ */
+export const cleanCode = (code: string): string => {
+    // Remove ```(plus anything that's not a space) from the beginning
+    // Remove ``` from the end
+    let cleaned = code.replace(/^```[^\s]+/g, '').replace(/```/g, '').trim();
+    
+    // Remove 'javascript' from the beginning if it exists
     if (cleaned.startsWith('javascript')) {
-        cleaned = cleaned.replace('javascript', '').trim()
+        cleaned = cleaned.replace('javascript', '').trim();
     }
-    return cleaned
-}
+    
+    return cleaned;
+};
 
-export const processAgentResponse = async ({ response, execute_action, done = async (v) => v, error = (e) => e }) => {
+/**
+ * Process an agent response with actions
+ */
+export const processAgentResponse = async (options: {
+    response: string;
+    execute_action: (name: string, params: any) => Promise<any>;
+    done?: (result: any) => Promise<any>;
+    error?: (e: any) => any;
+}) => {
+    const { 
+        response, 
+        execute_action, 
+        done = async (v) => v, 
+        error = (e) => e 
+    } = options;
+    
     if (!response) return null;
     if (!execute_action) return null;
 
@@ -48,10 +78,13 @@ export const processAgentResponse = async ({ response, execute_action, done = as
                 .replace(/```$/, '')
                 .trim()
         );
-        const executedActions = [];
-        const approvals = [];
+        
+        const executedActions: any[] = [];
+        const approvals: any[] = [];
+        
         for (const action of parsedResponse.actions || []) {
             if (!action || !action.name) continue;
+            
             const params = action.params || {};
             const result = await execute_action(action.name, params);
 
@@ -62,12 +95,12 @@ export const processAgentResponse = async ({ response, execute_action, done = as
             });
 
             if (result && typeof result === "object" && result.offered === true && result.approvalId) {
-                const boardId = result.boardId
+                const boardId = result.boardId;
                 const actionName = result.action || action.name;
                 const approvalId = result.approvalId;
                 const message = result.message;
 
-                let urls = undefined;
+                let urls: any = undefined;
                 if (boardId && actionName && approvalId) {
                     const base = `/api/core/v1/boards/${boardId}/actions/${actionName}/approvals/${approvalId}`;
                     urls = {
@@ -102,14 +135,11 @@ export const processAgentResponse = async ({ response, execute_action, done = as
 // Backwards-compatible alias
 export const processResponse = processAgentResponse;
 
-export const ai = {
-    callModel: async (prompt) => {
-        return await callModel(prompt)
-    },
-    cleanCode: (code) => {
-        return cleanCode(code)
-    },
-    getSystemPrompt: (prompt) => {
-        return getSystemPrompt(prompt)
-    }
-} 
+export default {
+    callModel,
+    getSystemPrompt,
+    cleanCode,
+    processAgentResponse,
+    processResponse
+};
+

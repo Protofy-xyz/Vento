@@ -43,6 +43,9 @@ const useIsMobile = () => {
 
 export const RightPanelAtom = atom(20)
 
+// Atom to share the chat panel width with other components (like FloatingWindow)
+export const ChatPanelWidthAtom = atom(0)
+
 // Componente del Chat Panel con iframe
 const ChatPanel = ({ isVisible }: { isVisible: boolean }) => {
   const { resolvedTheme } = useThemeSetting()
@@ -113,6 +116,7 @@ const ChatPanel = ({ isVisible }: { isVisible: boolean }) => {
 
 export const AdminPanel = ({ children }) => {
   const [appState, setAppState] = useAtom(AppState)
+  const [, setChatPanelWidth] = useAtom(ChatPanelWidthAtom)
   const SiteConfig = useContext<SiteConfigType>(AppConfContext);
   const { PanelLayout } = SiteConfig.layout
   const isMobile = useIsMobile()
@@ -243,6 +247,14 @@ export const AdminPanel = ({ children }) => {
   const toggleMobileChat = useCallback(() => {
     setAppState(prev => ({ ...prev, mobileChatOpen: !prev.mobileChatOpen }))
   }, [setAppState])
+  
+  // Calculate the total chat width (including the resize handle of 2px)
+  const totalChatWidth = isMobile ? 0 : chatWidth + 2
+  
+  // Update the atom so other components (like FloatingWindow) can read it
+  useEffect(() => {
+    setChatPanelWidth(totalChatWidth)
+  }, [totalChatWidth, setChatPanelWidth])
   
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100%', position: 'relative' }}>

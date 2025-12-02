@@ -10,6 +10,7 @@ export const ModifiersNames = z.union([
           z.literal("email"),
           z.literal("color"),
           z.literal("file"),
+          z.literal("datePicker"),
           z.literal("textArea"),
           z.literal("label"),
           z.literal("hint"),

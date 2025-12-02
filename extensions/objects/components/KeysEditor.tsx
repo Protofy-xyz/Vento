@@ -9,7 +9,7 @@ import { Tinted } from 'protolib/components/Tinted';
 import { InputMultiple } from 'protolib/components/InputMultiple';
 import { SelectList } from 'protolib/components/SelectList';
 
-type KeysSchemaFieldProps = { path: string[], value: any, setValue: (value: any) => void, mode: string, formData: any }
+type KeysSchemaFieldProps = { path: string[], value: any, setValue: (value: any) => void, mode: string, formData: any, enableKeysTitle?: boolean }
 
 const getKeysSource = (data: any, keys: any) => {
     const name = data?.name ?? 'Object';
@@ -49,7 +49,7 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     const [showModifiers, setShowModifiers] = useState("")
     const modifiersOptions = ["search", "static", "secret", "display", "textArea"]
     const allModifiers = ModifiersNames.options.map((o: any) => o.value) ?? []
-    const types = ["string", "number", "boolean", "array", "union", "relation"]
+    const types = ["string", "number", "boolean", "array", "object", "record", "union", "date", "relation"]
 
     const hasModifier = (k: string, v: string) => data?.[k]?.modifiers?.some((m: any) => m.name === v) ?? false
 
@@ -71,6 +71,19 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
                     break
                 }
             }
+
+            // keep datePicker only for date type
+            if (v === 'date') {
+                const modifiers = [...(updated.modifiers ?? [])]
+                if (!modifiers.some((m: any) => m.name === 'datePicker')) {
+                    modifiers.push({ name: 'datePicker' })
+                }
+                updated.modifiers = modifiers
+            } else if (updated?.modifiers) {
+                const filtered = updated.modifiers.filter((m: any) => m.name !== 'datePicker')
+                updated.modifiers = filtered.length ? filtered : undefined
+            }
+
             next[k] = updated
             setData(next)
         },
@@ -503,7 +516,7 @@ const FriendlyKeysEditor = ({ data, setData, mode }) => {
     )
 }
 
-export const KeysEditor = ({ path, value, setValue, mode, formData }: KeysSchemaFieldProps) => {
+export const KeysEditor = ({ path, value, setValue, mode, formData, enableKeysTitle=false }: KeysSchemaFieldProps) => {
     const dataObject = formData ?? {};
     const codeRef = useRef(getKeysSource(dataObject, value));
     const [loading, setLoading] = useState(false);
@@ -546,9 +559,10 @@ export const KeysEditor = ({ path, value, setValue, mode, formData }: KeysSchema
             <XStack flexDirection="row" alignItems="center" justifyContent="space-between">
                 <Tinted>
                     <Label fontWeight="bold">
-                        <List mr="$2" color="var(--color9)" size="$1" strokeWidth={1} />
+                        {enableKeysTitle &&
+                        <><List mr="$2" color="var(--color9)" size="$1" strokeWidth={1} />
                         keys
-                        <Paragraph ml="$1" color="$color8">*</Paragraph>
+                        <Paragraph ml="$1" color="$color8">*</Paragraph></>}
                     </Label>
                 </Tinted>
                 <ToggleGroup size="$3" type="single"

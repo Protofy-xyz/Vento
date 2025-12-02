@@ -1,48 +1,29 @@
 import React, { useState } from 'react'
 import { API } from 'protobase'
-import { YStack, XStack, ScrollView, useToastController, Button, Text, Stack, Input, Select } from "@my/ui"
+import { YStack, XStack, ScrollView, useToastController, Button, Text, Stack, Input } from "@my/ui"
 import { ObjectModel } from './objectsSchemas'
 import { Tinted } from 'protolib/components/Tinted'
 import { useRouter } from 'solito/navigation'
 import type { NetworkOption } from '../network/options'
-import { Trash2, Plus, ChevronDown } from '@tamagui/lucide-icons'
+import { KeysEditor } from './components/KeysEditor'
 
 const sourceUrl = '/api/core/v1/objects'
-
-const fieldTypes = [
-    { value: 'string', label: 'Text' },
-    { value: 'number', label: 'Number' },
-    { value: 'boolean', label: 'Boolean' },
-    { value: 'date', label: 'Date' },
-    { value: 'array', label: 'Array' },
-    { value: 'object', label: 'Object' },
-    { value: 'record', label: 'Record' },
-]
 
 const isNameValid = (text: string) => {
     return text !== '' && /^[a-zA-Z][a-zA-Z0-9_]*$/.test(text)
 }
 
-const isFieldNameValid = (text: string) => {
-    return text !== '' && /^[a-zA-Z][a-zA-Z0-9_]*$/.test(text)
-}
-
-type FieldDefinition = {
-    name: string
-    type: string
-}
-
 const ConfigureSlide = ({ 
     data, 
     setData, 
-    fields, 
-    setFields, 
-    errorMessage = '' 
+    keys,
+    setKeys,
+    errorMessage = ''
 }: { 
     data: any
     setData: (data: any) => void
-    fields: FieldDefinition[]
-    setFields: (fields: FieldDefinition[]) => void
+    keys: any
+    setKeys: (keys: any) => void
     errorMessage: string
 }) => {
     const [nameError, setNameError] = useState('')
@@ -54,20 +35,6 @@ const ConfigureSlide = ({
             setNameError('')
         }
         setData({ ...data, name: text })
-    }
-
-    const addField = () => {
-        setFields([...fields, { name: '', type: 'string' }])
-    }
-
-    const removeField = (index: number) => {
-        setFields(fields.filter((_, i) => i !== index))
-    }
-
-    const updateField = (index: number, key: keyof FieldDefinition, value: string) => {
-        const newFields = [...fields]
-        newFields[index] = { ...newFields[index], [key]: value }
-        setFields(newFields)
     }
 
     return (
@@ -85,61 +52,16 @@ const ConfigureSlide = ({
                     <Text height="$1" fontSize="$2" color="$red8">{nameError || errorMessage}</Text>
                 </YStack>
 
-                {/* Fields */}
-                <YStack gap="$2">
-                    <XStack justifyContent="space-between" alignItems="center">
-                        <Text fontSize="$4" fontWeight="600" color="$gray11">Fields</Text>
-                        <Tinted>
-                            <Button size="$2" icon={Plus} onPress={addField}>
-                                Add Field
-                            </Button>
-                        </Tinted>
-                    </XStack>
-
-                    {fields.length === 0 && (
-                        <Text fontSize="$3" color="$gray9" textAlign="center" padding="$4">
-                            No fields yet. Add fields to define your object structure.
-                        </Text>
-                    )}
-
-                    {fields.map((field, index) => (
-                        <XStack key={index} gap="$2" alignItems="center">
-                            <Input
-                                flex={1}
-                                value={field.name}
-                                onChangeText={(text) => updateField(index, 'name', text)}
-                                placeholder="fieldName"
-                                size="$3"
-                            />
-                            <Select
-                                value={field.type}
-                                onValueChange={(value) => updateField(index, 'type', value)}
-                                size="$3"
-                            >
-                                <Select.Trigger width={130} iconAfter={ChevronDown}>
-                                    <Select.Value placeholder="Type" />
-                                </Select.Trigger>
-                                <Select.Content zIndex={200000}>
-                                    <Select.ScrollUpButton />
-                                    <Select.Viewport>
-                                        {fieldTypes.map((type, i) => (
-                                            <Select.Item key={type.value} index={i} value={type.value}>
-                                                <Select.ItemText>{type.label}</Select.ItemText>
-                                            </Select.Item>
-                                        ))}
-                                    </Select.Viewport>
-                                    <Select.ScrollDownButton />
-                                </Select.Content>
-                            </Select>
-                            <Button 
-                                size="$2" 
-                                icon={Trash2} 
-                                chromeless 
-                                onPress={() => removeField(index)}
-                                hoverStyle={{ backgroundColor: '$red3' }}
-                            />
-                        </XStack>
-                    ))}
+                {/* Keys editor */}
+                <YStack gap="$3">
+                    <Text fontSize="$4" fontWeight="600" color="$gray11">Fields</Text>
+                    <KeysEditor
+                        path={['keys']}
+                        value={keys}
+                        setValue={setKeys}
+                        mode="add"
+                        formData={{ ...data, keys }}
+                    />
                 </YStack>
             </YStack>
         </ScrollView>
@@ -150,9 +72,12 @@ const ObjectsWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
     const toast = useToastController()
     const router = useRouter()
     const [data, setData] = useState({ name: '' })
-    const [fields, setFields] = useState<FieldDefinition[]>([
-        { name: 'name', type: 'string' }
-    ])
+    const [keys, setKeys] = useState<any>({
+        name: {
+            type: 'string',
+            modifiers: [{ name: 'id' }]
+        }
+    })
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
 
@@ -169,18 +94,14 @@ const ObjectsWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
             return
         }
 
-        // Validate fields
-        const invalidFields = fields.filter(f => !isFieldNameValid(f.name))
-        if (invalidFields.length > 0) {
-            setError('All field names must be valid (start with letter, only letters/numbers/underscores)')
+        if (!keys || Object.keys(keys).length === 0) {
+            setError('Add at least one field to create the object')
             return
         }
 
-        // Check for duplicate field names
-        const fieldNames = fields.map(f => f.name)
-        const duplicates = fieldNames.filter((name, index) => fieldNames.indexOf(name) !== index)
-        if (duplicates.length > 0) {
-            setError(`Duplicate field names: ${duplicates.join(', ')}`)
+        const invalidFields = Object.keys(keys || {}).filter(k => !isNameValid(k))
+        if (invalidFields.length > 0) {
+            setError('All field names must be valid (start with letter, only letters/numbers/underscores)')
             return
         }
 
@@ -188,21 +109,6 @@ const ObjectsWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
         setError('')
 
         try {
-            // Build keys object from fields
-            const keys: Record<string, { type: string; modifiers?: any[] }> = {}
-            
-            // First field with 'id' modifier
-            let isFirstField = true
-            for (const field of fields) {
-                if (field.name) {
-                    keys[field.name] = {
-                        type: field.type,
-                        modifiers: isFirstField ? [{ name: 'id', params: [] }] : []
-                    }
-                    isFirstField = false
-                }
-            }
-
             const objectData = {
                 name: data.name,
                 keys,
@@ -245,8 +151,8 @@ const ObjectsWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                 <ConfigureSlide 
                     data={data} 
                     setData={setData} 
-                    fields={fields}
-                    setFields={setFields}
+                    keys={keys}
+                    setKeys={setKeys}
                     errorMessage={error} 
                 />
             </Stack>

@@ -1,15 +1,14 @@
-import { Stack } from "@my/ui";
 import { FormElement } from ".";
-import { getElement } from "./Element";
-import { List } from '@tamagui/lucide-icons';
 import { useEffect, useState } from "react";
 import { API } from 'protobase'
 import { SelectList } from "../../components/SelectList";
+import { useRouter } from "solito/navigation";
 
 export const RelationComponent = ({ ele, elementDef, icon, path, data, setData, setFormData, mode, customFields, inArray, arrayName, getFormData, URLTransform }) => {
   const [instances, setInstances] = useState({})
   const model = elementDef?.relation?.model
   const displayField = elementDef?.relation?.displayField
+  const router = useRouter()
   if (!model) return <p>Model not found in relation</p>
 
   useEffect(() => {
@@ -37,15 +36,25 @@ export const RelationComponent = ({ ele, elementDef, icon, path, data, setData, 
       setInstances(_instances)
     }
     fetch()
-  }, [])
+  }, [model, displayField])
 
   return <FormElement ele={ele} icon={icon} inArray={inArray}>
     <SelectList
-      title="Model name"
+      title={model}
       placeholder="Select related object"
-      elements={Object.keys(instances)}
+      elements={[
+        ...Object.keys(instances),
+        { value: "__manage__", caption: `Manage ${model}` }
+      ]}
       value={data?.[ele?.name]?.["relationId"] ?? "default"}
-      setValue={(k) => setFormData(ele.name, { relationId: instances[k], model, displayField: displayField ?? "id" })}
+      setValue={(k) => {
+        if (k === "__manage__") {
+          router.push(`/objects/view?object=${model}Model`)
+          return
+        }
+        setFormData(ele.name, { relationId: instances[k], model, displayField: displayField ?? "id" })
+      }}
+      f={1}
     />
   </FormElement>
 }

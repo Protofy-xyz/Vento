@@ -66,6 +66,18 @@ const initialData = {
                         "type": "esp-idf"
                     }
                 }
+            },
+            "esphome-yaml":{
+                "esphome":{
+                    "name": "protofy_esp32_devboard"
+                },
+                "esp32":{
+                    "board": "esp32dev",
+                    "variant": "esp32",
+                    "framework": {
+                        "type": "esp-idf"
+                    }
+                }
             }
         }
     },
@@ -111,6 +123,20 @@ const initialData = {
                     "variant": "esp32s3", 
                     "framework": { 
                         "type": "esp-idf"
+                    }
+                }
+            },
+            "esphome-yaml":{
+                "esphome":{
+                    "name": "seeed_xiao_esp32s3"
+                },
+                "esp32":{
+                    "board": "seeed_xiao_esp32s3",
+                    "variant": "esp32s3",
+                    "framework": { 
+                        "type": "arduino",
+                        "version": "latest",
+                        "platform_version": "6.5.0"
                     }
                 }
             }
@@ -209,6 +235,29 @@ const initialData = {
                     "flash_size": "16Mb",
                     "framework": {
                         "type": "esp-idf"
+                    }
+                }
+            },
+            "esphome-yaml":{
+                "esphome":{
+                    "name": "esp32_s3_devkitc",
+                    "platformio_options": {
+                        "board_build.flash_mode": "dio",
+                        "board_build.arduino.memory_type": "opi_opi",
+                        "board_upload.maximum_ram_size": 524288,
+                        "build_flags": [
+                            "-DBOARD_HAS_PSRAM",
+                            "-DARDUINO_USB_CDC_ON_BOOT=1",
+                            "-mfix-esp32-psram-cache-issue"
+                        ]
+                    }
+                },
+                "esp32":{
+                    "board": "esp32-s3-devkitc-1",
+                    "variant": "esp32s3",
+                    "flash_size": "16Mb",
+                    "framework": {
+                        "type": "arduino"
                     }
                 }
             }
@@ -345,6 +394,29 @@ const initialData = {
                         "type": "esp-idf"
                     }
                 }
+            },
+            "esphome-yaml":{
+                "esphome":{
+                    "name": "protofy_esp32s3_devboard",
+                    "platformio_options": {
+                        "board_build.flash_mode": "dio",
+                        "board_build.arduino.memory_type": "opi_opi",
+                        "board_upload.maximum_ram_size": 524288,
+                        "build_flags": [
+                            "-DBOARD_HAS_PSRAM",
+                            "-DARDUINO_USB_CDC_ON_BOOT=1",
+                            "-mfix-esp32-psram-cache-issue"
+                        ]
+                    }
+                },
+                "esp32":{
+                    "board": "esp32-s3-devkitc-1",
+                    "variant": "esp32s3",
+                    "flash_size": "16Mb",
+                    "framework": {
+                        "type": "esp-idf"
+                    }
+                }
             }
         }
     },
@@ -390,6 +462,18 @@ const initialData = {
             },
             "esphome-idf":{
                 "esphome":{},
+                "esp32":{
+                    "board": "seeed_xiao_esp32s3",
+                    "variant": "esp32s3", 
+                    "framework": { 
+                        "type": "esp-idf"
+                    }
+                }
+            },
+            "esphome-yaml":{
+                "esphome":{
+                    "name": "protofy_xiao_esp32s3_devboard"
+                },
                 "esp32":{
                     "board": "seeed_xiao_esp32s3",
                     "variant": "esp32s3", 

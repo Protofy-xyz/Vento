@@ -38,6 +38,11 @@ export default {
     usePendingEffect((s) => { API.get({ url: coresSourceUrl }, s) }, setCoresList, extraData?.cores)
     const cores = coresList.isLoaded ? coresList.data.items.map(i => DeviceCoreModel.load(i).getData()) : []
     const { replace } = usePageParams(pageState)
+    const ensureDefinitionModel = (value) => {
+      if (!value) return value
+      return value instanceof DeviceDefinitionModel ? value : DeviceDefinitionModel.load(value?.data ?? value)
+    }
+    const definitionModel = ensureDefinitionModel(selectedDefinition)
 
     const [boardsList, setBoardsList] = useState(extraData?.boards ?? getPendingResult('pending'))
     usePendingEffect((s) => { API.get({ url: boardsSourceUrl }, s) }, setBoardsList, extraData?.boards)
@@ -56,6 +61,11 @@ export default {
       return { components: JSON.stringify(components) + ';' }
     }
 
+    const getEsphomeConfigPath = (definition) => {
+      const name = definition?.data?.name
+      return name ? `data/deviceDefinitions/${name}/config.yaml` : null
+    }
+
     // WIP adding upload dialog
     //     extraActions ={[
     //   <DataViewActionButton icon={Upload} description="Upload a Definition" onPress={() => {console.log("Upload button pressed"); setUploadDialogOpen(true);}}>Extra Action 1</DataViewActionButton>,
@@ -68,6 +78,12 @@ export default {
           sourceUrl={sourceUrl}
           initialItems={initialItems}
           onSelectItem={(item) => {
+            const definition = ensureDefinitionModel(item)
+            if (definition?.data?.sdk === "esphome-yaml") {
+              const configFile = getEsphomeConfigPath(definition)
+              if (configFile) replace('editFile', configFile)
+              return
+            }
             setSelectedDefinition(item)
           }}
           onAdd={(item) => {
@@ -76,6 +92,11 @@ export default {
               item.config = { components: generatedComponents.components }
             }
             const definitionModel = new DeviceDefinitionModel(item)
+            if (definitionModel?.data?.sdk === "esphome-yaml") {
+              const configFile = getEsphomeConfigPath(definitionModel)
+              if (configFile) replace('editFile', configFile)
+              return item
+            }
             setSelectedDefinition(definitionModel)
             return item
           }}
@@ -131,7 +152,7 @@ export default {
             setSelectedDefinition(null)
           }}
           onCancel={() => setSelectedDefinition(null)}
-          definition={selectedDefinition?.data}
+          definition={definitionModel?.data}
         />
       }
       <AlertDialog

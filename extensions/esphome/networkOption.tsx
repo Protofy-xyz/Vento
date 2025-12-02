@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { getPendingResult, API } from 'protobase'
 import { YStack, XStack, Spacer, ScrollView, useToastController, Button, Text, Stack, Input } from "@my/ui"
 import { TemplateCard } from '../apis/TemplateCard'
-import { DevicesModel } from './devices/devicesSchemas'
+import { DevicesModel } from '../devices/devices/devicesSchemas'
 import { usePendingEffect } from 'protolib/lib/usePendingEffect'
 import { Tinted } from 'protolib/components/Tinted'
 import { useRouter } from 'solito/navigation'

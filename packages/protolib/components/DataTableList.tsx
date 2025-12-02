@@ -131,17 +131,19 @@ export const DataTableList = ({
 
                     return validTypes.includes(def?.typeName)
                 }).map(key => {
-                    const def = fields.shape[key]._def?.innerType?._def ?? fields.shape[key]._def
+                    const fieldDef = fields.shape[key]._def
+                    const def = fieldDef?.innerType?._def ?? fieldDef
                     const isRelation = def?.typeName === 'ZodObject' && def?.relation
-                    const sortableField = isRelation ? key : (fields.shape[key]._def?.indexed ? key : false)
+                    const baseType = def?.typeName === 'ZodArray' ? def?.type?._def?.typeName : def?.typeName
+                    const sortableField = isRelation ? key : ((fieldDef?.indexed || baseType === 'ZodNumber') ? key : false)
                     return DataTable2.column(
-                        fields.shape[key]._def?.label ?? key,
+                        fieldDef?.label ?? key,
                         row => getFieldPreview(key, row, def),
                         sortableField,
                         undefined,
                         undefined,
                         '',
-                        { relationDisplay: isRelation }
+                        { relationDisplay: isRelation, dataType: baseType }
                     )
                 })
         )
@@ -158,8 +160,10 @@ export const DataTableList = ({
                     if (column?.relationDisplay) {
                         const dir = orderDirection === 'asc' ? 1 : -1
                         const sorted = [...rows].sort((a, b) => {
-                            const aVal = a?.[column.sortField] ?? ''
-                            const bVal = b?.[column.sortField] ?? ''
+                            const aRaw = a?.[column.sortField]
+                            const bRaw = b?.[column.sortField]
+                            const aVal = (typeof aRaw === 'number' || (typeof aRaw === 'string' && aRaw.trim() !== '' && !Number.isNaN(Number(aRaw)))) ? Number(aRaw) : (aRaw ?? '')
+                            const bVal = (typeof bRaw === 'number' || (typeof bRaw === 'string' && bRaw.trim() !== '' && !Number.isNaN(Number(bRaw)))) ? Number(bRaw) : (bRaw ?? '')
                             if (aVal > bVal) return dir
                             if (aVal < bVal) return -dir
                             return 0

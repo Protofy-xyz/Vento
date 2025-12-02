@@ -79,8 +79,9 @@ export const AlertDialog = forwardRef(({
                                 <XStack>
                                     {showCancel &&
                                         <Tinted tint={cancelTint}>
-                                            <Button mr="$5" f={1} onPress={() => {
-                                                seter(false)
+                                            <Button mr="$5" f={1} onPress={async () => {
+                                                const keepOpen = await onCancel()
+                                                if (keepOpen !== true) seter(false)
                                             }} aria-label="Close" {...cancelButtonProps}>
                                                 {cancelCaption}
                                             </Button>

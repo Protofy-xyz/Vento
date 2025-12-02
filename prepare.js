@@ -15,6 +15,7 @@ const directories = [
     "./bin",
     "./data",
     "./data/public",
+    "./data/models",
     "./data/public/clients",
     "./data/public/clients/desktop",
     "./data/tmp",

@@ -377,12 +377,16 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
   const [isEditing, setIsEditing] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [currentCard, setCurrentCard] = useState(null)
+  const [pendingDeleteNames, setPendingDeleteNames] = useState<string[]>([])
   const [editedCard, setEditedCard] = useState(null)
   const [editCode, setEditCode] = useState('')
 
   const [hasChanges, setHasChanges] = useState(false);
 
   const [errors, setErrors] = useState<string[]>([])
+  const [selectedNames, setSelectedNames] = useState<string[]>([])
+  const selectedNamesRef = useRef<string[]>([])
+  selectedNamesRef.current = selectedNames;
   // const initialBreakPoint = useInitialBreakpoint()
   const breakpointRef = useRef('') as any
   const { query, removeReplace, push } = usePageParams({})
@@ -430,6 +434,10 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
       setItems(globalItems)
     }
   }, [globalItems])
+
+  useEffect(() => {
+    selectedNamesRef.current = selectedNames;
+  }, [selectedNames])
 
   useUpdateEffect(() => {
     if (addOpened) {
@@ -530,6 +538,21 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     graphLayoutRef.current = graphLayout
   }, [graphLayout])
 
+  const persistGraphLayout = useCallback((nextLayout) => {
+    const safeLayout = nextLayout || {};
+    if (layoutsEqual(safeLayout, graphLayoutRef.current)) return;
+    if (__currentBoardVersion !== boardRef.current?.version) {
+      console.error("Cannot save graph layout, the board version has changed, please refresh the board.");
+      return;
+    }
+    graphLayoutRef.current = safeLayout;
+    setGraphLayout(safeLayout);
+    boardRef.current.graphLayout = safeLayout;
+    API.post(`/api/core/v1/boards/${board.name}/graphlayout`, { graphLayout: safeLayout }).catch((error) => {
+      console.error('Error saving graph layout:', error);
+    });
+  }, [board.name, layoutsEqual]);
+
   useEffect(() => {
     boardRef.current = board;
   }, [board]);
@@ -588,8 +611,70 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
       boardRef.current.graphLayout = nextLayout;
     }
 
+    // Clear selection after delete to avoid keeping stale ids
+    setSelectedNames([]);
+    selectedNamesRef.current = [];
+    setPendingDeleteNames([]);
+    setCurrentCard(null);
+
     await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
   }, [items, board.name, setBoardVersion, refresh]);
+
+  const duplicateCardsByName = useCallback(async (targets: string[]) => {
+    if (!targets.length) return;
+
+    const existing = new Map((boardRef.current?.cards || []).map((c) => [c.name, c]));
+    const usedNames = new Set((boardRef.current?.cards || []).map((c) => c.name));
+    const nextItems = [...boardRef.current.cards];
+    const nextGraphLayout = { ...(graphLayoutRef.current || {}) };
+    let layoutChanged = false;
+    const newNames: string[] = [];
+
+    targets.forEach((name) => {
+      const source = existing.get(name);
+      if (!source) return;
+
+      const newName = nextDuplicatedName(Array.from(usedNames), source.name);
+      usedNames.add(newName);
+      const newKeyBase = (source.key || source.name || 'card').replace(/_vento_copy_.+$/, '');
+      const newCard = { ...source, name: newName, key: `${newKeyBase}_vento_copy_${generate_random_id()}` };
+      nextItems.push(newCard);
+      newNames.push(newName);
+
+      Object.keys(boardRef.current.layouts || {}).forEach(bp => {
+        const layoutEntry = boardRef.current.layouts[bp]?.find((l) => l.i === source.key);
+        if (layoutEntry) {
+          boardRef.current.layouts[bp].push({ ...layoutEntry, i: newCard.key });
+        }
+      });
+
+      const layoutEntry = graphLayoutRef.current?.[name];
+      if (layoutEntry) {
+        nextGraphLayout[newName] = {
+          ...layoutEntry,
+          x: (layoutEntry.x ?? 0) + 60,
+          y: (layoutEntry.y ?? 0) + 40,
+          layer: newCard.layer ?? layoutEntry.layer,
+          parent: layoutEntry.parent,
+          type: layoutEntry.type,
+        };
+        layoutChanged = true;
+      }
+    });
+
+    boardRef.current.cards = nextItems;
+    setItems(nextItems);
+    if (newNames.length) {
+      setSelectedNames(newNames);
+      selectedNamesRef.current = newNames;
+    }
+
+    if (layoutChanged) {
+      persistGraphLayout(nextGraphLayout);
+    }
+
+    await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
+  }, [persistGraphLayout, board.name, setBoardVersion, refresh]);
 
   const layouts = useMemo(() => {
     // return {
@@ -665,20 +750,9 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     }
   }
 
-  const persistGraphLayout = useCallback((nextLayout) => {
-    const safeLayout = nextLayout || {};
-    if (layoutsEqual(safeLayout, graphLayoutRef.current)) return;
-    if (__currentBoardVersion !== boardRef.current?.version) {
-      console.error("Cannot save graph layout, the board version has changed, please refresh the board.");
-      return;
-    }
-    graphLayoutRef.current = safeLayout;
-    setGraphLayout(safeLayout);
-    boardRef.current.graphLayout = safeLayout;
-    API.post(`/api/core/v1/boards/${board.name}/graphlayout`, { graphLayout: safeLayout }).catch((error) => {
-      console.error('Error saving graph layout:', error);
-    });
-  }, [board.name, layoutsEqual]);
+  // const getSelectionTargets = useCallback((name: string) => {
+  //   return selectedNames.includes(name) && selectedNames.length > 1 ? [...selectedNames] : [name];
+  // }, [selectedNames]);
 
   //fill items with react content, addWidget should be the last item
   const cards = (items || []).map((item) => {
@@ -723,32 +797,13 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
           title={item.name}
           params={item.params}
           containerProps={item.containerProps}
-          onCopy={() => {
-            const newName = nextDuplicatedName(
-              boardRef.current.cards.map(c => c.name),
-              item.name
-            );
-
-            const newCard = {
-              ...item,
-              key: item.key.replace(/_vento_copy_.+$/, '') + '_vento_copy_' + generate_random_id(),
-              name: newName
-            };
-            const newItems = [...boardRef.current.cards, newCard].filter(i => i.key !== 'addwidget');
-            boardRef.current.cards = newItems;
-            // duplicate also the item layout to respect size and position
-            Object.keys(boardRef.current.layouts || {}).forEach(bp => {
-              if (boardRef.current.layouts[bp]) {
-                boardRef.current.layouts[bp].push({
-                  ...boardRef.current.layouts[bp].find(l => l.i === item.key),
-                  i: newCard.key,
-                })
-              }
-            })
-            setItems(newItems);
-            saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
+          onCopy={async () => {
+            const targets = selectedNamesRef.current.length ? selectedNamesRef.current : [item.name];
+            await duplicateCardsByName(targets);
           }}
           onDelete={() => {
+            const targets = selectedNamesRef.current.length ? selectedNamesRef.current : [item.name];
+            setPendingDeleteNames(targets);
             setIsDeleting(true);
             setCurrentCard(item);
           }}
@@ -927,6 +982,12 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
       </YStack>
     </AlertDialog>)
 
+  const deleteTargets = pendingDeleteNames.length ? pendingDeleteNames : (currentCard?.name ? [currentCard.name] : []);
+  const deleteTitle = deleteTargets.length > 1 ? `Delete ${deleteTargets.length} cards` : `Delete "${deleteTargets[0] ?? ''}"`;
+  const deleteDescription = deleteTargets.length > 1
+    ? "Are you sure you want to delete the selected cards?"
+    : "Are you sure you want to delete this card?";
+
   const isGraphView = effectiveView === 'graph'
 
   return (
@@ -940,12 +1001,17 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
         acceptCaption="Delete"
         setOpen={setIsDeleting}
         open={isDeleting}
-        onAccept={async (seter) => {
-          await deleteCard(currentCard)
+        onAccept={async () => {
+          if (deleteTargets.length) {
+            await deleteCardsByName(deleteTargets);
+          }
+          setPendingDeleteNames([]);
+          setIsDeleting(false);
+          setCurrentCard(null);
         }}
         acceptTint="red"
-        title={`Delete "${currentCard?.name}"`}
-        description={"Are you sure you want to delete this card?"}
+        title={deleteTitle}
+        description={deleteDescription}
       >
       </AlertDialog>
 
@@ -1074,6 +1140,8 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
                   activeLayer={activeLayer}
                   onSelectLayer={(layer) => setActiveLayer(layer)}
                   onDeleteNodes={deleteCardsByName}
+                  onSelectionChange={setSelectedNames}
+                  selectedIds={selectedNames}
                 />
                 : <YStack f={1} p={"$6"}>{
                   cards.length > 0 && items !== null

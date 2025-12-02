@@ -1,7 +1,8 @@
 import { Tinted } from 'protolib/components/Tinted';
-import React, { memo, useCallback, useLayoutEffect, useMemo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useEffect, useRef, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { computeDirectedLayout } from '../utils/graph';
-import { useThemeSetting } from '@tamagui/next-theme'
+import { useThemeSetting } from '@tamagui/next-theme';
 import {
     ReactFlow,
     Background,
@@ -10,136 +11,148 @@ import {
     Handle,
     Position,
     applyNodeChanges,
-    BezierEdge,
     getBezierPath,
     MiniMap
 } from 'reactflow';
 
-/* =========================================================
- *  Configuración centralizada (ajustable sin tocar más código)
- * ========================================================= */
 const CFG = {
     GROUP_PADDING: 100,
     GROUP_HEADER_HEIGHT: 60,
     GROUP_BG: 'rgba(0,0,0,0.04)',
-    GROUP_BORDER: '2px solid var(--gray6)',
     LAYER_VERTICAL_GAP: 200,
     BASE_LAYER_IN_GROUP: true,
     RIGHT_MARGIN_EXTRA: 60,
     GROUP_EXTRA_BOTTOM: 20,
-    VIEWPORT: { x: -150, y: 0, zoom: 0.35 as number },
+    VIEWPORT: { x: -150, y: 0, zoom: 0.35 },
     FITVIEW_PADDING: 0.2,
     NODE_DEFAULT_SIZE: { width: 300, height: 210 },
-    LAYOUT: {
-        hPixelRatio: 200,
-        vPixelRatio: 50,
-        marginX: 120,
-        marginY: 60,
-    },
-};
+    LAYOUT: { hPixelRatio: 200, vPixelRatio: 50, marginX: 120, marginY: 60 },
+} as const;
 
 const GROUP_PAD_TOP = CFG.GROUP_PADDING + CFG.GROUP_HEADER_HEIGHT;
 
 type Link = { name: string; type?: 'pre' | 'post' | 'code' };
-type Card = {
-    name: string;
-    layer?: string;
-    links?: Link[];
-    rulesCode?: string;
-    content?: React.ReactNode;
-};
-
+type Card = { name: string; layer?: string; links?: Link[]; rulesCode?: string; content?: ReactNode };
 type Ports = { inputs: string[]; outputs: string[] };
 type RFNode = any;
 type RFEdge = any;
 type GraphLayout = Record<string, { x: number; y: number; layer?: string; parent?: string; type?: 'group' | 'node' }>;
 
-function getNodeNumericSize(n: RFNode): { width: number; height: number } {
-    const w = typeof n?.style?.width === 'string'
-        ? parseFloat(n.style.width)
-        : (typeof n?.style?.width === 'number' ? n.style.width : undefined);
-    const h = typeof n?.style?.height === 'string'
-        ? parseFloat(n.style.height)
-        : (typeof n?.style?.height === 'number' ? n.style.height : undefined);
-    return {
-        width: w ?? CFG.NODE_DEFAULT_SIZE.width,
-        height: h ?? CFG.NODE_DEFAULT_SIZE.height,
-    };
-}
+const NODE_STYLE_BASE: CSSProperties = {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    display: 'flex',
+    backgroundColor: 'var(--bgPanel)',
+    textAlign: 'left',
+    alignItems: 'flex-start',
+    color: 'var(--color)',
+    position: 'relative',
+    zIndex: 2,
+    transition: 'border 0.2s ease, box-shadow 0.2s ease',
+};
 
-function groupByLayer(cards: Card[]): Map<string, Card[]> {
+const NODE_STYLE_SELECTED: CSSProperties = {
+    ...NODE_STYLE_BASE,
+    border: '2px solid var(--color9)',
+    boxShadow: '0 0 0 4px rgba(0,0,0,0.05)',
+};
+
+const NODE_STYLE_DEFAULT: CSSProperties = {
+    ...NODE_STYLE_BASE,
+    border: '1px solid var(--gray6)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+};
+
+const GROUP_STYLE: CSSProperties = {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    background: CFG.GROUP_BG,
+    position: 'relative',
+    zIndex: 0,
+    pointerEvents: 'none',
+};
+
+const GROUP_HEADER_STYLE: CSSProperties = {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: CFG.GROUP_HEADER_HEIGHT,
+    display: 'flex',
+    padding: '0 12px',
+    fontSize: CFG.GROUP_HEADER_HEIGHT * 0.4,
+    fontWeight: 600,
+    color: 'var(--gray11)',
+    background: 'var(--bgPanel)',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    borderBottom: '1px solid rgba(0,0,0,0.08)',
+    pointerEvents: 'auto',
+    alignItems: 'center',
+    cursor: 'auto',
+};
+
+const FLOW_STYLES = `
+.react-flow__node { border: none !important; background: transparent !important; box-shadow: none !important; }
+.react-flow__node-layerGroup { pointer-events: none !important; }
+.react-flow__node-layerGroup .layer-group-header { pointer-events: auto; }
+.react-flow__nodesselection, .react-flow__nodesselection-rect { pointer-events: none !important; background: transparent !important; border: none !important; }
+.rf-selecting .react-flow__node, .rf-selecting .react-flow__handle, .rf-selecting .layer-group-header { pointer-events: none !important; }
+body.rf-noselect, body.rf-noselect * { user-select: none !important; }
+`;
+
+
+const getNodeSize = (n: RFNode) => ({
+    width: parseFloat(n?.style?.width) || CFG.NODE_DEFAULT_SIZE.width,
+    height: parseFloat(n?.style?.height) || CFG.NODE_DEFAULT_SIZE.height,
+});
+
+const groupByLayer = (cards: Card[]): Map<string, Card[]> => {
     const grouped = new Map<string, Card[]>();
-    for (const c of cards || []) {
+    for (const c of cards) {
         const layer = c.layer || 'base';
-        if (!grouped.has(layer)) grouped.set(layer, []);
-        grouped.get(layer)!.push(c);
+        (grouped.get(layer) ?? grouped.set(layer, []).get(layer)!).push(c);
     }
     return grouped;
-}
+};
 
-function computeLayerBounds(
-    cards: Card[],
-    positions: Record<string, { x: number; y: number }>,
-    sizes: Map<string, { width: number; height: number }>
-) {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const c of cards) {
-        const sz = sizes.get(c.name)!;
-        const pos = positions[c.name]!;
-        minX = Math.min(minX, pos.x);
-        minY = Math.min(minY, pos.y);
-        maxX = Math.max(maxX, pos.x + sz.width);
-        maxY = Math.max(maxY, pos.y + sz.height);
-    }
-    const width = Math.max(0, maxX - minX);
-    const height = Math.max(0, maxY - minY);
-    return { minX, minY, width, height };
-}
+const buildPortsFor = (cardName: string, edges: RFEdge[]): Ports => ({
+    inputs: edges.filter(e => e.target === cardName).map(e => e.source),
+    outputs: edges.filter(e => e.source === cardName).map(e => e.target),
+});
 
-function buildPortsFor(cardName: string, edges: RFEdge[]): Ports {
-    const inputs = edges.filter((e: RFEdge) => e.target === cardName).map((e: RFEdge) => e.source);
-    const outputs = edges.filter((e: RFEdge) => e.source === cardName).map((e: RFEdge) => e.target);
-    return { inputs, outputs };
-}
-
-function buildEdgesFromCards(cards: Card[]): RFEdge[] {
-    const nodeIds = new Set(cards.map((c) => c.name));
+const buildEdgesFromCards = (cards: Card[]): RFEdge[] => {
+    const nodeIds = new Set(cards.map(c => c.name));
     const edges: RFEdge[] = [];
-    const duplicateCounter = new Map<string, number>();
-    const seenOutIdx = new Map<string, number>();
-    const seenInIdx = new Map<string, number>();
+    const dupCounter = new Map<string, number>();
+    const outIdx = new Map<string, number>();
+    const inIdx = new Map<string, number>();
 
     for (const card of cards) {
-        const baseLinks = Array.isArray(card.links) ? card.links : [];
-        const links = [...baseLinks]; // no mutar card.links
-
+        const links = [...(card.links || [])];
+        // Extract executeAction calls from rulesCode
         const regex = /executeAction\(\s*\{\s*name:\s*["']([\w-]+)["']/g;
         let match;
         while ((match = regex.exec(card.rulesCode ?? '')) !== null) {
-            const targetName = match[1];
-            if (targetName && nodeIds.has(targetName)) {
-                links.push({ name: targetName, type: 'code' });
-            }
+            if (match[1] && nodeIds.has(match[1])) links.push({ name: match[1], type: 'code' });
         }
 
         for (const link of links) {
-            const targetName = link?.name;
-            if (!targetName || !nodeIds.has(targetName)) continue;
-            const baseKey = `${card.name}->${targetName}`;
-            const dup = duplicateCounter.get(baseKey) ?? 0;
-            duplicateCounter.set(baseKey, dup + 1);
-            const edgeId = dup === 0 ? baseKey : `${baseKey}#${dup}`;
-            const outIdx = seenOutIdx.get(card.name) ?? 0;
-            const inIdx = seenInIdx.get(targetName) ?? 0;
-            seenOutIdx.set(card.name, outIdx + 1);
-            seenInIdx.set(targetName, inIdx + 1);
+            if (!link?.name || !nodeIds.has(link.name)) continue;
+            const key = `${card.name}->${link.name}`;
+            const dup = dupCounter.get(key) ?? 0;
+            dupCounter.set(key, dup + 1);
+            const oIdx = outIdx.get(card.name) ?? 0;
+            const iIdx = inIdx.get(link.name) ?? 0;
+            outIdx.set(card.name, oIdx + 1);
+            inIdx.set(link.name, iIdx + 1);
 
             edges.push({
-                id: edgeId,
+                id: dup ? `${key}#${dup}` : key,
                 source: card.name,
-                target: targetName,
-                sourceHandle: `output-${outIdx}`,
-                targetHandle: `input-${inIdx}`,
+                target: link.name,
+                sourceHandle: `output-${oIdx}`,
+                targetHandle: `input-${iIdx}`,
                 type: 'curvy',
                 data: { linkType: link.type || 'pre' },
                 style: {
@@ -152,135 +165,18 @@ function buildEdgesFromCards(cards: Card[]): RFEdge[] {
         }
     }
     return edges;
-}
-
-const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean }) => {
-    const inCount = data?.ports?.inputs?.length ?? 0;
-    const outCount = data?.ports?.outputs?.length ?? 0;
-    return (
-        <div
-            style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: 8,
-                display: 'flex',
-                backgroundColor: 'var(--bgPanel)',
-                textAlign: 'left',
-                alignItems: 'flex-start',
-                color: 'var(--color)',
-                position: 'relative',
-                zIndex: 2,
-                border: selected ? '2px solid var(--color9)' : '1px solid var(--gray6)',
-                boxShadow: selected ? '0 0 0 4px rgba(0,0,0,0.05)' : '0 2px 8px rgba(0,0,0,0.05)',
-                transition: 'border 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-            }}
-        >
-            {data.content}
-            {data?.ports?.inputs?.map((port: string, index: number) => (
-                <Handle
-                    key={`in-${port}-${index}`}
-                    id={`input-${index}`}
-                    type="target"
-                    position={Position.Left}
-                    style={{ top: `${((index + 1) * 100) / (inCount + 1)}%` }}
-                />
-            ))}
-            {data?.ports?.outputs?.map((port: string, index: number) => (
-                <Handle
-                    key={`out-${port}-${index}`}
-                    id={`output-${index}`}
-                    type="source"
-                    position={Position.Right}
-                    style={{ top: `${((index + 1) * 100) / (outCount + 1)}%` }}
-                />
-            ))}
-        </div>
-    );
-});
-
-const CurvyEdge = (props: any) => {
-    const [edgePath] = getBezierPath({ ...props, curvature: 0.4 }); // curva más orgánica
-    return (
-        <path
-            id={props.id}
-            className="react-flow__edge-path"
-            d={edgePath}
-            style={{
-                stroke: props.style?.stroke || 'var(--edgeDefault, var(--color5))',
-                strokeWidth: 5,
-                fill: 'none',
-                pointerEvents: 'none',   // 👈 no intercepta clics
-                mixBlendMode: 'multiply' // opcional: mezcla estética
-            }}
-            markerEnd={props.markerEnd}
-        />
-    );
 };
 
-const edgeTypes = { curvy: CurvyEdge };
-
-const LayerGroupNode = memo(({ data }: { data: any }) => {
-    const [hovered, setHovered] = useState(false);
-
-    return <div
-        className="layer-group"
-        style={{
-            width: '100%',
-            height: '100%',
-            borderRadius: 12,
-            background: CFG.GROUP_BG,
-            border: `3px solid var(--${hovered ? "color8" : data?.isActiveLayer ? "gray8" : "gray6"})`,
-            position: 'relative',
-            zIndex: 0,
-            transition: 'none',
-            pointerEvents: 'none', // let blank areas behave like the pane
-        }}
-    >
-        <div
-            style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0,
-                height: CFG.GROUP_HEADER_HEIGHT,
-                display: 'flex',
-                padding: '0 12px',
-                fontSize: CFG.GROUP_HEADER_HEIGHT * 0.4,
-                fontWeight: 600,
-                color: 'var(--gray11)',
-                background: 'var(--bgPanel)',
-                borderTopLeftRadius: 12,
-                borderTopRightRadius: 12,
-                borderBottom: '1px solid rgba(0,0,0,0.08)',
-                pointerEvents: 'auto',
-                alignItems: 'center',
-                cursor: 'auto',
-            }}
-            className="layer-group-header"
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-        >
-            {data?.label}
-        </div>
-    </div>
-});
-
-const nodeTypes = { default: DefaultNode, layerGroup: LayerGroupNode };
-
-/* ==== helpers mínimos para URL <-> viewport ==== */
-function readViewportFromURL() {
+const readViewportFromURL = () => {
     try {
         const sp = new URLSearchParams(window.location.search);
-        // ✅ Solo consideramos la URL válida si están presentes las 3 claves
-        if (!(sp.has('x') && sp.has('y') && sp.has('zoom'))) return null;
-        const xStr = sp.get('x'); const yStr = sp.get('y'); const zoomStr = sp.get('zoom');
-        if (xStr == null || yStr == null || zoomStr == null) return null;
-        const x = Number(xStr); const y = Number(yStr); const zoom = Number(zoomStr);
-        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(zoom)) return null;
-        return { x, y, zoom };
-    } catch { /* noop */ }
-    return null;
-}
+        if (!sp.has('x') || !sp.has('y') || !sp.has('zoom')) return null;
+        const x = Number(sp.get('x')), y = Number(sp.get('y')), zoom = Number(sp.get('zoom'));
+        return Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(zoom) ? { x, y, zoom } : null;
+    } catch { return null; }
+};
 
-function writeViewportToURL(vp: { x: number; y: number; zoom: number }) {
+const writeViewportToURL = (vp: { x: number; y: number; zoom: number }) => {
     try {
         const url = new URL(window.location.href);
         url.searchParams.set('x', (Math.round(vp.x * 100) / 100).toString());
@@ -288,136 +184,273 @@ function writeViewportToURL(vp: { x: number; y: number; zoom: number }) {
         url.searchParams.set('zoom', (Math.round(vp.zoom * 1000) / 1000).toString());
         window.history.replaceState({}, '', url.toString());
     } catch { /* noop */ }
-}
+};
 
-function normalizeGroupNodes(nds: RFNode[]) {
-    const next = nds.map((n) => ({ ...n, style: { ...(n.style || {}) } }));
-    const groups = next.filter((n) => n.type === 'layerGroup');
-    if (!groups.length) return next;
+const layoutsEqual = (a?: GraphLayout, b?: GraphLayout): boolean => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    const aKeys = Object.keys(a);
+    if (aKeys.length !== Object.keys(b).length) return false;
+    return aKeys.every(k => {
+        const av = a[k], bv = b[k];
+        return bv && av.x === bv.x && av.y === bv.y && av.layer === bv.layer && av.parent === bv.parent && av.type === bv.type;
+    });
+};
+
+const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean }) => {
+    const inCount = data?.ports?.inputs?.length ?? 0;
+    const outCount = data?.ports?.outputs?.length ?? 0;
+
+    return (
+        <div style={selected ? NODE_STYLE_SELECTED : NODE_STYLE_DEFAULT}>
+            {data.content}
+            {data?.ports?.inputs?.map((_: string, i: number) => (
+                <Handle key={`in-${i}`} id={`input-${i}`} type="target" position={Position.Left}
+                    style={{ top: `${((i + 1) * 100) / (inCount + 1)}%` }} />
+            ))}
+            {data?.ports?.outputs?.map((_: string, i: number) => (
+                <Handle key={`out-${i}`} id={`output-${i}`} type="source" position={Position.Right}
+                    style={{ top: `${((i + 1) * 100) / (outCount + 1)}%` }} />
+            ))}
+        </div>
+    );
+});
+
+const LayerGroupNode = memo(({ data }: { data: any }) => {
+    const [hovered, setHovered] = useState(false);
+    const borderColor = hovered ? 'color8' : data?.isActiveLayer ? 'gray8' : 'gray6';
+
+    return (
+        <div className="layer-group" style={{ ...GROUP_STYLE, border: `3px solid var(--${borderColor})` }}>
+            <div style={GROUP_HEADER_STYLE} className="layer-group-header"
+                onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+                {data?.label}
+            </div>
+        </div>
+    );
+});
+
+const CurvyEdge = memo((props: any) => {
+    const [edgePath] = getBezierPath({ ...props, curvature: 0.4 });
+    return (
+        <path id={props.id} className="react-flow__edge-path" d={edgePath} markerEnd={props.markerEnd}
+            style={{ stroke: props.style?.stroke || 'var(--edgeDefault, var(--color5))', strokeWidth: 5, fill: 'none', pointerEvents: 'none' }} />
+    );
+});
+
+const nodeTypes = { default: DefaultNode, layerGroup: LayerGroupNode };
+const edgeTypes = { curvy: CurvyEdge };
+
+
+const computeLayerLayout = (cards: Card[], edges: RFEdge[]) =>
+    computeDirectedLayout({ cards, edges, ...CFG.LAYOUT }) as {
+        positions: Record<string, { x: number; y: number }>;
+        sizes: Map<string, { width: number; height: number }>;
+    };
+
+const computeBounds = (cards: Card[], positions: Record<string, { x: number; y: number }>, sizes: Map<string, { width: number; height: number }>) => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of cards) {
+        const sz = sizes.get(c.name)!, pos = positions[c.name]!;
+        minX = Math.min(minX, pos.x); minY = Math.min(minY, pos.y);
+        maxX = Math.max(maxX, pos.x + sz.width); maxY = Math.max(maxY, pos.y + sz.height);
+    }
+    return { minX, minY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
+};
+
+const materializeNodes = (
+    cards: Card[],
+    positions: Record<string, { x: number; y: number }>,
+    sizes: Map<string, { width: number; height: number }>,
+    edges: RFEdge[],
+    savedLayout?: GraphLayout,
+    layerName?: string,
+    groupId?: string,
+    offset = { x: 0, y: 0 }
+): RFNode[] => {
+    // Find rightmost X from saved positions for fallback positioning
+    const savedBounds = cards.reduce((b, c) => {
+        const saved = savedLayout?.[c.name];
+        if (!saved || (saved.layer && layerName && saved.layer !== layerName)) return b;
+        const sz = sizes.get(c.name)!;
+        return { maxX: Math.max(b.maxX, saved.x + sz.width), valid: true };
+    }, { maxX: -Infinity, valid: false });
+    const rightmostX = savedBounds.valid ? savedBounds.maxX : null;
+
+    return cards.map(c => {
+        const sz = sizes.get(c.name)!;
+        const pos = positions[c.name]!;
+        const saved = savedLayout?.[c.name];
+        const savedValid = saved && (!saved.layer || !layerName || saved.layer === layerName);
+
+        let x: number, y: number;
+        if (savedValid) {
+            x = saved.x; y = saved.y;
+        } else if (rightmostX !== null) {
+            x = rightmostX + CFG.LAYOUT.marginX * 0.6;
+            y = groupId ? (pos.y - offset.y) + GROUP_PAD_TOP : pos.y + offset.y;
+        } else {
+            x = groupId ? (pos.x - offset.x) + CFG.GROUP_PADDING : pos.x;
+            y = groupId ? (pos.y - offset.y) + GROUP_PAD_TOP : pos.y + offset.y;
+        }
+
+        return {
+            id: c.name,
+            type: 'default',
+            parentNode: groupId,
+            position: { x, y },
+            data: { ...c, ports: buildPortsFor(c.name, edges) },
+            style: { width: `${sz.width}px`, height: `${sz.height}px`, background: 'transparent' },
+        };
+    });
+};
+
+const materializeLayer = (
+    layerName: string,
+    cards: Card[],
+    edges: RFEdge[],
+    yOffset: number,
+    savedLayout?: GraphLayout
+): { groupNode?: RFNode; contentNodes: RFNode[]; yIncrement: number } => {
+    const { positions, sizes } = computeLayerLayout(cards, edges);
+    const { minX, minY, width, height } = computeBounds(cards, positions, sizes);
+    const isFlat = !CFG.BASE_LAYER_IN_GROUP && layerName === 'base';
+
+    if (isFlat) {
+        return {
+            contentNodes: materializeNodes(cards, positions, sizes, edges, savedLayout, layerName, undefined, { x: 0, y: yOffset }),
+            yIncrement: height + CFG.LAYER_VERTICAL_GAP,
+        };
+    }
+
+    const groupWidth = width + CFG.GROUP_PADDING * 2 + CFG.RIGHT_MARGIN_EXTRA;
+    const groupHeight = height + CFG.GROUP_HEADER_HEIGHT + CFG.GROUP_PADDING * 2 + CFG.GROUP_EXTRA_BOTTOM;
+    const saved = savedLayout?.[`group-${layerName}`];
+    const groupNode: RFNode = {
+        id: `group-${layerName}`,
+        type: 'layerGroup',
+        position: saved ? { x: saved.x, y: saved.y } : { x: 0, y: yOffset },
+        data: { label: layerName, layer: layerName },
+        style: { width: groupWidth, height: groupHeight },
+        draggable: true,
+        dragHandle: '.layer-group-header',
+        selectable: false,
+    };
+
+    return {
+        groupNode,
+        contentNodes: materializeNodes(cards, positions, sizes, edges, savedLayout, layerName, groupNode.id, { x: minX, y: minY }),
+        yIncrement: groupHeight + CFG.LAYER_VERTICAL_GAP,
+    };
+};
+
+const normalizeGroupNodes = (nodes: RFNode[]): RFNode[] => {
+    const next = nodes.map(n => ({ ...n, style: { ...n.style } }));
+    const groups = next.filter(n => n.type === 'layerGroup');
 
     for (const g of groups) {
-        const children = next.filter((n) => n.parentNode === g.id);
+        const children = next.filter(n => n.parentNode === g.id);
         if (!children.length) continue;
 
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const c of children) {
-            const { width, height } = getNodeNumericSize(c);
-            minX = Math.min(minX, c.position.x);
-            minY = Math.min(minY, c.position.y);
-            maxX = Math.max(maxX, c.position.x + width);
-            maxY = Math.max(maxY, c.position.y + height);
+            const { width, height } = getNodeSize(c);
+            minX = Math.min(minX, c.position.x); minY = Math.min(minY, c.position.y);
+            maxX = Math.max(maxX, c.position.x + width); maxY = Math.max(maxY, c.position.y + height);
         }
 
-        const targetTop = CFG.GROUP_PADDING + CFG.GROUP_HEADER_HEIGHT;
+        const targetTop = GROUP_PAD_TOP;
         const shiftX = minX - CFG.GROUP_PADDING;
         const shiftY = minY - targetTop;
+
         if (shiftX !== 0 || shiftY !== 0) {
-            g.position = {
-                x: (g.position?.x || 0) + shiftX,
-                y: (g.position?.y || 0) + shiftY,
-            };
-            for (const c of children) {
-                c.position = { x: c.position.x - shiftX, y: c.position.y - shiftY };
-            }
+            g.position = { x: (g.position?.x || 0) + shiftX, y: (g.position?.y || 0) + shiftY };
+            for (const c of children) c.position = { x: c.position.x - shiftX, y: c.position.y - shiftY };
             maxX -= shiftX; maxY -= shiftY;
-            minX = CFG.GROUP_PADDING; minY = targetTop;
         }
 
-        const contentW = maxX - minX;
-        const contentH = maxY - minY;
-        g.style.width = contentW + CFG.GROUP_PADDING * 2 + CFG.RIGHT_MARGIN_EXTRA;
-        g.style.height = contentH + CFG.GROUP_HEADER_HEIGHT + CFG.GROUP_PADDING * 2 + CFG.GROUP_EXTRA_BOTTOM;
+        g.style.width = (maxX - CFG.GROUP_PADDING) + CFG.GROUP_PADDING * 2 + CFG.RIGHT_MARGIN_EXTRA;
+        g.style.height = (maxY - targetTop) + CFG.GROUP_HEADER_HEIGHT + CFG.GROUP_PADDING * 2 + CFG.GROUP_EXTRA_BOTTOM;
     }
     return next;
-}
+};
 
-const Flow = ({
+const Flow = memo(({
     initialNodes,
     initialEdges,
-    initialLayout = null,
+    initialLayout,
     onLayoutChange,
     activeLayer,
     onSelectLayer,
     onDeleteNodes,
+    onSelectionChange,
+    selectedIds,
 }: {
     initialNodes: RFNode[];
     initialEdges: RFEdge[];
-    initialLayout?: GraphLayout;
+    initialLayout?: GraphLayout | null;
     onLayoutChange?: (layout: GraphLayout) => void;
     activeLayer?: string;
     onSelectLayer?: (layer: string) => void;
     onDeleteNodes?: (ids: string[]) => void;
+    onSelectionChange?: (ids: string[]) => void;
+    selectedIds?: string[];
 }) => {
-    const normalizedInitial = useMemo(() => normalizeGroupNodes(initialNodes), [initialNodes]);
-    const layoutRef = useRef<GraphLayout | undefined | null>(initialLayout);
+    const layoutRef = useRef<GraphLayout | null | undefined>(initialLayout);
+    const lastSelectionRef = useRef<string[]>([]);
+    const initialNodesKeyRef = useRef('');
+    const [selectionActive, setSelectionActive] = useState(false);
+    const { resolvedTheme } = useThemeSetting();
+    const darkMode = resolvedTheme === 'dark';
 
-    const addLayerData = useCallback((nodes: RFNode[]) => {
-        return nodes.map((node) => {
-            const layerName = node.data.layer
-            const isActive = !activeLayer || layerName === activeLayer;
-            return {
-                ...node,
-                data: { ...node.data, layer: layerName, isActiveLayer: node.type === 'layerGroup' ? isActive : node.data?.isActiveLayer },
-            };
-        });
-    }, [activeLayer]);
+    // Normalize and add layer data
+    const processedNodes = useMemo(() => {
+        const normalized = normalizeGroupNodes(initialNodes);
+        return normalized.map(node => ({
+            ...node,
+            data: {
+                ...node.data,
+                isActiveLayer: node.type === 'layerGroup' ? (!activeLayer || node.data.layer === activeLayer) : node.data?.isActiveLayer,
+            },
+        }));
+    }, [initialNodes, activeLayer]);
 
-    const initialWithLayerData = useMemo(() => addLayerData(normalizedInitial), [normalizedInitial, addLayerData]);
-    const [nodes, setNodes] = useNodesState(addLayerData(normalizedInitial));
+    const [nodes, setNodes] = useNodesState(processedNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-    const { resolvedTheme } = useThemeSetting()
-    const darkMode = resolvedTheme == 'dark'
 
-    const nodesMap = useMemo(() => new Map(nodes.map((n: RFNode) => [n.id, n])), [nodes]);
-    const graphBounds = nodes.reduce((b, n) => {
-        const { width, height } = getNodeNumericSize(n);
-        const parent = n.parentNode ? nodesMap.get(n.parentNode) : null;
-        const absX = (parent?.position?.x || 0) + n.position.x;
-        const absY = (parent?.position?.y || 0) + n.position.y;
-        b.minX = Math.min(b.minX, absX);
-        b.minY = Math.min(b.minY, absY);
-        b.maxX = Math.max(b.maxX, absX + width);
-        b.maxY = Math.max(b.maxY, absY + height);
-        return b;
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    // Calculate viewport once
+    const defaultViewport = useMemo(() => {
+        const urlVp = typeof window !== 'undefined' ? readViewportFromURL() : null;
+        if (urlVp) return urlVp;
 
-    const hasNodes = Number.isFinite(graphBounds.minX) && Number.isFinite(graphBounds.maxX);
-    const graphCenterX = hasNodes ? (graphBounds.minX + graphBounds.maxX) / 2 : 0;
-    const graphCenterY = hasNodes ? (graphBounds.minY + graphBounds.maxY) / 2 : 0;
-    const zoom = CFG.VIEWPORT.zoom;
-
-    // ✅ Si hay x,y,zoom en la URL, los usamos; si no, centramos como en tu versión que funciona
-    const urlViewport = typeof window !== 'undefined' ? readViewportFromURL() : null;
-    const initialX = (window.innerWidth / 2) - graphCenterX * zoom;
-    const initialY = (window.innerHeight / 2) - graphCenterY * zoom;
-    const defaultViewport = urlViewport ?? {
-        x: initialX + CFG.VIEWPORT.x,
-        y: initialY + CFG.VIEWPORT.y,
-        zoom,
-    };
-
-    const isSameLayout = useCallback((a?: GraphLayout, b?: GraphLayout) => {
-        if (a === b) return true;
-        if (!a || !b) return false;
-        const aKeys = Object.keys(a); const bKeys = Object.keys(b);
-        if (aKeys.length !== bKeys.length) return false;
-        for (const k of aKeys) {
-            const av = a[k]; const bv = b[k];
-            if (!bv) return false;
-            if (av.x !== bv.x || av.y !== bv.y || av.layer !== bv.layer || av.parent !== bv.parent || av.type !== bv.type) return false;
+        const nodesMap = new Map(nodes.map(n => [n.id, n]));
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const n of nodes) {
+            const { width, height } = getNodeSize(n);
+            const parent = n.parentNode ? nodesMap.get(n.parentNode) : null;
+            const absX = (parent?.position?.x || 0) + n.position.x;
+            const absY = (parent?.position?.y || 0) + n.position.y;
+            minX = Math.min(minX, absX); minY = Math.min(minY, absY);
+            maxX = Math.max(maxX, absX + width); maxY = Math.max(maxY, absY + height);
         }
-        return true;
-    }, []);
-
+        const hasNodes = Number.isFinite(minX);
+        const centerX = hasNodes ? (minX + maxX) / 2 : 0;
+        const centerY = hasNodes ? (minY + maxY) / 2 : 0;
+        const zoom = CFG.VIEWPORT.zoom;
+        return {
+            x: (window.innerWidth / 2) - centerX * zoom + CFG.VIEWPORT.x,
+            y: (window.innerHeight / 2) - centerY * zoom + CFG.VIEWPORT.y,
+            zoom,
+        };
+    }, []); // Only compute once on mount
 
     const exportLayout = useCallback((nds: RFNode[]): GraphLayout => {
         const layout: GraphLayout = {};
         for (const n of nds) {
-            const layerName = n.data.layer
             layout[n.id] = {
                 x: n.position.x,
                 y: n.position.y,
-                layer: layerName,
+                layer: n.data.layer,
                 parent: n.parentNode,
                 type: n.type === 'layerGroup' ? 'group' : 'node',
             };
@@ -425,79 +458,118 @@ const Flow = ({
         return layout;
     }, []);
 
-
-    const onNodesChange = useCallback((changes) => {
-        const removedIds = changes.filter((c: any) => c.type === 'remove').map((c: any) => c.id);
+    const onNodesChange = useCallback((changes: any[]) => {
+        const removedIds = changes.filter(c => c.type === 'remove').map(c => c.id);
         if (removedIds.length) {
-            setEdges((eds) => eds.filter((e: RFEdge) =>
-                !removedIds.includes(e.source) && !removedIds.includes(e.target)
-            ));
+            setEdges(eds => eds.filter(e => !removedIds.includes(e.source) && !removedIds.includes(e.target)));
         }
 
-        const shouldPersistPosition = changes.some((c: any) => c.type === 'position' && c.dragging === false);
-        const shouldPersistRemoval = removedIds.length > 0;
+        const shouldPersist = changes.some(c => c.type === 'position' && c.dragging === false) || removedIds.length > 0;
 
-        setNodes((nds) => {
-            const next = addLayerData(normalizeGroupNodes(applyNodeChanges(changes, nds)));
+        setNodes(nds => {
+            const next = normalizeGroupNodes(applyNodeChanges(changes, nds));
 
             if (removedIds.length && onDeleteNodes) {
-                const deletable = removedIds.filter((id) => {
-                    const node = nds.find((n) => n.id === id);
-                    return node && node.type !== 'layerGroup';
-                });
+                const deletable = removedIds.filter(id => nds.find(n => n.id === id)?.type !== 'layerGroup');
                 if (deletable.length) onDeleteNodes(deletable);
             }
 
-            if ((shouldPersistPosition || shouldPersistRemoval) && onLayoutChange) {
+            if (shouldPersist && onLayoutChange) {
                 const exported = exportLayout(next);
-                if (!isSameLayout(exported, layoutRef?.current)) {
+                if (!layoutsEqual(exported, layoutRef.current)) {
                     layoutRef.current = exported;
                     onLayoutChange(exported);
                 }
             }
             return next;
         });
-    }, [setNodes, onLayoutChange, exportLayout, addLayerData, isSameLayout, onDeleteNodes, setEdges]);
+    }, [setNodes, setEdges, onLayoutChange, exportLayout, onDeleteNodes]);
 
-    // Guardamos en la URL cuando terminas pan/zoom
-    const handleMoveEnd = useCallback((_e: any, vp: { x: number; y: number; zoom: number }) => {
-        writeViewportToURL(vp);
-    }, []);
+    const handleMoveEnd = useCallback((_: any, vp: { x: number; y: number; zoom: number }) => writeViewportToURL(vp), []);
 
-    const handleNodeClick = useCallback((_e: any, node: RFNode) => {
-        if (!onSelectLayer) return;
-        const layerName = node.data.layer;
-        if (layerName) onSelectLayer(layerName);
+    const handleNodeClick = useCallback((_: any, node: RFNode) => {
+        if (onSelectLayer && node.data.layer) onSelectLayer(node.data.layer);
     }, [onSelectLayer]);
 
+    const handleSelectionChange = useCallback((selection: { nodes: RFNode[] }) => {
+        const ids = (selection?.nodes || []).filter(n => n.type !== 'layerGroup').map(n => n.id).sort();
+        if (lastSelectionRef.current.join() !== ids.join()) {
+            lastSelectionRef.current = ids;
+            onSelectionChange?.(ids);
+        }
+    }, [onSelectionChange]);
+
+    const handlePaneClick = useCallback(() => {
+        lastSelectionRef.current = [];
+        onSelectionChange?.([]);
+    }, [onSelectionChange]);
+
+    // Sync nodes when initial data changes
     useLayoutEffect(() => {
-        // Always sync the latest node data; keeping old nodes when IDs match left edits out of sync
-        setNodes(initialWithLayerData);
-    }, [initialWithLayerData, setNodes]);
+        const structuralKey = processedNodes
+            .map(n => `${n.id}:${n.parentNode || ''}:${n.data?.layer || ''}:${n.position?.x ?? 0}:${n.position?.y ?? 0}`)
+            .sort().join('|');
 
-    useEffect(() => {
-        layoutRef.current = initialLayout;
-    }, [initialLayout]);
+        if (initialNodesKeyRef.current !== structuralKey) {
+            initialNodesKeyRef.current = structuralKey;
+            setNodes(processedNodes);
+        } else {
+            // Only update data, preserve positions
+            setNodes(current => {
+                const dataMap = new Map(processedNodes.map(n => [n.id, n.data]));
+                let changed = false;
+                const updated = current.map(node => {
+                    const newData = dataMap.get(node.id);
+                    if (newData && newData !== node.data) {
+                        changed = true;
+                        return { ...node, data: newData };
+                    }
+                    return node;
+                });
+                return changed ? updated : current;
+            });
+        }
+    }, [processedNodes, setNodes]);
 
-    useEffect(() => {
-        // Always take fresh edge data; edge ID stability should not block updates
-        setEdges(initialEdges);
-    }, [initialEdges, setEdges]);
+    // Sync edges
+    useEffect(() => { setEdges(initialEdges); }, [initialEdges, setEdges]);
 
+    // Sync layout ref
+    useEffect(() => { layoutRef.current = initialLayout; }, [initialLayout]);
+
+    // Persist layout for new/removed nodes
     useEffect(() => {
         if (!onLayoutChange) return;
-        const nodeIds = normalizedInitial.map((n) => n.id);
-        const missingNode = !initialLayout
-            || normalizedInitial.some((n) => !initialLayout[n.id]);
-        const hasStale = initialLayout
-            ? Object.keys(initialLayout).some((id) => !nodeIds.includes(id))
-            : false;
-        const nextLayout = exportLayout(normalizedInitial);
-        if ((missingNode || hasStale) && !isSameLayout(nextLayout, layoutRef.current)) {
-            layoutRef.current = nextLayout;
-            onLayoutChange(nextLayout);
+        const nodeIds = new Set(processedNodes.map(n => n.id));
+        const missingNode = !initialLayout || processedNodes.some(n => !initialLayout[n.id]);
+        const hasStale = initialLayout && Object.keys(initialLayout).some(id => !nodeIds.has(id));
+        if (missingNode || hasStale) {
+            const nextLayout = exportLayout(processedNodes);
+            if (!layoutsEqual(nextLayout, layoutRef.current)) {
+                layoutRef.current = nextLayout;
+                onLayoutChange(nextLayout);
+            }
         }
-    }, [normalizedInitial, onLayoutChange, initialLayout, exportLayout, isSameLayout]);
+    }, [processedNodes, onLayoutChange, initialLayout, exportLayout]);
+
+    // Selection sync
+    useEffect(() => {
+        if (!selectedIds) return;
+        const sorted = [...selectedIds].sort();
+        if (lastSelectionRef.current.join() !== sorted.join()) {
+            lastSelectionRef.current = sorted;
+            setNodes(nds => nds.map(n => ({ ...n, selected: sorted.includes(n.id) })));
+        }
+    }, [selectedIds, setNodes]);
+
+    // Lasso selection class toggle
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        document.body.classList.toggle('rf-noselect', selectionActive);
+        if (selectionActive) window.getSelection?.()?.removeAllRanges?.();
+        return () => { document.body.classList.remove('rf-noselect'); };
+    }, [selectionActive]);
+
 
     return (
         <Tinted>
@@ -515,8 +587,14 @@ const Flow = ({
                 maxZoom={2}
                 selectionOnDrag
                 selectNodesOnDrag
-                multiSelectionKeyCode={['Meta', 'Control']}
+                selectionKeyCode={['Control', 'Meta', 'Shift']}
+                multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
+                onSelectionChange={handleSelectionChange}
+                onSelectionStart={() => setSelectionActive(true)}
+                onSelectionEnd={() => setSelectionActive(false)}
+                onPaneClick={handlePaneClick}
                 onNodeClick={handleNodeClick}
+                className={selectionActive ? 'rf-selecting' : undefined}
                 nodesDraggable
                 nodesConnectable
                 elementsSelectable
@@ -524,223 +602,34 @@ const Flow = ({
                 zoomOnPinch
                 panOnDrag
                 proOptions={{ hideAttribution: true }}
-                elevateEdgesOnSelect={false}   // 👈 edges nunca suben por encima
-                elevateNodesOnSelect            // 👈 nodos sí pueden elevarse al seleccionar
+                elevateEdgesOnSelect={false}
+                elevateNodesOnSelect
                 style={{ zIndex: 0 }}
-                translateExtent={[
-                    [-25000, -25000],           // esquina superior izquierda permitida
-                    [25000, 25000],     // esquina inferior derecha permitida
-                ]}
+                translateExtent={[[-25000, -25000], [25000, 25000]]}
             >
-                <style>{`
-    .react-flow__node {
-      border: none !important;
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-  /* Allow panning on group background; header stays interactive for dragging the group */
-    .react-flow__node-layerGroup {
-      pointer-events: none !important;
-    }
-    .react-flow__node-layerGroup .layer-group-header {
-      pointer-events: auto;
-    }
-  `}</style>
+                <style>{FLOW_STYLES}</style>
                 <Background gap={20} />
                 <MiniMap
                     position="bottom-left"
-                    // zoomable
-                    // pannable
-                    maskColor={"rgba(0,0,0,0." + (darkMode ? "4" : "05") + ")"}
-                    nodeStrokeColor={(n) => n.style?.borderColor || 'black'}
-                    nodeColor={(n) => n.type != 'layerGroup' ? 'var(--bgPanel)' : 'var(--bgContent)'}
-                    style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',  // 👈 elimina el fondo blanco
-                    }}
+                    maskColor={`rgba(0,0,0,${darkMode ? '0.4' : '0.05'})`}
+                    nodeStrokeColor={n => n.style?.borderColor || 'black'}
+                    nodeColor={n => n.type !== 'layerGroup' ? 'var(--bgPanel)' : 'var(--bgContent)'}
+                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
                 />
             </ReactFlow>
         </Tinted>
     );
-};
+});
 
-function computeLayerLayout(cardsGroup: Card[], edges: RFEdge[]) {
-    const { hPixelRatio, vPixelRatio, marginX, marginY } = CFG.LAYOUT;
-    return computeDirectedLayout({
-        cards: cardsGroup,
-        edges,
-        hPixelRatio,
-        vPixelRatio,
-        marginX,
-        marginY,
-    }) as {
-        positions: Record<string, { x: number; y: number }>;
-        sizes: Map<string, { width: number; height: number }>;
-    };
-}
-
-function createGroupNode(
-    layerName: string,
-    layerWidth: number,
-    layerHeight: number,
-    yOffset: number,
-    savedLayout?: GraphLayout
-): RFNode {
-    const groupWidth = layerWidth + CFG.GROUP_PADDING * 2 + CFG.RIGHT_MARGIN_EXTRA;
-    const groupHeight = layerHeight + CFG.GROUP_HEADER_HEIGHT + CFG.GROUP_PADDING * 2 + CFG.GROUP_EXTRA_BOTTOM;
-    const saved = savedLayout?.[`group-${layerName}`];
-    const hasSaved = !!saved;
-    return {
-        id: `group-${layerName}`,
-        type: 'layerGroup',
-        position: hasSaved ? { x: saved!.x, y: saved!.y } : { x: 0, y: yOffset },
-        data: { label: layerName, layer: layerName },
-        style: { width: groupWidth, height: groupHeight },
-        draggable: true,
-        dragHandle: '.layer-group-header',
-        selectable: true,
-    };
-}
-
-function materializeNodesInGroup(
-    cardsGroup: Card[],
-    positions: Record<string, { x: number; y: number }>,
-    sizes: Map<string, { width: number; height: number }>,
-    groupId: string,
-    minX: number,
-    minY: number,
-    edges: RFEdge[],
-    savedLayout?: GraphLayout,
-    layerName?: string,
-): RFNode[] {
-    const savedBounds = cardsGroup.reduce((b, c) => {
-        const saved = savedLayout?.[c.name];
-        if (!saved || (saved.layer && layerName && saved.layer !== layerName)) return b;
-        const sz = sizes.get(c.name)!;
-        b.minX = Math.min(b.minX, saved.x);
-        b.minY = Math.min(b.minY, saved.y);
-        b.maxX = Math.max(b.maxX, saved.x + sz.width);
-        b.maxY = Math.max(b.maxY, saved.y + sz.height);
-        return b;
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-
-    const hasSaved = Number.isFinite(savedBounds.minX);
-    const rightmostX = hasSaved ? savedBounds.maxX : null;
-
-    return cardsGroup.map((c) => {
-        const sz = sizes.get(c.name)!;
-        const pos = positions[c.name]!;
-        const ports = buildPortsFor(c.name, edges);
-        const saved = savedLayout?.[c.name];
-        const savedValid = saved && (!saved.layer || !layerName || saved.layer === layerName);
-        const fallbackX = savedValid ? saved.x
-            : rightmostX != null
-                ? rightmostX + CFG.LAYOUT.marginX * 0.6
-                : (pos.x - minX) + CFG.GROUP_PADDING;
-        const fallbackY = (pos.y - minY) + GROUP_PAD_TOP;
-        return {
-            id: c.name,
-            type: 'default',
-            parentNode: groupId,
-            position: {
-                x: fallbackX,
-                y: savedValid ? saved.y : fallbackY,
-            },
-            data: { ...c, ports },
-            style: {
-                width: `${sz.width}px`,
-                height: `${sz.height}px`,
-                background: 'transparent',
-            },
-        };
-    });
-}
-
-function materializeNodesFlat(
-    cardsGroup: Card[],
-    positions: Record<string, { x: number; y: number }>,
-    sizes: Map<string, { width: number; height: number }>,
-    yOffset: number,
-    edges: RFEdge[],
-    savedLayout?: GraphLayout,
-    layerName?: string,
-): RFNode[] {
-    const savedBounds = cardsGroup.reduce((b, c) => {
-        const saved = savedLayout?.[c.name];
-        if (!saved || (saved.layer && layerName && saved.layer !== layerName)) return b;
-        const sz = sizes.get(c.name)!;
-        b.minX = Math.min(b.minX, saved.x);
-        b.minY = Math.min(b.minY, saved.y);
-        b.maxX = Math.max(b.maxX, saved.x + sz.width);
-        b.maxY = Math.max(b.maxY, saved.y + sz.height);
-        return b;
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-
-    const hasSaved = Number.isFinite(savedBounds.minX);
-    const rightmostX = hasSaved ? savedBounds.maxX : null;
-
-    return cardsGroup.map((c) => {
-        const sz = sizes.get(c.name)!;
-        const pos = positions[c.name]!;
-        const ports = buildPortsFor(c.name, edges);
-        const saved = savedLayout?.[c.name];
-        const savedValid = saved && (!saved.layer || !layerName || saved.layer === layerName);
-        return {
-            id: c.name,
-            type: 'default',
-            position: savedValid
-                ? { x: saved.x, y: saved.y }
-                : {
-                    x: rightmostX != null ? rightmostX + CFG.LAYOUT.marginX * 0.6 : pos.x,
-                    y: pos.y + yOffset,
-                },
-            data: { ...c, ports },
-            style: {
-                width: `${sz.width}px`,
-                height: `${sz.height}px`,
-                background: 'transparent'
-            },
-        };
-    });
-}
-
-function materializeLayerNodes(
-    layerName: string,
-    cardsGroup: Card[],
-    edges: RFEdge[],
-    yOffsetLayer: number,
-    savedLayout?: GraphLayout
-): { groupNode?: RFNode; contentNodes: RFNode[]; yIncrement: number } {
-    const { positions, sizes } = computeLayerLayout(cardsGroup, edges);
-    const { minX, minY, width: layerWidth, height: layerHeight } = computeLayerBounds(cardsGroup, positions, sizes);
-    const isBaseLayerFlat = !CFG.BASE_LAYER_IN_GROUP && layerName === 'base';
-    if (isBaseLayerFlat) {
-        const contentNodes = materializeNodesFlat(cardsGroup, positions, sizes, yOffsetLayer, edges, savedLayout, layerName);
-        const yIncrement = layerHeight + CFG.LAYER_VERTICAL_GAP;
-        return { contentNodes, yIncrement };
-    }
-    const groupNode = createGroupNode(layerName, layerWidth, layerHeight, yOffsetLayer, savedLayout);
-    const contentNodes = materializeNodesInGroup(
-        cardsGroup,
-        positions,
-        sizes,
-        groupNode.id,
-        minX,
-        minY,
-        edges,
-        savedLayout,
-        layerName
-    );
-    const yIncrement = groupNode.style.height + CFG.LAYER_VERTICAL_GAP;
-    return { groupNode, contentNodes, yIncrement };
-}
-
-export const GraphView = ({
+export const GraphView = memo(({
     cards,
     layout,
     onLayoutChange,
     activeLayer,
     onSelectLayer,
     onDeleteNodes,
+    onSelectionChange,
+    selectedIds,
 }: {
     cards: Card[];
     layout?: GraphLayout;
@@ -748,27 +637,39 @@ export const GraphView = ({
     activeLayer?: string;
     onSelectLayer?: (layer: string) => void;
     onDeleteNodes?: (ids: string[]) => void;
+    onSelectionChange?: (ids: string[]) => void;
+    selectedIds?: string[];
 }) => {
-    const initialEdges = buildEdgesFromCards(cards || []);
-    const grouped = groupByLayer(cards || []);
-    const groupNodes: RFNode[] = [];
-    const contentNodes: RFNode[] = [];
-    let yOffsetLayer = 0;
-    for (const [layerName, cardsGroup] of grouped.entries()) {
-        const { groupNode, contentNodes: nodesForLayer, yIncrement } =
-            materializeLayerNodes(layerName, cardsGroup, initialEdges, yOffsetLayer, layout);
-        if (groupNode) groupNodes.push(groupNode);
-        contentNodes.push(...nodesForLayer);
-        yOffsetLayer += yIncrement;
-    }
-    const initialNodes = [...groupNodes, ...contentNodes];
-    return <Flow
-        initialNodes={initialNodes}
-        initialEdges={initialEdges}
-        initialLayout={layout}
-        onLayoutChange={onLayoutChange}
-        activeLayer={activeLayer}
-        onSelectLayer={onSelectLayer}
-        onDeleteNodes={onDeleteNodes}
-    />
-};
+    // Memoize heavy computations
+    const { initialNodes, initialEdges } = useMemo(() => {
+        const safeCards = cards || [];
+        const edges = buildEdgesFromCards(safeCards);
+        const grouped = groupByLayer(safeCards);
+        const groupNodes: RFNode[] = [];
+        const contentNodes: RFNode[] = [];
+        let yOffset = 0;
+
+        for (const [layerName, layerCards] of Array.from(grouped.entries())) {
+            const { groupNode, contentNodes: layerNodes, yIncrement } = materializeLayer(layerName, layerCards, edges, yOffset, layout);
+            if (groupNode) groupNodes.push(groupNode);
+            contentNodes.push(...layerNodes);
+            yOffset += yIncrement;
+        }
+
+        return { initialNodes: [...groupNodes, ...contentNodes], initialEdges: edges };
+    }, [cards, layout]);
+
+    return (
+        <Flow
+            initialNodes={initialNodes}
+            initialEdges={initialEdges}
+            initialLayout={layout}
+            onLayoutChange={onLayoutChange}
+            activeLayer={activeLayer}
+            onSelectLayer={onSelectLayer}
+            onDeleteNodes={onDeleteNodes}
+            onSelectionChange={onSelectionChange}
+            selectedIds={selectedIds}
+        />
+    );
+});

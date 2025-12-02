@@ -501,8 +501,8 @@ module.exports = function start(rootPath) {
       const initialUrl = args.initialUrl || 'http://localhost:8000/workspace/network';
       const initialOrigin = originFromUrl(initialUrl);
       if (initialOrigin) ALLOWLIST_ORIGINS.add(initialOrigin);
-      console.log('⏳ Waiting for port 8000...');
-      await waitForPortHttp(initialUrl);
+      console.log('⏳ Waiting for services to be ready (this may take a few minutes on first start)...');
+      await waitForPortHttp(initialUrl, 300000);
 
       await new Promise(resolve => setTimeout(resolve, 1000));
       console.log('✅ Port 8000 ready. Opening main window...');

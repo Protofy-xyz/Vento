@@ -408,6 +408,49 @@ const paramsForm = ({ data }) => {
                         `;
         }
 
+        // Check if this is a select field
+        const inputType = cfg.type || 'text';
+        const selectData = cfg.data || [];
+        
+        let inputElement;
+        if (inputType === 'select' && Array.isArray(selectData) && selectData.length > 0) {
+            inputElement = `
+                            <select
+                                class="no-drag"
+                                name="${key}"
+                                style="
+                                    background-color: var(--gray1);
+                                    flex: 1;
+                                    padding: 5px 10px;
+                                    border: 0.5px solid var(--gray7);
+                                    border-radius: 8px;
+                                    box-sizing: border-box;
+                                    min-width: 100px;
+                                    cursor: pointer;
+                                "
+                            >
+                                ${selectData.map(opt => `<option value="${opt}" ${opt === defaultValue ? 'selected' : ''}>${opt}</option>`).join('')}
+                            </select>`;
+        } else {
+            inputElement = `
+                            <input
+                                class="no-drag"
+                                type="text"
+                                name="${key}"
+                                style="
+                                    background-color: var(--gray1);
+                                    flex: 1;
+                                    padding: 5px 10px;
+                                    border: 0.5px solid var(--gray7);
+                                    border-radius: 8px;
+                                    box-sizing: border-box;
+                                    min-width: 100px;
+                                "
+                                value="${defaultValue}"
+                                placeholder="${placeholder}"
+                            >`;
+        }
+
         return `
                         <div style="
                             display: flex; 
@@ -432,22 +475,7 @@ const paramsForm = ({ data }) => {
                             ">
                                 ${key}
                             </label>
-                            <input
-                                class="no-drag"
-                                type="text"
-                                name="${key}"
-                                style="
-                                    background-color: var(--gray1);
-                                    flex: 1;
-                                    padding: 5px 10px;
-                                    border: 0.5px solid var(--gray7);
-                                    border-radius: 8px;
-                                    box-sizing: border-box;
-                                    min-width: 100px;
-                                "
-                                value="${defaultValue}"
-                                placeholder="${placeholder}"
-                            >
+                            ${inputElement}
                         </div>
                     `;
     }).join('')

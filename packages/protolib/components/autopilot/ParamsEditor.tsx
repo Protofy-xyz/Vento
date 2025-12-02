@@ -8,7 +8,7 @@ import { SelectList } from '../SelectList'
 import { TextEditDialog } from '../TextEditDialog'
 import { LinksEditor } from './LinksEditor'
 
-const types = ["any", "string", "number", "boolean", "json", "array", "text", "path", "markdown", "html"]
+const types = ["any", "string", "number", "boolean", "json", "array", "text", "path", "markdown", "html", "select"]
 const inputDefProps = { backgroundColor: "$bgPanel", borderColor: "$gray6", placeholderTextColor: "$gray9", flex: 1, w: "100%" }
 const selectTriggerDefProps = { ...inputDefProps, hoverStyle: { borderColor: "$color7", bc: "$gray1" } }
 
@@ -172,6 +172,7 @@ export const ParamsEditor = ({
       visible: configParams[key]?.visible ?? true,
       defaultValue: configParams[key]?.defaultValue ?? '',
       type: configParams[key]?.type ?? 'string',
+      data: configParams[key]?.data ?? [],
     }))
   })
 
@@ -182,7 +183,7 @@ export const ParamsEditor = ({
     const newConfigParams: Record<string, any> = {}
 
     // console.log("rows", rows)
-    rows.forEach(({ paramKey, description, visible, defaultValue, type }) => {
+    rows.forEach(({ paramKey, description, visible, defaultValue, type, data }) => {
       if (!paramKey.trim()) return
 
       newParams[paramKey] = description
@@ -195,6 +196,7 @@ export const ParamsEditor = ({
         visible,
         defaultValue,
         type,
+        ...(data && data.length > 0 ? { data } : {}),
       }
     })
 

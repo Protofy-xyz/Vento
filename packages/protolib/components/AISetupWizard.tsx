@@ -315,7 +315,14 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
             onCancel={handleBack}
             acceptButtonProps={{ icon: step === 'provider' ? Sparkles : undefined }}
             cancelButtonProps={{ 
-                icon: step !== 'provider' ? ChevronLeft : undefined
+                icon: step !== 'provider' ? ChevronLeft : undefined,
+                ...(step === 'provider' ? {
+                    chromeless: true,
+                    backgroundColor: 'transparent',
+                    borderWidth: 0,
+                    opacity: 0.7,
+                    hoverStyle: { opacity: 1, backgroundColor: 'transparent' }
+                } : {})
             }}
             maxWidth={600}
             width="95%"

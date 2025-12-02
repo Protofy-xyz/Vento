@@ -1,4 +1,5 @@
 import { ProtoModel, SessionDataType, API, Schema, z } from 'protobase'
+import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
 
 export const DevicesSchema = Schema.object({
   name: z.string().hint("Device name").static().regex(/^[a-z0-9_]+$/, "Only lower case chars, numbers or _").id().search().label("Name"),
@@ -203,6 +204,32 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
         return;
       }
       const deviceDefinition = response.data
+      if (deviceDefinition?.sdk === 'esphome-yaml') {
+        const definitionName = deviceDefinition?.name ?? this.data.deviceDefinition
+        const configPath = `data/deviceDefinitions/${definitionName}/config.yaml`
+        const baseYamlResponse = await API.get('/api/core/v1/files/' + configPath)
+
+        if (baseYamlResponse?.isError) {
+          console.log(baseYamlResponse.error)
+          return
+        }
+
+        const baseYamlContent = baseYamlResponse?.data ?? ''
+        let yamlObject: any = {}
+
+        try {
+          const parsed = yamlParse(baseYamlContent || '')
+          yamlObject = parsed && typeof parsed === 'object' ? parsed : {}
+        } catch (err) {
+          console.error('Error parsing base YAML config: ', err)
+          yamlObject = {}
+        }
+        // Ensure the 'esphome' section exists and set the device name. In the future we could add mqtt broker, keys, etc in a per -device basis
+        yamlObject.esphome = { ...(yamlObject.esphome ?? {}), name: this.data.name }
+        yaml = yamlStringify(yamlObject)
+        await API.post("/api/v1/esphome/" + this.data.name + "/yamls", { yaml })
+        return yaml
+      }
       const response1 = await API.get('/api/core/v1/deviceBoards/' + deviceDefinition.board.name);
         if (response1.isError) {
           console.log(response1.error)

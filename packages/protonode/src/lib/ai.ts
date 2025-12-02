@@ -8,6 +8,24 @@ const callModel = async (prompt) => {
     return res.data
 }
 
+//TODO: mover aqui getSystemPrompt
+
+const getSystemPrompt = ({ prompt, done = async (prompt) => prompt, error = (e) => e }) => {
+    const result = [
+        {
+            role: "system",
+            content: [
+                {
+                    type: "text",
+                    text: prompt,
+                },
+            ],
+        },
+    ]
+    done(result)
+    return result
+}
+
 const cleanCode = (code) => {
     //remove ```(plus anything is not an space) from the beginning of the code
     //remove ``` from the end of the code
@@ -90,5 +108,8 @@ export const ai = {
     },
     cleanCode: (code) => {
         return cleanCode(code)
+    },
+    getSystemPrompt: (prompt) => {
+        return getSystemPrompt(prompt)
     }
 } 

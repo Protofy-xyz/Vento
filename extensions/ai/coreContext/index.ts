@@ -1,13 +1,63 @@
 import { API, getServiceToken } from "protobase";
 
 /**
- * Call the default LLM agent with a prompt
+ * Call the default LLM agent with a prompt (simple version)
  */
 export const callModel = async (prompt: string) => {
     const res = await API.post("/api/agents/v1/llm_agent/agent_input?token=" + getServiceToken(), {
         prompt
     });
     return res.data;
+};
+
+/**
+ * Simple prompt function similar to context.chatgpt.prompt
+ * Returns the response directly (string)
+ */
+export const prompt = async (options: {
+    message: string;
+    conversation?: any[];
+    images?: any[];
+    files?: any[];
+    model?: string;
+    done?: (result: any) => void;
+    error?: (err: any) => void;
+}) => {
+    const {
+        message,
+        conversation = [],
+        images = [],
+        files = [],
+        model,
+        done = () => {},
+        error = () => {}
+    } = options;
+
+    try {
+        const res = await API.post("/api/agents/v1/llm_agent/agent_input?token=" + getServiceToken(), {
+            message,
+            conversation,
+            images,
+            files,
+            model
+        });
+
+        const response = res.data;
+        
+        // Extract the actual response text
+        let result = response;
+        if (response?.reply?.choices?.[0]?.message?.content) {
+            result = response.reply.choices[0].message.content;
+        } else if (response?.reply) {
+            result = response.reply;
+        }
+        
+        done(result);
+        return result;
+    } catch (err: any) {
+        error(err?.message || err);
+        return { isError: true, data: { error: { message: err?.message || 'LLM error' } } };
+    }
 };
 
 /**
@@ -56,12 +106,12 @@ export const cleanCode = (code: string): string => {
  * Process an agent response with actions
  */
 export const processAgentResponse = async (options: {
-    response: string;
+    response: string | { choices: { message: { content: string; } }[] };
     execute_action: (name: string, params: any) => Promise<any>;
     done?: (result: any) => Promise<any>;
     error?: (e: any) => any;
 }) => {
-    const { 
+    let { 
         response, 
         execute_action, 
         done = async (v) => v, 
@@ -71,16 +121,30 @@ export const processAgentResponse = async (options: {
     if (!response) return null;
     if (!execute_action) return null;
 
+    if(typeof response === 'object' && 'choices' in response && response?.choices?.[0]?.message?.content) {
+        response = response.choices[0].message.content;
+    }
+    
     try {
-        const parsedResponse = JSON.parse(
-            response
-                .replace(/^```[\w]*\n?/, '')
-                .replace(/```$/, '')
-                .trim()
-        );
-        
+        let parsedResponse: any;
         const executedActions: any[] = [];
         const approvals: any[] = [];
+        try {
+            parsedResponse = JSON.parse(
+                response
+                    .replace(/^```[\w]*\n?/, '')
+                    .replace(/```$/, '')
+                    .trim()
+            );
+
+        } catch (e) {
+            return await done({
+                response: response ?? "",
+                executedActions,
+                approvals,
+            });
+            
+        }
         
         for (const action of parsedResponse.actions || []) {
             if (!action || !action.name) continue;
@@ -128,6 +192,7 @@ export const processAgentResponse = async (options: {
             approvals,
         });
     } catch (e) {
+        console.error({ error: e }, 'Error in processAgentResponse');
         return error(e);
     }
 };
@@ -137,9 +202,9 @@ export const processResponse = processAgentResponse;
 
 export default {
     callModel,
+    prompt,
     getSystemPrompt,
     cleanCode,
     processAgentResponse,
     processResponse
 };
-

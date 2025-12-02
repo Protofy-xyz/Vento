@@ -4,13 +4,10 @@ await executeAction({ name: "agent_input.skip"})
 const defaultProvider = await context.settings.get({ key: 'ai.provider' }) ?? 'llama'
 const defaultLocalModel = await context.settings.get({ key: 'ai.localmodel' }) ?? 'gemma3-12b'
 
-console.log('call_ai_provider: defaultProvider from settings:', defaultProvider, 'type:', typeof defaultProvider)
+let {provider, model, ...llmParams} = params
+provider = board?.["current_request"]?.["params"]?.["provider"] ?? params.provider ?? defaultProvider
+model = board?.["current_request"]?.["params"]?.["model"] ?? params.model
 
-const prompt = params.prompt
-const provider = board?.["current_request"]?.["params"]?.["provider"] ?? params.provider ?? defaultProvider
-const model = board?.["current_request"]?.["params"]?.["model"] ?? params.model
-
-console.log('call_ai_provider: final provider:', provider, 'type:', typeof provider)
 
 // if the provider is skip or not set, return an error
 if (provider === 'skip' || !provider) {
@@ -23,12 +20,12 @@ if (provider === 'skip' || !provider) {
 if (provider === 'llama') {
   // Use the llama extension with local GGUF models
   reply = await context.llama.llamaPrompt({
-    message: prompt,
+    ...llmParams,
     model: model ?? defaultLocalModel
   });
 } else if (provider === 'chatgpt') {
   reply = await context.chatgpt.chatGPTPrompt({
-    message: prompt,
+    ...llmParams,
     model: model ?? "gpt-4.1"
   });
 

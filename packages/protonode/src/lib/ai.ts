@@ -2,7 +2,7 @@ import { API, getServiceToken } from "protobase";
 
 const callModel = async (prompt) => {
     const res = await API.post("/api/agents/v1/llm_agent/agent_input?token=" + getServiceToken(), {
-        prompt
+        message: prompt
     })
 
     return res.data

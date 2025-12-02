@@ -118,22 +118,29 @@
             "displayResponse": true,
             "displayIcon": false,
             "params": {
-                "prompt": "prompt to send",
+                "message": "prompt to send",
                 "provider": "chatgpt or lmstudio",
                 "model": "gpt model",
-                "requestId": "the id of the request to attend"
+                "requestId": "the id of the request to attend",
+                "conversation": "",
+                "files": "",
+                "images": ""
             },
             "configParams": {
-                "prompt": {
+                "message": {
                     "visible": false,
-                    "defaultValue": "board.current_request.params.prompt",
+                    "defaultValue": "board.current_request.params.message",
                     "type": "text"
                 },
                 "provider": {
                     "visible": true,
                     "defaultValue": "chatgpt",
                     "type": "select",
-                    "data": ["llama", "chatgpt", "lmstudio"]
+                    "data": [
+                        "llama",
+                        "chatgpt",
+                        "lmstudio"
+                    ]
                 },
                 "model": {
                     "visible": true,
@@ -144,6 +151,21 @@
                     "visible": false,
                     "defaultValue": "board.current_request.id",
                     "type": "string"
+                },
+                "conversation": {
+                    "visible": true,
+                    "defaultValue": "board.current_request.params.conversation",
+                    "type": "any"
+                },
+                "files": {
+                    "visible": true,
+                    "defaultValue": "board.current_request.params.files",
+                    "type": "any"
+                },
+                "images": {
+                    "visible": true,
+                    "defaultValue": "board.current_request.params.images",
+                    "type": "any"
                 }
             },
             "description": "Actions can perform tasks, automate processes, and enhance user interactions. It can also trigger other action-type cards on the board.\n\n  #### Key Features\n  - Run actions from rules.\n  - Chain/trigger other action cards.\n  - Parameterized execution.\n  - Customize parameters.\n  - Customize the card view (UI/render).",
@@ -406,7 +428,7 @@
         "default": "/api/agents/v1/[object Object]/agent_input"
     },
     "version": 1,
-    "savedAt": 1763476243392,
+    "savedAt": 1764700475242,
     "rules": [
         ""
     ],
@@ -425,8 +447,8 @@
             "type": "node"
         },
         "call_ai_provider": {
-            "x": 1338.9575141874468,
-            "y": 161.0424858125533,
+            "x": 1339.8574578579703,
+            "y": 164.79957258197007,
             "layer": "base",
             "parent": "group-base",
             "type": "node"

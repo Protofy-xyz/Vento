@@ -1,26 +1,65 @@
-import { getLlama, LlamaChatSession, Llama, LlamaModel, LlamaContext } from 'node-llama-cpp';
 import { getLogger } from 'protobase';
 import { getRoot } from 'protonode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
+import { v4 as uuidv4 } from 'uuid';
 
 const logger = getLogger();
 
 // Models directory
 const getModelsDir = () => path.join(getRoot(), 'data', 'models');
 
+// Lazy-loaded node-llama-cpp module (ESM compatibility)
+let nodeLlamaCpp: any = null;
+const getNodeLlamaCpp = async () => {
+    if (!nodeLlamaCpp) {
+        nodeLlamaCpp = await import('node-llama-cpp');
+    }
+    return nodeLlamaCpp;
+};
+
 // Singleton instances
-let llamaInstance: Llama | null = null;
-const loadedModels: Map<string, LlamaModel> = new Map();
-const activeContexts: Map<string, LlamaContext> = new Map();
-const activeSessions: Map<string, LlamaChatSession> = new Map();
+let llamaInstance: any = null;
+const loadedModels: Map<string, any> = new Map();
+const activeContexts: Map<string, any> = new Map();
+const activeSessions: Map<string, any> = new Map();
+
+// Download tracking
+interface DownloadProgress {
+    id: string;
+    url: string;
+    filename: string;
+    status: 'pending' | 'downloading' | 'completed' | 'error' | 'retrying';
+    percent: number;
+    downloaded: number;
+    total: number;
+    error?: string;
+    path?: string;
+    startedAt: Date;
+    completedAt?: Date;
+    retryCount: number;
+    maxRetries: number;
+    nextRetryAt?: Date;
+}
+
+const activeDownloads: Map<string, DownloadProgress> = new Map();
+
+// Download config
+const DOWNLOAD_CONFIG = {
+    maxRetries: 10,
+    initialRetryDelayMs: 2000,
+    maxRetryDelayMs: 60000,
+    chunkTimeoutMs: 30000,
+    cleanupAfterMs: 10 * 60 * 1000, // 10 minutes
+};
 
 /**
  * Get or create Llama instance
  */
-const getLlamaInstance = async (): Promise<Llama> => {
+const getLlamaInstance = async (): Promise<any> => {
     if (!llamaInstance) {
+        const { getLlama } = await getNodeLlamaCpp();
         llamaInstance = await getLlama();
         logger.info('Llama instance initialized');
     }
@@ -43,29 +82,25 @@ const ensureModelsDir = async () => {
  */
 const getModelPath = (modelName: string): string => {
     const modelsDir = getModelsDir();
-    // If it's already a full path or ends with .gguf, use as is
     if (modelName.endsWith('.gguf')) {
         if (path.isAbsolute(modelName)) {
             return modelName;
         }
         return path.join(modelsDir, modelName);
     }
-    // Otherwise, assume it's a model name and add .gguf
     return path.join(modelsDir, `${modelName}.gguf`);
 };
 
 /**
  * Load a model (cached)
  */
-const loadModel = async (modelName: string): Promise<LlamaModel> => {
+const loadModel = async (modelName: string): Promise<any> => {
     const modelPath = getModelPath(modelName);
     
-    // Check cache
     if (loadedModels.has(modelPath)) {
         return loadedModels.get(modelPath)!;
     }
     
-    // Check if model file exists
     if (!fs.existsSync(modelPath)) {
         throw new Error(`Model not found: ${modelPath}. Download it first using /models/download`);
     }
@@ -83,7 +118,7 @@ const loadModel = async (modelName: string): Promise<LlamaModel> => {
 /**
  * Get or create a context for a model
  */
-const getContext = async (modelName: string, sessionId?: string): Promise<LlamaContext> => {
+const getContext = async (modelName: string, sessionId?: string): Promise<any> => {
     const contextKey = sessionId || modelName;
     
     if (activeContexts.has(contextKey)) {
@@ -100,13 +135,14 @@ const getContext = async (modelName: string, sessionId?: string): Promise<LlamaC
 /**
  * Get or create a chat session
  */
-const getSession = async (modelName: string, sessionId?: string): Promise<LlamaChatSession> => {
+const getSession = async (modelName: string, sessionId?: string): Promise<any> => {
     const sessionKey = sessionId || `default_${modelName}`;
     
     if (activeSessions.has(sessionKey)) {
         return activeSessions.get(sessionKey)!;
     }
     
+    const { LlamaChatSession } = await getNodeLlamaCpp();
     const context = await getContext(modelName, sessionKey);
     const session = new LlamaChatSession({
         contextSequence: context.getSequence()
@@ -148,7 +184,7 @@ export const llamaPrompt = async (options: {
 };
 
 /**
- * Chat with message history (creates new session each time for stateless operation)
+ * Chat with message history
  */
 export const llamaChat = async (options: {
     messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
@@ -164,13 +200,13 @@ export const llamaChat = async (options: {
     } = options;
 
     try {
+        const { LlamaChatSession } = await getNodeLlamaCpp();
         const modelInstance = await loadModel(model);
         const context = await modelInstance.createContext();
         const session = new LlamaChatSession({
             contextSequence: context.getSequence()
         });
         
-        // Process system message if present
         const systemMessage = messages.find(m => m.role === 'system');
         if (systemMessage) {
             session.setChatHistory([{
@@ -179,7 +215,6 @@ export const llamaChat = async (options: {
             }]);
         }
         
-        // Get the last user message
         const userMessages = messages.filter(m => m.role === 'user');
         const lastUserMessage = userMessages[userMessages.length - 1];
         
@@ -188,8 +223,6 @@ export const llamaChat = async (options: {
         }
         
         const response = await session.prompt(lastUserMessage.content);
-        
-        // Dispose context after use
         await context.dispose();
         
         const result = {
@@ -222,7 +255,7 @@ export const llamaListModels = async () => {
         const files = await fsp.readdir(modelsDir);
         
         const models = files
-            .filter(f => f.endsWith('.gguf'))
+            .filter(f => f.endsWith('.gguf') && !f.endsWith('.tmp.gguf'))
             .map(f => {
                 const filePath = path.join(modelsDir, f);
                 const stats = fs.statSync(filePath);
@@ -244,104 +277,300 @@ export const llamaListModels = async () => {
 };
 
 /**
- * Download a model from HuggingFace
- * Supports URLs like:
- * - https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_K_M.gguf
- * - TheBloke/Llama-2-7B-GGUF (will list available files)
+ * Find existing download for same URL or filename
  */
-export const llamaDownloadModel = async (options: {
+const findExistingDownload = (url: string, filename: string): DownloadProgress | null => {
+    for (const download of activeDownloads.values()) {
+        // Check if same URL or filename is being downloaded
+        if (download.url === url || download.filename === filename) {
+            // Only return if it's still active
+            if (['pending', 'downloading', 'retrying'].includes(download.status)) {
+                return download;
+            }
+        }
+    }
+    return null;
+};
+
+/**
+ * Start a model download (returns immediately with download ID)
+ */
+export const llamaStartDownload = async (options: {
     url: string;
     filename?: string;
-    onProgress?: (progress: { percent: number; downloaded: number; total: number }) => void;
-}) => {
-    const { url, filename, onProgress } = options;
+}): Promise<{ downloadId: string; existing?: boolean } | { error: string }> => {
+    const { url, filename } = options;
     
     try {
         const modelsDir = await ensureModelsDir();
         
-        // Determine the download URL and filename
         let downloadUrl = url;
         let outputFilename = filename;
         
-        // If it's a direct GGUF URL
         if (url.includes('/resolve/') && url.endsWith('.gguf')) {
             downloadUrl = url;
             if (!outputFilename) {
                 outputFilename = path.basename(url);
             }
-        }
-        // If it's a HuggingFace model page URL or repo ID
-        else if (url.includes('huggingface.co') || url.match(/^[\w-]+\/[\w-]+$/)) {
-            throw new Error('Please provide a direct link to a .gguf file. Go to the model page on HuggingFace, find a .gguf file, and copy its download URL.');
+        } else if (url.includes('huggingface.co') || url.match(/^[\w-]+\/[\w-]+$/)) {
+            return { error: 'Please provide a direct link to a .gguf file.' };
         }
         
         if (!outputFilename) {
-            throw new Error('Could not determine filename. Please provide a filename.');
+            return { error: 'Could not determine filename. Please provide a filename.' };
         }
         
-        const outputPath = path.join(modelsDir, outputFilename);
-        
-        // Check if already exists
-        if (fs.existsSync(outputPath)) {
-            return { 
-                success: true, 
-                message: 'Model already exists',
-                path: outputPath,
-                filename: outputFilename
-            };
+        // Check if this download is already in progress
+        const existingDownload = findExistingDownload(downloadUrl, outputFilename);
+        if (existingDownload) {
+            logger.info({ downloadId: existingDownload.id, filename: outputFilename }, 'Download already in progress, returning existing ID');
+            return { downloadId: existingDownload.id, existing: true };
         }
         
-        logger.info({ url: downloadUrl, outputPath }, 'Starting model download');
+        // Create download tracking entry
+        const downloadId = uuidv4();
+        const progress: DownloadProgress = {
+            id: downloadId,
+            url: downloadUrl,
+            filename: outputFilename,
+            status: 'pending',
+            percent: 0,
+            downloaded: 0,
+            total: 0,
+            startedAt: new Date(),
+            retryCount: 0,
+            maxRetries: DOWNLOAD_CONFIG.maxRetries
+        };
         
-        // Download the file
-        const response = await fetch(downloadUrl);
-        if (!response.ok) {
-            throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+        activeDownloads.set(downloadId, progress);
+        
+        // Start download in background
+        downloadWithRetry(downloadId, downloadUrl, modelsDir, outputFilename);
+        
+        logger.info({ downloadId, url: downloadUrl, filename: outputFilename }, 'Download started');
+        
+        return { downloadId };
+    } catch (err: any) {
+        logger.error({ error: err?.message || err, url }, 'Error starting download');
+        return { error: err?.message || 'Failed to start download' };
+    }
+};
+
+/**
+ * Calculate retry delay with exponential backoff
+ */
+const getRetryDelay = (retryCount: number): number => {
+    const delay = DOWNLOAD_CONFIG.initialRetryDelayMs * Math.pow(2, retryCount);
+    return Math.min(delay, DOWNLOAD_CONFIG.maxRetryDelayMs);
+};
+
+/**
+ * Download with retry logic
+ */
+const downloadWithRetry = async (
+    downloadId: string, 
+    url: string, 
+    modelsDir: string, 
+    filename: string
+) => {
+    const progress = activeDownloads.get(downloadId);
+    if (!progress) return;
+    
+    const finalPath = path.join(modelsDir, filename);
+    const tempPath = path.join(modelsDir, filename.replace('.gguf', '.tmp.gguf'));
+    
+    while (progress.retryCount <= progress.maxRetries) {
+        try {
+            progress.status = progress.retryCount > 0 ? 'retrying' : 'downloading';
+            progress.error = undefined;
+            
+            await downloadToFile(progress, url, tempPath);
+            
+            // Download successful - move temp file to final location
+            // If final file exists, replace it
+            if (fs.existsSync(finalPath)) {
+                logger.info({ finalPath }, 'Replacing existing model file');
+                await fsp.unlink(finalPath);
+            }
+            
+            await fsp.rename(tempPath, finalPath);
+            
+            progress.status = 'completed';
+            progress.completedAt = new Date();
+            progress.path = finalPath;
+            
+            logger.info({ downloadId, finalPath, size: progress.downloaded }, 'Download completed successfully');
+            
+            // Schedule cleanup
+            scheduleCleanup(downloadId);
+            return;
+            
+        } catch (err: any) {
+            progress.retryCount++;
+            
+            // Clean up partial temp file
+            try {
+                if (fs.existsSync(tempPath)) {
+                    await fsp.unlink(tempPath);
+                }
+            } catch {}
+            
+            if (progress.retryCount > progress.maxRetries) {
+                progress.status = 'error';
+                progress.error = `Failed after ${progress.maxRetries} retries. Last error: ${err?.message || err}`;
+                logger.error({ downloadId, error: err?.message, retryCount: progress.retryCount }, 'Download failed permanently');
+                scheduleCleanup(downloadId);
+                return;
+            }
+            
+            // Schedule retry
+            const delay = getRetryDelay(progress.retryCount);
+            progress.status = 'retrying';
+            progress.error = `Retry ${progress.retryCount}/${progress.maxRetries} in ${Math.round(delay / 1000)}s. Error: ${err?.message || err}`;
+            progress.nextRetryAt = new Date(Date.now() + delay);
+            
+            logger.warn({ 
+                downloadId, 
+                error: err?.message, 
+                retryCount: progress.retryCount, 
+                nextRetryIn: delay 
+            }, 'Download failed, scheduling retry');
+            
+            await sleep(delay);
         }
-        
-        const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
-        const reader = response.body?.getReader();
-        
-        if (!reader) {
-            throw new Error('Failed to get response reader');
+    }
+};
+
+/**
+ * Download file with progress tracking and resume support
+ */
+const downloadToFile = async (
+    progress: DownloadProgress, 
+    url: string, 
+    outputPath: string
+): Promise<void> => {
+    // Check if partial file exists for resume
+    let startByte = 0;
+    if (fs.existsSync(outputPath)) {
+        const stats = await fsp.stat(outputPath);
+        startByte = stats.size;
+        progress.downloaded = startByte;
+        logger.info({ outputPath, resumeFrom: startByte }, 'Resuming partial download');
+    }
+    
+    const headers: Record<string, string> = {};
+    if (startByte > 0) {
+        headers['Range'] = `bytes=${startByte}-`;
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_CONFIG.chunkTimeoutMs);
+    
+    let response: Response;
+    try {
+        response = await fetch(url, { 
+            headers,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+    } catch (err: any) {
+        clearTimeout(timeoutId);
+        throw new Error(`Network error: ${err?.message || 'Connection failed'}`);
+    }
+    
+    if (!response.ok && response.status !== 206) {
+        throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+    }
+    
+    // Handle content length
+    const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
+    const contentRange = response.headers.get('content-range');
+    
+    if (contentRange) {
+        // Partial content response: "bytes 1000-2000/3000"
+        const match = contentRange.match(/\/(\d+)$/);
+        if (match) {
+            progress.total = parseInt(match[1], 10);
         }
-        
-        const chunks: Uint8Array[] = [];
-        let downloaded = 0;
+    } else if (contentLength > 0) {
+        progress.total = startByte + contentLength;
+    }
+    
+    const reader = response.body?.getReader();
+    if (!reader) {
+        throw new Error('Failed to get response reader');
+    }
+    
+    // Open file for append if resuming, write if starting fresh
+    const fileHandle = await fsp.open(outputPath, startByte > 0 ? 'a' : 'w');
+    
+    try {
+        let lastActivityTime = Date.now();
         
         while (true) {
-            const { done, value } = await reader.read();
+            // Check for timeout between chunks
+            const timeSinceActivity = Date.now() - lastActivityTime;
+            if (timeSinceActivity > DOWNLOAD_CONFIG.chunkTimeoutMs) {
+                throw new Error(`Download stalled - no data received for ${Math.round(timeSinceActivity / 1000)}s`);
+            }
+            
+            const readPromise = reader.read();
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Chunk read timeout')), DOWNLOAD_CONFIG.chunkTimeoutMs);
+            });
+            
+            const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+            
             if (done) break;
             
-            chunks.push(value);
-            downloaded += value.length;
+            lastActivityTime = Date.now();
+            await fileHandle.write(value);
+            progress.downloaded += value.length;
             
-            if (onProgress && contentLength > 0) {
-                onProgress({
-                    percent: Math.round((downloaded / contentLength) * 100),
-                    downloaded,
-                    total: contentLength
-                });
+            if (progress.total > 0) {
+                progress.percent = Math.round((progress.downloaded / progress.total) * 100);
             }
         }
         
-        // Write to file
-        const buffer = Buffer.concat(chunks);
-        await fsp.writeFile(outputPath, buffer);
+        // Verify download completed
+        if (progress.total > 0 && progress.downloaded < progress.total) {
+            throw new Error(`Incomplete download: got ${progress.downloaded} of ${progress.total} bytes`);
+        }
         
-        logger.info({ outputPath, size: buffer.length }, 'Model download completed');
-        
-        return {
-            success: true,
-            path: outputPath,
-            filename: outputFilename,
-            size: buffer.length,
-            sizeHuman: formatBytes(buffer.length)
-        };
-    } catch (err: any) {
-        logger.error({ error: err?.message || err, url }, 'Error downloading model');
-        return { success: false, error: err?.message || 'Failed to download model' };
+    } finally {
+        await fileHandle.close();
+        reader.releaseLock();
     }
+};
+
+/**
+ * Sleep utility
+ */
+const sleep = (ms: number): Promise<void> => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+};
+
+/**
+ * Schedule cleanup of download record
+ */
+const scheduleCleanup = (downloadId: string) => {
+    setTimeout(() => {
+        activeDownloads.delete(downloadId);
+    }, DOWNLOAD_CONFIG.cleanupAfterMs);
+};
+
+/**
+ * Get download progress by ID
+ */
+export const llamaGetDownloadProgress = (downloadId: string): DownloadProgress | null => {
+    return activeDownloads.get(downloadId) || null;
+};
+
+/**
+ * List all active downloads
+ */
+export const llamaListDownloads = (): DownloadProgress[] => {
+    return Array.from(activeDownloads.values());
 };
 
 /**
@@ -351,11 +580,8 @@ export const llamaDeleteModel = async (modelName: string) => {
     try {
         const modelPath = getModelPath(modelName);
         
-        // Unload if loaded
         if (loadedModels.has(modelPath)) {
-            const model = loadedModels.get(modelPath)!;
             loadedModels.delete(modelPath);
-            // Note: node-llama-cpp models are garbage collected
         }
         
         if (!fs.existsSync(modelPath)) {
@@ -378,14 +604,12 @@ export const llamaDeleteModel = async (modelName: string) => {
 export const llamaUnloadModel = async (modelName: string) => {
     const modelPath = getModelPath(modelName);
     
-    // Clear sessions using this model
     for (const [key, _] of activeSessions) {
         if (key.includes(modelName)) {
             activeSessions.delete(key);
         }
     }
     
-    // Clear contexts
     for (const [key, context] of activeContexts) {
         if (key.includes(modelName)) {
             await context.dispose();
@@ -393,7 +617,6 @@ export const llamaUnloadModel = async (modelName: string) => {
         }
     }
     
-    // Remove model
     if (loadedModels.has(modelPath)) {
         loadedModels.delete(modelPath);
         logger.info({ modelPath }, 'Model unloaded from memory');
@@ -404,7 +627,7 @@ export const llamaUnloadModel = async (modelName: string) => {
 };
 
 /**
- * Get status of loaded models
+ * Get status
  */
 export const llamaStatus = async () => {
     return {
@@ -412,13 +635,11 @@ export const llamaStatus = async () => {
         loadedModels: Array.from(loadedModels.keys()),
         activeContexts: activeContexts.size,
         activeSessions: activeSessions.size,
+        activeDownloads: activeDownloads.size,
         modelsDir: getModelsDir()
     };
 };
 
-/**
- * Format bytes to human readable
- */
 const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -431,9 +652,10 @@ export default {
     llamaPrompt,
     llamaChat,
     llamaListModels,
-    llamaDownloadModel,
+    llamaStartDownload,
+    llamaGetDownloadProgress,
+    llamaListDownloads,
     llamaDeleteModel,
     llamaUnloadModel,
     llamaStatus
 };
-

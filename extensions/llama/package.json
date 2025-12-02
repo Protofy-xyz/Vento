@@ -2,6 +2,7 @@
   "name": "@extensions/llama",
   "version": "1.0.0",
   "dependencies": {
-    "node-llama-cpp": "^3.14.2"
+    "node-llama-cpp": "^3.14.2",
+    "uuid": "^9.0.0"
   }
 }

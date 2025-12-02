@@ -11,7 +11,7 @@ export interface NetworkOption {
 // Re-exporta desde cada extensión
 import { virtualAgentsOption } from '../../boards/networkOption'
 import { tasksOption } from '../../apis/networkOption'
-import { devicesOption } from '../../devices/networkOption'
+import { devicesOption } from '../../esphome/networkOption'
 import { androidOption } from '../../android/networkOption'
 import { objectsOption } from '../../objects/networkOption'
 import { desktopOption } from '../../desktop/networkOption'

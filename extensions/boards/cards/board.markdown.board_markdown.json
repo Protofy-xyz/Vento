@@ -1,5 +1,7 @@
 {
   "defaults": {
+    "editRulesInLowCode": false,
+    "editRulesInNaturalLanguage": false,
     "width": 3,
     "height": 12,
     "name": "Markdown Display",

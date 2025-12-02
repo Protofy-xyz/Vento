@@ -140,18 +140,28 @@ export const ParamsForm = ({ data, children }) => {
                     const placeholder = data.params[key] ?? "";
                     const isBoolean = type === "boolean";
 
-                    if (cfg.visibility !== undefined) {
-                        let field = cfg.visibility?.field
-                        let mode = cfg.visibility?.mode
-                        if (mode == "boolean") {
-                            let inverted = cfg.visibility?.inverted
-                            if (inverted) {
-                                visible = paramsState[field] === "false" || paramsState[field] === false
-                            } else {
-                                visible = paramsState[field] === "true" || paramsState[field] === true
-                            }
-                        }
-                    }
+                                    if (cfg.visibility !== undefined) {
+                                        let field = cfg.visibility?.field
+                                        let mode = cfg.visibility?.mode
+                                        if (mode == "boolean") {
+                                            let inverted = cfg.visibility?.inverted
+                                            if (inverted) {
+                                                visible = paramsState[field] === "false" || paramsState[field] === false
+                                            } else {
+                                                visible = paramsState[field] === "true" || paramsState[field] === true
+                                            }
+                                        } else if (mode == "equals" || mode == "value") {
+                                            // Show only when field equals a specific value
+                                            const expectedValue = cfg.visibility?.value
+                                            const currentValue = paramsState[field] ?? data.configParams?.[field]?.defaultValue
+                                            visible = currentValue === expectedValue
+                                        } else if (mode == "includes" || mode == "in") {
+                                            // Show when field value is in a list of values
+                                            const expectedValues = cfg.visibility?.values || []
+                                            const currentValue = paramsState[field] ?? data.configParams?.[field]?.defaultValue
+                                            visible = expectedValues.includes(currentValue)
+                                        }
+                                    }
 
                     if (!visible) {
                         return (
@@ -212,12 +222,32 @@ export const ParamsForm = ({ data, children }) => {
                                                 onChange={(v) => setParam(key, v)}
                                                 placeholder={placeholder}
                                             />
-                                        ) : cfg?.options?.length ? (
+                                        ) : (cfg?.options?.length || (type === "select" && (cfg?.data?.length || cfg?.dataMap))) ? (
                                             <YStack>
                                                 <SelectList
                                                     title={key}
-                                                    elements={cfg.options}
-                                                    value={value ?? defaultValue}
+                                                    elements={(() => {
+                                                        // Support dynamic options based on another field's value
+                                                        if (cfg.dataMap && cfg.dataFromField) {
+                                                            const sourceValue = paramsState[cfg.dataFromField] ?? data.configParams?.[cfg.dataFromField]?.defaultValue
+                                                            return cfg.dataMap[sourceValue] || cfg.data || []
+                                                        }
+                                                        return cfg.options || cfg.data || []
+                                                    })()}
+                                                    value={(() => {
+                                                        // Support dynamic default value based on another field
+                                                        if (cfg.defaultValueMap && cfg.dataFromField) {
+                                                            const sourceValue = paramsState[cfg.dataFromField] ?? data.configParams?.[cfg.dataFromField]?.defaultValue
+                                                            const dynamicDefault = cfg.defaultValueMap[sourceValue]
+                                                            const currentOptions = cfg.dataMap?.[sourceValue] || cfg.data || []
+                                                            // If current value is not in current options, use dynamic default
+                                                            if (value && !currentOptions.includes(value)) {
+                                                                return dynamicDefault || currentOptions[0] || ""
+                                                            }
+                                                            return value || dynamicDefault || defaultValue
+                                                        }
+                                                        return value ?? defaultValue
+                                                    })()}
                                                     onValueChange={(v) => setParam(key, v)}
                                                     selectorStyle={{
                                                         normal: { backgroundColor: "$gray1", borderColor: "$gray7" },

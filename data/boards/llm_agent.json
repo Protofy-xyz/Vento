@@ -145,7 +145,30 @@
                 "model": {
                     "visible": true,
                     "defaultValue": "gpt-4.1",
-                    "type": "string"
+                    "type": "select",
+                    "dataFromField": "provider",
+                    "dataMap": {
+                        "chatgpt": [
+                            "gpt-4.1",
+                            "gpt-4o",
+                            "gpt-4o-mini",
+                            "gpt-4-turbo",
+                            "gpt-3.5-turbo"
+                        ],
+                        "llama": [
+                            "gemma3-4b",
+                            "gemma3-12b",
+                            "gemma3-27b"
+                        ],
+                        "lmstudio": [
+                            "default"
+                        ]
+                    },
+                    "defaultValueMap": {
+                        "chatgpt": "gpt-4.1",
+                        "llama": "gemma3-12b",
+                        "lmstudio": "default"
+                    }
                 },
                 "requestId": {
                     "visible": false,
@@ -435,13 +458,13 @@
     "graphLayout": {
         "group-base": {
             "x": 0,
-            "y": 0,
+            "y": -1.0430199225875185,
             "layer": "base",
             "type": "group"
         },
         "agent_input": {
             "x": 100,
-            "y": 160,
+            "y": 161.04301992258752,
             "layer": "base",
             "parent": "group-base",
             "type": "node"
@@ -455,14 +478,14 @@
         },
         "current_request": {
             "x": 820,
-            "y": 160,
+            "y": 161.04301992258752,
             "layer": "base",
             "parent": "group-base",
             "type": "node"
         },
         "reply": {
             "x": 1860,
-            "y": 160,
+            "y": 161.04301992258752,
             "layer": "base",
             "parent": "group-base",
             "type": "node"

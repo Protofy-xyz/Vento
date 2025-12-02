@@ -3,6 +3,8 @@ import { XStack, YStack, Text, TooltipSimple } from '@my/ui';
 import { useThemeSetting } from '@tamagui/next-theme'
 import { X, Minimize2, Maximize2, Expand, Shrink, PanelLeft, PanelRight } from '@tamagui/lucide-icons'
 import { TabBar } from 'protolib/components/TabBar';
+import { useAtom } from 'jotai';
+import { ChatPanelWidthAtom } from 'protolib/components/AdminPanel';
 
 type Side = 'left' | 'right';
 
@@ -81,16 +83,22 @@ export const FloatingWindow = ({ visible, onChangeTab, selectedTab, tabs, side =
     };
     
     const leftOffset = (anchorWidth ?? 0) + leftAnchorGap;
+    
+    // Read the chat panel width from the atom
+    const [chatPanelWidth] = useAtom(ChatPanelWidthAtom);
+    
+    // Calculate the right offset considering the chat panel
+    const rightOffset = 25 + chatPanelWidth;
 
     const baseStyle = fullScreen
         ? {
-            ...(isLeft ? { left: visible ? 0 : "-100vw" } : { right: visible ? 0 : "-100vw" }),
+            ...(isLeft ? { left: visible ? 0 : "-100vw" } : { right: visible ? chatPanelWidth : "-100vw" }),
             top: "0px",
             width: winRef.current ? winRef.current.offsetWidth : window.innerWidth,
             height: "calc(100vh)"
         }
         : {
-            ...(isLeft ? { left: visible ? leftOffset : -windowSize } : { right: visible ? 25 : -windowSize }),
+            ...(isLeft ? { left: visible ? leftOffset : -windowSize } : { right: visible ? rightOffset : -windowSize }),
             top: "25px",
             width: windowSize,
             height: "calc(100vh - 100px)"
@@ -159,7 +167,9 @@ export const FloatingWindow = ({ visible, onChangeTab, selectedTab, tabs, side =
                             cursor='pointer'
                             onPress={() => {
                                 setWindowSize(prev => {
-                                    return prev === 1010 ? window.innerWidth - 330 : 1010
+                                    // Consider the chat panel width when maximizing
+                                    const maxWidth = window.innerWidth - 330 - chatPanelWidth;
+                                    return prev === 1010 ? maxWidth : 1010
                                 })
                             }}
                             pressStyle={{ opacity: 0.8 }}

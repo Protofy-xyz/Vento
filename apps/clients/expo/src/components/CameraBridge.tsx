@@ -3,14 +3,15 @@ import { StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { registerCameraRef, registerUploadFunction } from '../subsystems/camera';
+import { registerCameraRef, registerUploadFunction, registerMonitorPublisher, getLastCaptureEndpoint } from '../subsystems/camera';
 
 interface CameraBridgeProps {
   ventoHost: string;
   token: string;
+  deviceName?: string;
 }
 
-export function CameraBridge({ ventoHost, token }: CameraBridgeProps) {
+export function CameraBridge({ ventoHost, token, deviceName }: CameraBridgeProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const hasPermission = permission?.granted ?? false;
@@ -30,6 +31,7 @@ export function CameraBridge({ ventoHost, token }: CameraBridgeProps) {
     if (!hasPermission || !cameraRef.current) {
       registerCameraRef(null);
       registerUploadFunction(null);
+      registerMonitorPublisher(null);
       return;
     }
 
@@ -39,11 +41,22 @@ export function CameraBridge({ ventoHost, token }: CameraBridgeProps) {
       return await uploadPhoto(ventoHost, token, localUri, quality);
     });
 
+    // Register monitor publisher if we have deviceName and MQTT client
+    if (deviceName) {
+      registerMonitorPublisher((value: any) => {
+        const mqtt = (globalThis as any).__ventoMqtt;
+        if (mqtt) {
+          mqtt.publish(deviceName, getLastCaptureEndpoint(), value);
+        }
+      });
+    }
+
     return () => {
       registerCameraRef(null);
       registerUploadFunction(null);
+      registerMonitorPublisher(null);
     };
-  }, [hasPermission, ventoHost, token]);
+  }, [hasPermission, ventoHost, token, deviceName]);
 
   if (!hasPermission) {
     console.log('[camera] no permission, not rendering camera');
@@ -80,8 +93,9 @@ async function uploadPhoto(
   token: string,
   localUri: string,
   quality: number,
-): Promise<string> {
-  const filename = `photo_${Date.now()}.jpg`;
+): Promise<{ path: string; imageUrl: string }> {
+  const timestamp = Date.now();
+  const filename = `photo_${timestamp}.jpg`;
   const uploadUrl = `${ventoHost}/api/core/v1/files/data/tmp?token=${token}`;
   
   console.log('[camera] uploading to:', uploadUrl);
@@ -89,30 +103,47 @@ async function uploadPhoto(
   console.log('[camera] filename:', filename);
 
   try {
-    // Use FileSystem.uploadAsync with explicit upload type value
-    // MULTIPART = 1 in expo-file-system
-    const uploadResult = await FileSystem.uploadAsync(uploadUrl, localUri, {
-      httpMethod: 'POST',
-      uploadType: 1 as any, // FileSystemUploadType.MULTIPART = 1
-      fieldName: 'file',
-      mimeType: 'image/jpeg',
+    // Create FormData with file URI (React Native way)
+    // This sets the filename correctly in the multipart form (matching Go client behavior)
+    const formData = new FormData();
+    formData.append('file', {
+      uri: localUri,
+      type: 'image/jpeg',
+      name: filename,
+    } as any);
+
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
       },
-      parameters: {
-        filename: filename,
-      },
+      body: formData,
     });
 
-    console.log('[camera] upload status:', uploadResult.status);
-    console.log('[camera] upload body:', uploadResult.body);
+    console.log('[camera] upload status:', response.status);
 
-    if (uploadResult.status !== 200) {
-      throw new Error(`Upload failed: ${uploadResult.status} ${uploadResult.body}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Upload failed: ${response.status} ${errorText}`);
     }
 
-    // Return path relative to data/
-    return `data/tmp/${filename}`;
+    // Parse server response to get actual path (matching Go client behavior)
+    let path = `data/tmp/${filename}`; // fallback
+    try {
+      const responseData = await response.json();
+      console.log('[camera] upload response:', JSON.stringify(responseData));
+      if (responseData.path) {
+        path = responseData.path;
+      }
+    } catch {
+      console.warn('[camera] could not parse upload response, using fallback path');
+    }
+
+    console.log('[camera] using path:', path);
+    const imageUrl = `${ventoHost}/api/core/v1/files/${path}?key=${timestamp}`;
+    
+    return { path, imageUrl };
   } catch (err: any) {
     console.error('[camera] upload error details:', err);
     throw err;

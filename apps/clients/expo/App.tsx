@@ -567,7 +567,9 @@ export default function App() {
       {/* Hidden bridges - ALWAYS mounted when connected, regardless of screen mode */}
       <View style={styles.hiddenBridges}>
         <TorchBridge />
-        {state.host && state.token && <CameraBridge ventoHost={state.host} token={state.token} />}
+        {state.host && state.token && (
+          <CameraBridge ventoHost={state.host} token={state.token} deviceName={state.deviceName} />
+        )}
       </View>
     </View>
   );

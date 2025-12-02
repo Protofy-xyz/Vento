@@ -278,17 +278,76 @@ module.exports = function start(rootPath) {
     }
   }
 
+  const ELECTRON_USER = 'admin@localhost';
+  const ENV_PASSWORD_KEY = 'APP_USER_PASSWORD';
+  
+  // Generate or load password for Electron user from .env
+  function getElectronPassword() {
+    const crypto = require('crypto');
+    const envPath = path.join(__dirname, '..', '.env');
+    
+    // Try to read from .env
+    try {
+      if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        const match = envContent.match(new RegExp(`^${ENV_PASSWORD_KEY}=(.+)$`, 'm'));
+        if (match && match[1]) {
+          return match[1].trim();
+        }
+      }
+    } catch (err) {
+      console.warn('Could not read .env:', err.message);
+    }
+    
+    // Generate new random password and append to .env
+    const password = crypto.randomBytes(16).toString('hex');
+    try {
+      const envLine = `\n# Auto-generated password for Electron local user\n${ENV_PASSWORD_KEY}=${password}\n`;
+      fs.appendFileSync(envPath, envLine);
+      console.log('🔑 Generated new Electron user password in .env');
+    } catch (err) {
+      console.warn('Could not save to .env:', err.message);
+    }
+    return password;
+  }
+
   const genNewSession = () => {
     const { genToken } = require('protonode')
     const data = {
-      id: 'admin@localhost',
+      id: ELECTRON_USER,
       type: 'admin',
       admin: true,
-      permissions: [["*"], 'admin']
+      permissions: ['*', 'admin']
     }
     return {
       user: data,
       token: genToken(data)
+    }
+  }
+
+  // Ensure admin@localhost user exists in Vento (uses yarn add-user)
+  async function ensureVentoUser() {
+    try {
+      // Check if user exists by trying to validate a login
+      const checkResponse = await fetch('http://localhost:8000/api/core/v1/accounts/' + encodeURIComponent(ELECTRON_USER));
+      if (checkResponse.ok) {
+        console.log(`✅ Vento user ${ELECTRON_USER} already exists`);
+        return true;
+      }
+    } catch (err) {
+      // User doesn't exist or API not ready yet
+    }
+
+    // Create user using yarn add-user
+    console.log(`📝 Creating Vento user ${ELECTRON_USER}...`);
+    try {
+      const password = getElectronPassword();
+      await runYarn(`add-user ${ELECTRON_USER} ${password} admin`);
+      console.log(`✅ Vento user ${ELECTRON_USER} created`);
+      return true;
+    } catch (err) {
+      console.warn(`⚠️ Could not create Vento user: ${err.message}`);
+      return false;
     }
   }
 
@@ -505,7 +564,16 @@ module.exports = function start(rootPath) {
       await waitForPortHttp(initialUrl, 300000);
 
       await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('✅ Port 8000 ready. Opening main window...');
+      console.log('✅ Port 8000 ready.');
+
+      try {
+        console.log('⏳ Ensuring Electron user exists...');
+        await ensureVentoUser();
+      } catch (err) {
+        console.warn('⚠️ Could not ensure users:', err.message);
+      }
+
+      console.log('📦 Opening main window...');
       createMainWindow(args.fullscreen, initialUrl);
     } catch (err) {
       console.log(`❌ Startup failed: ${err.message}`);

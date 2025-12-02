@@ -5,22 +5,47 @@ import { DevicesModel } from "../devices";
 import { promises as fs } from 'fs';
 import * as fsSync from 'fs';
 import * as fspath from 'path';
+import { stringify as yamlStringify } from 'yaml';
 
 const deviceDefinitionsDir = (root) => fspath.join(root, "/data/deviceDefinitions/")
+const deviceDefinitionConfigDir = (root, name: string) => fspath.join(deviceDefinitionsDir(root), name)
+const deviceDefinitionConfigPath = (root, name: string) => fspath.join(deviceDefinitionConfigDir(root, name), "config.yaml")
 const initialData = {}
 
 const onAfterCreate = async (data, session?, req?) => {
-    if (data.device && session) {
-        const objectDevice = DevicesModel.load({
-            name: data.name + "1",
-            platform: data.sdk,
-            deviceDefinition: data.name,
-            environment: data.environment,
-        })
-        await API.post("/api/core/v1/devices?token=" + session.token, objectDevice.create().getData())
-    }
+    await ensureEsphomeYamlConfigFile(data, req)
 }
 
+const onAfterUpdate = async (data, session?, req?) => {
+    await ensureEsphomeYamlConfigFile(data, req)
+}
+
+const ensureEsphomeYamlConfigFile = async (data, req) => {
+    if (!req || data?.sdk !== 'esphome-yaml') return
+
+    const root = getRoot(req)
+    const baseDir = deviceDefinitionsDir(root)
+    const yamlDir = deviceDefinitionConfigDir(root, data.name)
+    const yamlPath = deviceDefinitionConfigPath(root, data.name)
+
+    try {
+        await fs.mkdir(baseDir, { recursive: true })
+        await fs.mkdir(yamlDir, { recursive: true })
+    } catch {
+        // ignore mkdir errors; next access will throw if still missing
+    }
+
+    try {
+        await fs.access(yamlPath, fs.constants.F_OK)
+        return
+    } catch {
+        // continue to create the file
+    }
+
+    const baseYaml = data?.config?.sdkConfig ?? {}
+    const yamlContent = Object.keys(baseYaml).length ? yamlStringify(baseYaml) : '# ESPHome YAML\n'
+    await fs.writeFile(yamlPath, yamlContent)
+}
 
 const getDB = (path, req, session) => {
     const db = {
@@ -51,10 +76,18 @@ const getDB = (path, req, session) => {
             // try to delete the deviceDefinition file from the deviceDefinitions folder
             console.log("Deleting device definition: ", JSON.stringify({key,value}))
             const filePath = deviceDefinitionsDir(getRoot(req)) + key + ".json"
+            const configDirPath = deviceDefinitionConfigDir(getRoot(req), key)
             try {
                 await fs.unlink(filePath)
             } catch (error) {
                 console.log("Error deleting file: " + filePath)
+            }
+
+            try {
+                // remove config directory (including YAML) for this deviceDefinition
+                await fs.rm(configDirPath, { recursive: true, force: true })
+            } catch (error) {
+                console.log("Error deleting config directory: " + configDirPath)
             }
         },
 
@@ -92,7 +125,8 @@ export default AutoAPI({
     modelName: 'devicedefinitions',
     modelType: DeviceDefinitionModel,
     initialData,
-    // onAfterCreate: onAfterCreate,
+    onAfterCreate: onAfterCreate,
+    onAfterUpdate: onAfterUpdate,
     skipDatabaseIndexes: true,
     getDB: getDB,
     prefix: '/api/core/v1/',
@@ -100,7 +134,9 @@ export default AutoAPI({
         getConfig: async (field, e, data) => {
             //get config from deviceBoard
             const deviceBoard = await API.get("/api/core/v1/deviceboards/" +encodeURI(data.board.name))
-            data.config.sdkConfig = deviceBoard.data.config[data.sdk]
+            const boardConfig = deviceBoard?.data?.config?.[data.sdk] ?? {}
+            data.config = data.config ?? {}
+            data.config.sdkConfig = boardConfig
             return data
         }
     }

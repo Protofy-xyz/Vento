@@ -6,7 +6,7 @@ const initialData = {
     "esp32": {
         "id": "1",
         "name": "esp32",
-        "sdks": ["esphome-arduino", "esphome-idf"],
+        "sdks": ["esphome-arduino", "esphome-idf", "esphome-yaml"],
         "config": {
             "esphome-arduino":{
                 "esphome":{},
@@ -25,13 +25,22 @@ const initialData = {
                         "type": "esp-idf"
                     }
                 }
+            },
+            "esphome-yaml":{
+                "esphome":{},
+                "esp32":{
+                    "variant": "esp32",
+                    "framework": {
+                        "type": "esp-idf"
+                    }
+                }
             }
         }
     },
     "esp32s3": {
         "id": "2",
         "name": "esp32s3",
-        "sdks": ["esphome-arduino", "esphome-idf"],
+        "sdks": ["esphome-arduino", "esphome-idf", "esphome-yaml"],
         "config": {
             "esphome-arduino":{
                 "esphome":{},
@@ -46,6 +55,15 @@ const initialData = {
                 "esphome":{},
                 "esp32":{
                     "variant": "esp32s3", 
+                    "framework": { 
+                        "type": "esp-idf"
+                    }
+                }
+            },
+            "esphome-yaml":{
+                "esphome":{},
+                "esp32":{
+                    "variant": "esp32s3",
                     "framework": { 
                         "type": "esp-idf"
                     }

@@ -119,7 +119,8 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                     platform: 'esphome'
                 }
 
-                if (data.template !== '__none__') {
+                const hasTemplate = data.template !== '__none__'
+                if (hasTemplate) {
                     deviceData.deviceDefinition = data.template
                 }
 
@@ -128,6 +129,20 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
 
                 if (result.isError) {
                     throw result.error
+                }
+
+                if (hasTemplate) {
+                    try {
+                        const yaml = await obj.getYaml()
+                        if (!yaml) {
+                            throw new Error('Template did not generate a config.yaml')
+                        }
+                    } catch (yamlErr: any) {
+                        toast.show('Config.yaml generation failed', {
+                            message: yamlErr?.message || 'Device created but config.yaml could not be generated'
+                        })
+                        console.error('Error generating config.yaml from template', yamlErr)
+                    }
                 }
 
                 toast.show('Device created', {

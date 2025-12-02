@@ -15,6 +15,13 @@ const initialData = {
         "config":{
             "esphome":{}
         }
+    },
+    "3": {
+        "id": "3",
+        "name": "esphome-yaml",
+        "config": {
+            "esphome": {}
+        }
     }
 }
 

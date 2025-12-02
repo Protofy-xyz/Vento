@@ -683,7 +683,10 @@ export const processFilesIntent = ({ action, domain, data }: IntentType) => {
   const { mime } = data
   const type = mime ? mime.split('/')[0] : 'text'
   const url = ('/api/core/v1/files/' + data.path).replace(/\/+/g, '/')
-  const isESPHomeFile = (mime && mime.includes("yaml") || data.path.endsWith("yaml") || data.path.endsWith("yml")) && data.path.startsWith("data/devices")
+  const isESPHomeFile = (
+    ((mime && mime.includes("yaml")) || data.path.endsWith("yaml") || data.path.endsWith("yml")) &&
+    (data.path.startsWith("data/devices") || data.path.startsWith("data/deviceDefinitions"))
+  )
   if (mime == 'application/json') {
     return { component: <JSONViewer {...data} />, supportIcons: true }
   } else if (mime == 'application/javascript' || mime == 'video/mp2t') {

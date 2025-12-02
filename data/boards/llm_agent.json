@@ -132,7 +132,8 @@
                 "provider": {
                     "visible": true,
                     "defaultValue": "chatgpt",
-                    "type": "string"
+                    "type": "select",
+                    "data": ["llama", "chatgpt", "lmstudio"]
                 },
                 "model": {
                     "visible": true,
@@ -408,5 +409,41 @@
     "savedAt": 1763476243392,
     "rules": [
         ""
-    ]
+    ],
+    "graphLayout": {
+        "group-base": {
+            "x": 0,
+            "y": 0,
+            "layer": "base",
+            "type": "group"
+        },
+        "agent_input": {
+            "x": 100,
+            "y": 160,
+            "layer": "base",
+            "parent": "group-base",
+            "type": "node"
+        },
+        "call_ai_provider": {
+            "x": 1338.9575141874468,
+            "y": 161.0424858125533,
+            "layer": "base",
+            "parent": "group-base",
+            "type": "node"
+        },
+        "current_request": {
+            "x": 820,
+            "y": 160,
+            "layer": "base",
+            "parent": "group-base",
+            "type": "node"
+        },
+        "reply": {
+            "x": 1860,
+            "y": 160,
+            "layer": "base",
+            "parent": "group-base",
+            "type": "node"
+        }
+    }
 }

@@ -23,6 +23,8 @@ import { withSession } from 'protolib/lib/Session'
 import { SelectList } from 'protolib/components/SelectList';
 import { useEsphomeDeviceActions } from '@extensions/esphome/hooks/useEsphomeDeviceActions';
 import { AlertDialog } from 'protolib/components/AlertDialog';
+import { useEsphomeTemplateCreator } from '@extensions/esphome/hooks/useEsphomeTemplateCreator';
+import { EsphomeTemplateDialog } from '@extensions/esphome/ui/EsphomeTemplateDialog';
 
 const DevicesIcons = { name: Tag, deviceDefinition: BookOpen }
 
@@ -39,6 +41,17 @@ export default {
     usePendingEffect((s) => { API.get({ url: definitionsSourceUrl }, s) }, setDeviceDefinitions, extraData?.deviceDefinitions)
     const router = useRouter();
     const { flashDevice, uploadConfigFile, viewLogs, ui: deviceActionsUi } = useEsphomeDeviceActions();
+    const {
+      templateDialog,
+      setTemplateDialog,
+      openCreateTemplateDialog,
+      submitTemplateDialog,
+      resetTemplateDialog,
+      boardOptions
+    } = useEsphomeTemplateCreator({
+      deviceDefinitions,
+      refreshDefinitions: () => API.get({ url: definitionsSourceUrl }, setDeviceDefinitions)
+    })
 
     // Handle "created" parameter from network wizard
     const [createdDevice, setCreatedDevice] = useState<any>(null)
@@ -63,6 +76,7 @@ export default {
       // Remove the created parameter from URL
       replace('created', undefined)
     }
+
 
     const extraMenuActions = [
       {
@@ -142,6 +156,14 @@ export default {
           }
         },
         isVisible: (element) => element?.data?.data?.lastCompile?.success
+      },
+      {
+        text: "Create template from YAML",
+        icon: BookOpen,
+        action: async (element) => {
+          await openCreateTemplateDialog(element)
+        },
+        isVisible: (element) => element.data?.platform === "esphome" && element.getConfigFile()
       }
     ]
 
@@ -208,6 +230,14 @@ export default {
           </XStack>
         </YStack>
       </AlertDialog>
+
+      <EsphomeTemplateDialog
+        templateDialog={templateDialog}
+        setTemplateDialog={setTemplateDialog}
+        resetTemplateDialog={resetTemplateDialog}
+        submitTemplateDialog={submitTemplateDialog}
+        boardOptions={boardOptions}
+      />
 
       <DataView
         entityName="devices"

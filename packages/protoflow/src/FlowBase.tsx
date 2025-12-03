@@ -161,11 +161,12 @@ const FlowsBase = ({
     const [nodes, setNodes, onNodesChange] = useProtoNodesState(initialNodes, extraStateData);
     const [edges, setEdges, onEdgesChange] = useProtoEdgesState(initialEdges, extraStateData);
     const [hasChanges, setHasChanges] = useState(false);
-    const [prevReducedNodes, setPrevReducedNodes] = useState("");
+    const prevReducedNodesRef = useRef("");
     const [prevNodeData, setPrevNodeData] = useState(deleteAdditionalKeys(nodeData));
     const [menu, setMenu] = useState(null);
 
     const rendered = useRef(false)
+    const isRelayoutingRef = useRef(false)
     const onConnect = useCallback((params) => setEdges((eds) => addProtoEdge(params, eds)), [setEdges]);
 
     const reload = async () => {
@@ -378,8 +379,10 @@ const FlowsBase = ({
     }
 
     const removeSizes = arr => arr.map(item => {
-        const { draggable, height, width, position, selected, positionAbsolute, dragging, data, ...rest } = item;
-        const { layouted, ...cleanedData } = data ? data : { layouted: 1 };
+        // v12: exclude measured and internals which are internal xyflow properties
+        const { draggable, height, width, position, selected, positionAbsolute, dragging, data, measured, internals, ...rest } = item;
+        // Also exclude height/width from data as they are set during layout
+        const { layouted, height: dataHeight, width: dataWidth, ...cleanedData } = data ? data : { layouted: 1 };
 
         return { ...rest, data: cleanedData };
     });
@@ -740,17 +743,35 @@ const FlowsBase = ({
     }
 
     const handleRelayout = async () => {
-        const reduceNodes = nds => nds.reduce((total, n) => total += n.id + " " + (n.measured?.height ?? n.height) + ',', '')
+        // Prevent concurrent relayout calls
+        if (isRelayoutingRef.current) return
+        
+        // v12: Use measured dimensions for detecting size changes
+        const getNodeHeight = n => n.measured?.height ?? n.height
+        const getNodeWidth = n => n.measured?.width ?? n.width
+        
+        // Only proceed if all nodes have been measured
+        const allNodesMeasured = nodes && nodes.length && 
+            nodes.filter(n => getNodeWidth(n) && getNodeHeight(n)).length == nodes.length
+        
+        if (!allNodesMeasured) {
+            // Don't update prevReducedNodesRef when nodes aren't measured yet
+            // This allows relayout to run once nodes are measured
+            return
+        }
+        
+        const reduceNodes = nds => nds.reduce((total, n) => total += n.id + " " + getNodeHeight(n) + ',', '')
         let currentReducedNodes = reduceNodes(nodes)
 
-        if (prevReducedNodes != currentReducedNodes) {
-            if (nodes && nodes.length && nodes.filter(n => (n.measured?.width ?? n.width) && (n.measured?.height ?? n.height)).length == nodes.length) {
-                const { layoutedNodes } = await reLayout(currentLayout, nodes, edges, setNodes, setEdges, _getFirstNode, setNodesMetaData, nodeData)
-                setPrevReducedNodes(reduceNodes(layoutedNodes))
+        if (prevReducedNodesRef.current != currentReducedNodes) {
+            isRelayoutingRef.current = true
+            try {
+                await reLayout(currentLayout, nodes, edges, setNodes, setEdges, _getFirstNode, setNodesMetaData, nodeData)
+            } finally {
+                isRelayoutingRef.current = false
             }
-            else {
-                setPrevReducedNodes(currentReducedNodes)
-            }
+            // v12: Save currentReducedNodes (with measured values)
+            prevReducedNodesRef.current = currentReducedNodes
         }
     }
 

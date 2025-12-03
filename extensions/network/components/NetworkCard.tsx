@@ -139,7 +139,7 @@ export const NetworkCard = memo(({
       bg={bgColor}
       borderWidth={showConnectionStatus && isConnected ? 2 : 1}
       borderColor={borderColor}
-      cursor={onPress ? 'pointer' : 'default'}
+      cursor={'pointer'}
       hoverStyle={onPress ? { 
         borderColor: !showConnectionStatus ? '$color8' : (isConnected ? '$green9' : '$gray7'),
         scale: 1.01 

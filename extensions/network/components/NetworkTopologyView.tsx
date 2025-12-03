@@ -192,6 +192,7 @@ const VentoNode = memo(({ data }: { data: any }) => {
       width={CFG.VENTO_NODE_SIZE.width}
       height={CFG.VENTO_NODE_SIZE.height}
       br={CFG.VENTO_NODE_BORDER}
+      cursor="grab"
       ai="center"
       jc="center"
       style={{

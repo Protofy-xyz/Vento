@@ -1,0 +1,220 @@
+esphome:
+  name: kode
+wifi:
+  ssid: YOUR_SSID
+  password: YOUR_PASSWORD
+mqtt:
+  broker: YOUR_MQTT_BROKER_IP
+  port: 1883
+  topic_prefix: devices/kode
+logger: null
+esp32:
+  variant: esp32s3
+  flash_size: 16MB
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+external_components:
+  - source: github://Protofy-xyz/esphome-components
+    components:
+      - lis2mdl
+      - lsm6ds
+      - bq27220
+    refresh: 0s
+i2c:
+  sda: 48
+  scl: 47
+  scan: true
+pca9554:
+  - id: pca9554a_device
+    address: 32
+    pin_count: 16
+binary_sensor:
+  - platform: gpio
+    name: Pad up
+    id: pad_up
+    pin:
+      pca9554: pca9554a_device
+      number: 6
+      mode:
+        input: true
+  - platform: gpio
+    name: Pad down
+    id: pad_down
+    pin:
+      pca9554: pca9554a_device
+      number: 8
+      mode:
+        input: true
+  - platform: gpio
+    name: Pad left
+    id: pad_left
+    pin:
+      pca9554: pca9554a_device
+      number: 7
+      mode:
+        input: true
+  - platform: gpio
+    name: Pad right
+    id: pad_right
+    pin:
+      pca9554: pca9554a_device
+      number: 11
+      mode:
+        input: true
+  - platform: gpio
+    name: Button up
+    id: button_up
+    pin: 0
+  - platform: gpio
+    name: Button down
+    id: button_down
+    pin:
+      pca9554: pca9554a_device
+      number: 9
+      mode:
+        input: true
+  - platform: gpio
+    name: Display touch
+    id: display_touch
+    pin:
+      pca9554: pca9554a_device
+      number: 15
+      mode:
+        input: true
+sensor:
+  - platform: lsm6ds
+    address: 106
+    update_interval: 5s
+    id: lsm6ds_sensor
+    acceleration_x:
+      name: LSM6DS Accel X
+      id: lsm6ds_accel_x
+    acceleration_y:
+      name: LSM6DS Accel Y
+      id: lsm6ds_accel_y
+    acceleration_z:
+      name: LSM6DS Accel Z
+      id: lsm6ds_accel_z
+    gyro_x:
+      name: LSM6DS Gyro X
+      id: lsm6ds_gyro_x
+    gyro_y:
+      name: LSM6DS Gyro Y
+      id: lsm6ds_gyro_y
+    gyro_z:
+      name: LSM6DS Gyro Z
+      id: lsm6ds_gyro_z
+  - platform: lis2mdl
+    address: 30
+    update_interval: 5s
+    id: lis2mdl_sensor
+    field_strength_x:
+      name: LIS2MDL X
+      id: lis2mdl_x
+    field_strength_y:
+      name: LIS2MDL Y
+      id: lis2mdl_y
+    field_strength_z:
+      name: LIS2MDL Z
+      id: lis2mdl_z
+  - platform: bq27220
+    update_interval: 5s
+    voltage:
+      name: Battery Voltage
+      id: batt_voltage
+    current:
+      name: Battery Current
+      id: batt_current
+    soc:
+      name: Battery SOC
+      id: batt_soc
+    remaining_capacity:
+      name: Battery Remaining Capacity
+      id: batt_remaining_capacity
+    temperature:
+      name: Battery Temperature
+      id: batt_temperature
+    full_charge_capacity:
+      name: Battery Full Charge Capacity
+      id: batt_full_charge_capacity
+    design_capacity:
+      name: Battery Design Capacity
+      id: batt_design_capacity
+    state_of_health:
+      name: Battery State of Health
+      id: batt_soh
+    device_number:
+      name: Battery Device ID
+      id: bq27220_battery_device_id
+  - platform: template
+    name: Touch X
+    id: touch_x_coordinate
+    unit_of_measurement: px
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    name: Touch Y
+    id: touch_y_coordinate
+    unit_of_measurement: px
+    accuracy_decimals: 0
+    update_interval: never
+light:
+  - platform: esp32_rmt_led_strip
+    rgb_order: GRB
+    pin: 4
+    num_leds: 1
+    chipset: ws2812
+    name: Neopixel
+    id: neopixel
+    restore_mode: ALWAYS_OFF
+psram:
+  mode: octal
+  speed: 80MHz
+spi:
+  - id: display_qspi
+    type: quad
+    interface: spi2
+    clk_pin: 17
+    data_pins:
+      - 15
+      - 14
+      - 16
+      - 10
+display:
+  - platform: mipi_spi
+    id: my_display
+    model: CO5300
+    bus_mode: quad
+    spi_id: display_qspi
+    cs_pin: 9
+    reset_pin: 8
+    brightness: 255
+    data_rate: 10MHz
+    spi_mode: MODE0
+    color_order: rgb
+    dimensions:
+      width: 410
+      height: 502
+      offset_width: 22
+    init_sequence:
+      - - 17
+      - delay 120ms
+      - - 41
+    show_test_card: true
+touchscreen:
+  - platform: cst816
+    id: my_touchscreen
+    display: my_display
+    address: 21
+    update_interval: 50ms
+    on_touch:
+      - lambda: |-
+          ESP_LOGI("touch", "x=%d, y=%d, x_raw=%d, y_raw=%0d",
+              touch.x,
+              touch.y,
+              touch.x_raw,
+              touch.y_raw
+              );
+          id(touch_x_coordinate).publish_state(touch.x);
+          id(touch_y_coordinate).publish_state(touch.y);

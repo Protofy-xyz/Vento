@@ -1,5 +1,5 @@
 import { Braces, ClipboardList, FileCode, FileQuestion, Save, Settings, ArrowDownRight, ArrowUpRight, Check, History } from '@tamagui/lucide-icons'
-import { Text, YStack, Paragraph, XStack } from '@my/ui'
+import { Text, YStack, Paragraph, XStack, TooltipSimple } from '@my/ui'
 import { useState, useRef, useMemo } from 'react'
 import { Tinted } from '../Tinted'
 import { RuleEditor } from './RuleEditor'
@@ -255,10 +255,26 @@ export const ActionCardSettings = ({ board, actions, states, card, icons, onEdit
               tabs={tabs.filter(isTabVisible)}
               selectedId={selectedTab}
               onSelect={(id) => setSelectedTab(id)}
+              borderBottomColor="transparent"
             />
             {!isCreateMode && (
               <XStack ai="center">
-                <YStack borderRightWidth="1px" borderRightColor="$gray6" h="100%" />
+                {/* <YStack borderRightWidth="1px" borderRightColor="$gray6" h="100%" /> */}
+                <TooltipSimple label={cardData.name} delay={{ open: 500, close: 0 }} restMs={0}>
+                  <Text
+                    fontSize="$4"
+                    fontWeight="bold"
+                    color="$gray11"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    maxWidth="200px"
+                    overflow="hidden"
+                    textOverflow="ellipsis"
+                    whiteSpace="nowrap"
+                  >
+                    {cardData.name}
+                  </Text>
+                </TooltipSimple>
                 <XStack ai="center" gap="$3" p="$2.5" px="$3">
                   <XStack
                     cursor="pointer"

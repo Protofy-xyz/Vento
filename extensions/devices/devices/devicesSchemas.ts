@@ -195,10 +195,15 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
     }
   }
 
-  async getYaml(){
+  async getYaml(serviceToken?: string){
     let yaml = undefined
     try {
-      const response = await API.get('/api/core/v1/deviceDefinitions/' + this.data.deviceDefinition);
+      const withToken = (url: string) => {
+        if (!serviceToken) return url
+        return url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(serviceToken)
+      }
+
+      const response = await API.get(withToken('/api/core/v1/deviceDefinitions/' + encodeURIComponent(this.data.deviceDefinition)));
       if (response.isError) {
         console.log(response.error)
         return;
@@ -207,7 +212,7 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
       if (deviceDefinition?.sdk === 'esphome-yaml') {
         const definitionName = deviceDefinition?.name ?? this.data.deviceDefinition
         const configPath = `data/deviceDefinitions/${definitionName}/config.yaml`
-        const baseYamlResponse = await API.get('/api/core/v1/files/' + configPath)
+        const baseYamlResponse = await API.get(withToken('/api/core/v1/files/' + configPath))
 
         if (baseYamlResponse?.isError) {
           console.log(baseYamlResponse.error)
@@ -231,7 +236,7 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
           yamlObject.mqtt.topic_prefix = getPeripheralTopic(this.data.name)
         }
         yaml = yamlStringify(yamlObject)
-        await API.post("/api/v1/esphome/" + this.data.name + "/yamls", { yaml })
+        await API.post(withToken("/api/v1/esphome/" + this.data.name + "/yamls"), { yaml })
         return yaml
       }
       const response1 = await API.get('/api/core/v1/deviceBoards/' + deviceDefinition.board.name);

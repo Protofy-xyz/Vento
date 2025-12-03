@@ -3,7 +3,7 @@ import { connectItem, dumpConnection, PORT_TYPES, DumpType, getValueTrivia, getT
 import Node, { Field, isDataPortConnected } from '../Node';
 import { FlowStoreContext } from "../store/FlowsStore";
 import { Equal } from '@tamagui/lucide-icons';
-import { useEdges } from 'reactflow';
+import { useEdges } from '@xyflow/react';
 import { useNodeColor } from '../diagram/Theme';
 
 export const VariableDeclarationListNodeFactory = (declarationType) => {

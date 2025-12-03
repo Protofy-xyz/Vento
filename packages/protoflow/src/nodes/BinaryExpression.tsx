@@ -2,7 +2,7 @@ import React, { memo, useContext } from 'react';
 import { connectItem, dumpConnection, getId, PORT_TYPES, DumpType, getTrivia, getValueTrivia } from '../lib/Node';
 import Node, { Field, isDataPortConnected } from '../Node';
 import { FlowStoreContext } from "../store/FlowsStore";
-import { useEdges } from 'reactflow';
+import { useEdges } from '@xyflow/react';
 import { Calculator, Equal } from '@tamagui/lucide-icons';
 import { useNodeColor } from '../diagram/Theme';
 

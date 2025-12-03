@@ -78,8 +78,8 @@ ArrayLiteralExpression.dump = (node, nodes, edges, nodesData, metadata = null, e
 
 ArrayLiteralExpression.getSize = (nodes, node, data) => {
     const paramLength = Object.keys(data).filter(key => key.startsWith('element-')).length
-    nodes[0].height = 140 + paramLength * 49;
-    return nodes;
+    // v12: nodes are immutable, return new array with cloned node
+    return [{ ...nodes[0], height: 140 + paramLength * 49 }, ...nodes.slice(1)];
 }
 
 export default memo(ArrayLiteralExpression)

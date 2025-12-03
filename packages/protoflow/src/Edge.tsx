@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { EdgeProps, getBezierPath } from 'reactflow';
+import { EdgeProps, getBezierPath } from '@xyflow/react';
 import DiagramEdge from './diagram/Edge';
 import useTheme from './diagram/Theme'
 import { FlowStoreContext } from './store/FlowsStore'

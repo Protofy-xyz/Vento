@@ -5,7 +5,7 @@ import {
     addEdge as addReactFlowEdge, Connection,
     useEdges,
     useNodes
-} from 'reactflow';
+} from '@xyflow/react';
 
 type OnChange<ChangesType> = (changes: ChangesType[]) => void;
 
@@ -32,22 +32,23 @@ const getExtraData = () => {
 }
 
 const wrapDiagramItem = (payload, dataToAdd) => { // wrapper for diagram edges and nodes
-    var wrappedElements
+    // v12: exclude internal frozen properties when cloning
+    const clone = (e) => {
+        const { measured, internals, ...rest } = e;
+        return { ...rest, data: { ...e.data, ...dataToAdd } };
+    };
+    
     if (typeof payload === 'function') {
-        wrappedElements = ele => {
-            return payload(ele.map(e => ({ ...e, data: { ...e.data, ...dataToAdd } })))
-        }
-    } else {
-        wrappedElements = payload.map(e => ({ ...e, data: { ...e.data, ...dataToAdd } }))
+        return ele => payload(ele.map(clone))
     }
-    return wrappedElements
+    return payload.map(clone)
 }
 
 export const useProtoflow = () => {
     const {
         setNodes: reactFlowSetNodes,
         setEdges: reactFlowSetEdges,
-        project,
+        screenToFlowPosition,
         setViewport,
         getNodes,
         getViewport,
@@ -59,16 +60,16 @@ export const useProtoflow = () => {
 
     const extraData = getExtraData()
 
-    const setNodes: (payload: Node<any>[] | ((nodes: Node<any>[]) => Node<any>[])) => void = (payload) => {
+    const setNodes: (payload: Node[] | ((nodes: Node[]) => Node[])) => void = (payload) => {
         reactFlowSetNodes(wrapDiagramItem(payload, extraData));
     };
-    const setEdges: (payload: Edge<any>[] | ((edges: Edge<any>[]) => Edge<any>[])) => void = (payload) => {
+    const setEdges: (payload: Edge[] | ((edges: Edge[]) => Edge[])) => void = (payload) => {
         reactFlowSetEdges(wrapDiagramItem(payload, extraData))
     }
 
     return {
         setNodes,
-        project,
+        project: screenToFlowPosition, // v12: project renamed to screenToFlowPosition
         setViewport,
         getNodes,
         getViewport,
@@ -80,25 +81,25 @@ export const useProtoflow = () => {
     }
 };
 
-export const useProtoNodesState = (initialItems: Node<any, string>[], extraData: DiagramState | {} = {}): [Node<any, string>[], Dispatch<SetStateAction<Node<any, string>[]>>, OnChange<NodeChange>] => {
+export const useProtoNodesState = (initialItems: Node[], extraData: DiagramState | {} = {}): [Node[], Dispatch<SetStateAction<Node[]>>, OnChange<NodeChange>] => {
 
     const [nodes, reactFlowSetNodes, onNodesChange] = useNodesState(wrapDiagramItem(initialItems, extraData))
 
-    const setNodes: Dispatch<SetStateAction<Node<any, string>[]>> = (payload: any) => reactFlowSetNodes(wrapDiagramItem(payload, extraData))
+    const setNodes: Dispatch<SetStateAction<Node[]>> = (payload: any) => reactFlowSetNodes(wrapDiagramItem(payload, extraData))
 
     return [nodes, setNodes, onNodesChange]
 }
 
-export const useProtoEdgesState = (initialItems: Edge<any>[], extraData: DiagramState | {} = {}): [Edge<any>[], Dispatch<SetStateAction<Edge<any>[]>>, OnChange<EdgeChange>] => {
+export const useProtoEdgesState = (initialItems: Edge[], extraData: DiagramState | {} = {}): [Edge[], Dispatch<SetStateAction<Edge[]>>, OnChange<EdgeChange>] => {
 
     const [edges, reactFlowSetEdges, onEdgesChange] = useEdgesState(wrapDiagramItem(initialItems, extraData))
 
-    const setEdges: Dispatch<SetStateAction<Edge<any>[]>> = (payload: any) => reactFlowSetEdges(wrapDiagramItem(payload, extraData))
+    const setEdges: Dispatch<SetStateAction<Edge[]>> = (payload: any) => reactFlowSetEdges(wrapDiagramItem(payload, extraData))
 
     return [edges, setEdges, onEdgesChange]
 }
 
-export const useProtoEdges = (): Edge<unknown>[] => {
+export const useProtoEdges = (): Edge[] => {
     const nodes = useNodes()
     const edges = useEdges()
 

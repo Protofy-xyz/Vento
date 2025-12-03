@@ -4,7 +4,7 @@ import '@tamagui/font-inter/css/400.css'
 import '@tamagui/font-inter/css/700.css'
 import "mapbox-gl/dist/mapbox-gl.css"
 import 'raf/polyfill'
-import 'reactflow/dist/style.css'
+import '@xyflow/react/dist/style.css'
 import 'protoflow/src/styles.css'
 import 'protoflow/src/diagram/menu.module.css'
 import 'react-sliding-side-panel/lib/index.css'
@@ -95,6 +95,10 @@ function ThemeProvider({ children, disablePreviewMode }: { children: React.React
       forcedTheme={forcedTheme}
       onChangeTheme={(next) => {
         setTheme(next as any)
+        // Notify Electron about theme change (for splash/log window)
+        if (typeof window !== 'undefined' && (window as any).electronAPI?.setTheme) {
+          (window as any).electronAPI.setTheme(next)
+        }
       }}
     >
       <Provider disableRootThemeClass defaultTheme={theme}>

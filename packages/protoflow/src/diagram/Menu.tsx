@@ -1,5 +1,5 @@
 import React, { useState, useRef, useContext, useEffect, useCallback, forwardRef } from 'react';
-import { Panel } from 'reactflow';
+import { Panel } from '@xyflow/react';
 import nodes from '../nodes'
 import { FlowStoreContext } from "../store/FlowsStore";
 import { generateId } from '../lib/IdGenerator';

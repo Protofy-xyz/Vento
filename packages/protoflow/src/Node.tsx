@@ -1,5 +1,5 @@
 import React, { useContext, useEffect } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position } from '@xyflow/react';
 import Input from './diagram/NodeInput'
 import Text from './diagram/NodeText'
 import { } from './nodes'; //error when removed
@@ -83,16 +83,7 @@ export const NodeInput = ({ placeholder="default", id, disabled, post = (t) => t
 
     const selecNodeOnFocus = () => {
         setNodes(nds => {
-            let newNds = [...nds];
-            newNds = newNds.map(n => {
-                if (n.hasOwnProperty("selected")) {
-                    delete n.selected;
-                }
-                return n
-            })
-            const nodeIndex = newNds.findIndex(n => n.id == id)
-            newNds[nodeIndex] = { ...newNds[nodeIndex], selected: true }
-            return newNds
+            return nds.map(n => ({ ...n, selected: n.id === id }));
         })
     }
 

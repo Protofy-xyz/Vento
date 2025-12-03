@@ -7,8 +7,8 @@ import {
   useEdgesState,
   useNodesState,
   getBezierPath,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import DeviceNode from '../network/DeviceNode'
 import type { TemplateField, TemplateHelpers } from '../components/templates'
 import DeviceEditorPanel from './components/DeviceEditorPanel'
@@ -94,10 +94,12 @@ export const NetworkGraphView = ({
       let changed = false
       const next = { ...prev }
       nodesState.forEach((node: any) => {
-        if (!node.width || !node.height) return
+        const nodeWidth = node.measured?.width ?? node.width
+        const nodeHeight = node.measured?.height ?? node.height
+        if (!nodeWidth || !nodeHeight) return
         const stored = prev[node.id]
-        if (!stored || stored.width !== node.width || stored.height !== node.height) {
-          next[node.id] = { width: node.width, height: node.height }
+        if (!stored || stored.width !== nodeWidth || stored.height !== nodeHeight) {
+          next[node.id] = { width: nodeWidth, height: nodeHeight }
           changed = true
         }
       })

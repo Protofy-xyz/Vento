@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStore } from 'reactflow';
+import { useStore } from '@xyflow/react';
 import { useZoomStore } from './store/ZoomStore';
 
 export default ({zoom}) => {

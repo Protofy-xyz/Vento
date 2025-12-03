@@ -301,7 +301,7 @@ export default (_app, context) => {
         name: monitorName,
         label: payload.name || monitorName,
         description: payload.device_class || payload.state_class || component,
-        units: payload.unit_of_measurement ?? payload.unit ?? '',
+        units: payload.unit_of_measurement ?? payload.unit ?? payload.unit_of_meas ?? '',
         endpoint: stateEndpoint,
         connectionType: 'mqtt',
       });

@@ -13,6 +13,7 @@
   "license": "MIT",
   "dependencies": {
     "@my/ui": "0.0.1",
+    "@xyflow/react": "^12.3.6",
     "app": "0.0.0",
     "chroma-js": "2.4.2",
     "color-convert": "2.0.1",
@@ -27,7 +28,6 @@
     "react-select": "5.7.0",
     "react-topics": "0.1.7",
     "react-use-keypress": "1.3.1",
-    "reactflow": "11.5.3",
     "shx": "^0.3.4",
     "ts-morph": "20.0.0",
     "typescript": "5.8.2",

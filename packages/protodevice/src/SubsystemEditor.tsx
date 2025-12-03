@@ -380,21 +380,30 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                                 </XStack>
                                 <CollapsibleSection title="Subsystem info">
                                     <XStack gap="$3" flexWrap="wrap">
-                                        <Input
-                                            placeholder="Name"
-                                            value={subsystem?.name ?? ''}
-                                            onChange={(e) => updateSubsystemField(subsystemIndex, 'name', e.target.value)}
-                                        />
-                                        <Input
-                                            placeholder="Type"
-                                            value={subsystem?.type ?? ''}
-                                            onChange={(e) => updateSubsystemField(subsystemIndex, 'type', e.target.value)}
-                                        />
-                                        <Input
-                                            placeholder="Label"
-                                            value={subsystem?.label ?? ''}
-                                            onChange={(e) => updateSubsystemField(subsystemIndex, 'label', e.target.value)}
-                                        />
+                                        <YStack gap="$1" width="100%" maxWidth={220}>
+                                            <Text size="$2" textAlign="center">Name</Text>
+                                            <Input
+                                                placeholder="Name"
+                                                value={subsystem?.name ?? ''}
+                                                onChange={(e) => updateSubsystemField(subsystemIndex, 'name', e.target.value)}
+                                            />
+                                        </YStack>
+                                        <YStack gap="$1" width="100%" maxWidth={220}>
+                                            <Text size="$2" textAlign="center">Type</Text>
+                                            <Input
+                                                placeholder="Type"
+                                                value={subsystem?.type ?? ''}
+                                                onChange={(e) => updateSubsystemField(subsystemIndex, 'type', e.target.value)}
+                                            />
+                                        </YStack>
+                                        <YStack gap="$1" width="100%" maxWidth={220}>
+                                            <Text size="$2" textAlign="center">Label</Text>
+                                            <Input
+                                                placeholder="Label"
+                                                value={subsystem?.label ?? ''}
+                                                onChange={(e) => updateSubsystemField(subsystemIndex, 'label', e.target.value)}
+                                            />
+                                        </YStack>
                                     </XStack>
 
                                     <JsonField
@@ -415,8 +424,7 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                                             <Tinted key={`sub-${subsystemIndex}-mon-${monitorIndex}`} width="100%">
                                                 <CollapsibleSection title={monitor?.label || monitor?.name || `Monitor ${monitorIndex + 1}`}>
                                                     <YStack gap="$2" padding="$2" width="100%">
-                                                        <XStack justifyContent="space-between" alignItems="center">
-                                                            <Text fow="600">{monitor?.label || monitor?.name || `Monitor ${monitorIndex + 1}`}</Text>
+                                                        <XStack justifyContent="flex-end" alignItems="center">
                                                             <Button
                                                                 size="$2"
                                                                 icon={Trash2}
@@ -427,28 +435,39 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                                                                 Remove
                                                             </Button>
                                                         </XStack>
-                                                        <XStack gap="$2" flexWrap="wrap">
-                                                            <Input
-                                                                placeholder="Name"
-                                                                value={monitor?.name ?? ''}
-                                                                onChange={(e) => updateMonitorField(subsystemIndex, monitorIndex, 'name', e.target.value)}
-                                                            />
-                                                            <Input
-                                                                placeholder="Label"
-                                                                value={monitor?.label ?? ''}
-                                                                onChange={(e) => updateMonitorField(subsystemIndex, monitorIndex, 'label', e.target.value)}
-                                                            />
-                                                            <Input
-                                                                placeholder="Endpoint"
-                                                                value={monitor?.endpoint ?? ''}
-                                                                onChange={(e) => updateMonitorField(subsystemIndex, monitorIndex, 'endpoint', e.target.value)}
-                                                                flex={1}
-                                                            />
-                                                            <Input
-                                                                placeholder="Units"
-                                                                value={monitor?.units ?? ''}
-                                                                onChange={(e) => updateMonitorField(subsystemIndex, monitorIndex, 'units', e.target.value)}
-                                                            />
+                                                        <XStack gap="$2" flexWrap="wrap" width="100%">
+                                                            <YStack gap="$1" width="100%" maxWidth={200}>
+                                                                <Text size="$2" textAlign="center">Name</Text>
+                                                                <Input
+                                                                    placeholder="Name"
+                                                                    value={monitor?.name ?? ''}
+                                                                    onChange={(e) => updateMonitorField(subsystemIndex, monitorIndex, 'name', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" width="100%" maxWidth={200}>
+                                                                <Text size="$2" textAlign="center">Label</Text>
+                                                                <Input
+                                                                    placeholder="Label"
+                                                                    value={monitor?.label ?? ''}
+                                                                    onChange={(e) => updateMonitorField(subsystemIndex, monitorIndex, 'label', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" flex={1} minWidth={240}>
+                                                                <Text size="$2" textAlign="center">Endpoint</Text>
+                                                                <Input
+                                                                    placeholder="Endpoint"
+                                                                    value={monitor?.endpoint ?? ''}
+                                                                    onChange={(e) => updateMonitorField(subsystemIndex, monitorIndex, 'endpoint', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" width="100%" maxWidth={120}>
+                                                                <Text size="$2" textAlign="center">Units</Text>
+                                                                <Input
+                                                                    placeholder="Units"
+                                                                    value={monitor?.units ?? ''}
+                                                                    onChange={(e) => updateMonitorField(subsystemIndex, monitorIndex, 'units', e.target.value)}
+                                                                />
+                                                            </YStack>
                                                             <XStack alignItems="center" gap="$2">
                                                                 <Text size="$2">Ephemeral</Text>
                                                                 <Switch
@@ -482,8 +501,7 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                                             <Tinted key={`sub-${subsystemIndex}-act-${actionIndex}`} width="100%">
                                                 <CollapsibleSection title={action?.label || action?.name || `Action ${actionIndex + 1}`}>
                                                     <YStack gap="$2" padding="$2" width="100%">
-                                                        <XStack justifyContent="space-between" alignItems="center">
-                                                            <Text fow="600">{action?.label || action?.name || `Action ${actionIndex + 1}`}</Text>
+                                                        <XStack justifyContent="flex-end" alignItems="center">
                                                             <Button
                                                                 size="$2"
                                                                 icon={Trash2}
@@ -494,44 +512,63 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                                                                 Remove
                                                             </Button>
                                                         </XStack>
-                                                        <XStack gap="$2" flexWrap="wrap">
-                                                            <Input
-                                                                placeholder="Name"
-                                                                value={action?.name ?? ''}
-                                                                onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'name', e.target.value)}
-                                                            />
-                                                            <Input
-                                                                placeholder="Label"
-                                                                value={action?.label ?? ''}
-                                                                onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'label', e.target.value)}
-                                                            />
-                                                            <Input
-                                                                placeholder="Description"
-                                                                value={action?.description ?? ''}
-                                                                onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'description', e.target.value)}
-                                                                flex={1}
-                                                            />
-                                                            <Input
-                                                                placeholder="Endpoint"
-                                                                value={action?.endpoint ?? ''}
-                                                                onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'endpoint', e.target.value)}
-                                                                flex={1}
-                                                            />
-                                                            <Input
-                                                                placeholder="Connection type"
-                                                                value={action?.connectionType ?? ''}
-                                                                onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'connectionType', e.target.value)}
-                                                            />
-                                                            <Input
-                                                                placeholder="Mode"
-                                                                value={action?.mode ?? ''}
-                                                                onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'mode', e.target.value)}
-                                                            />
-                                                            <Input
-                                                                placeholder="Reply timeout (ms)"
-                                                                value={action?.replyTimeoutMs ?? ''}
-                                                                onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'replyTimeoutMs', e.target.value)}
-                                                            />
+                                                        <XStack gap="$2" flexWrap="wrap" width="100%">
+                                                            <YStack gap="$1" width="100%" maxWidth={200}>
+                                                                <Text size="$2" textAlign="center">Name</Text>
+                                                                <Input
+                                                                    placeholder="Name"
+                                                                    value={action?.name ?? ''}
+                                                                    onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'name', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" width="100%" maxWidth={200}>
+                                                                <Text size="$2" textAlign="center">Label</Text>
+                                                                <Input
+                                                                    placeholder="Label"
+                                                                    value={action?.label ?? ''}
+                                                                    onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'label', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" flex={1} minWidth={240}>
+                                                                <Text size="$2" textAlign="center">Description</Text>
+                                                                <Input
+                                                                    placeholder="Description"
+                                                                    value={action?.description ?? ''}
+                                                                    onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'description', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" flex={1} minWidth={240}>
+                                                                <Text size="$2" textAlign="center">Endpoint</Text>
+                                                                <Input
+                                                                    placeholder="Endpoint"
+                                                                    value={action?.endpoint ?? ''}
+                                                                    onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'endpoint', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" width="100%" maxWidth={160}>
+                                                                <Text size="$2" textAlign="center">Connection type</Text>
+                                                                <Input
+                                                                    placeholder="Connection type"
+                                                                    value={action?.connectionType ?? ''}
+                                                                    onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'connectionType', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" width="100%" maxWidth={140}>
+                                                                <Text size="$2" textAlign="center">Mode</Text>
+                                                                <Input
+                                                                    placeholder="Mode"
+                                                                    value={action?.mode ?? ''}
+                                                                    onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'mode', e.target.value)}
+                                                                />
+                                                            </YStack>
+                                                            <YStack gap="$1" width="100%" maxWidth={160}>
+                                                                <Text size="$2" textAlign="center">Reply timeout (ms)</Text>
+                                                                <Input
+                                                                    placeholder="Reply timeout (ms)"
+                                                                    value={action?.replyTimeoutMs ?? ''}
+                                                                    onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'replyTimeoutMs', e.target.value)}
+                                                                />
+                                                            </YStack>
                                                         </XStack>
                                                         {/* Payload editor */}
                                                         <YStack gap="$2" width="100%">

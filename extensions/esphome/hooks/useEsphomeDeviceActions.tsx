@@ -200,6 +200,7 @@ export const useEsphomeDeviceActions = () => {
   const [deviceDisconnectInfo, setDeviceDisconnectInfo] = useState<
     null | { source: "usb" | "mqtt"; message: string }
   >(null);
+  const compileRequestRef = useRef<string | null>(null);
   const latestChooserReqRef = useRef<string | null>(null);
   const expectChooserRef = useRef(false);
   const portRequestRef = useRef<Promise<{ port: any | null; error?: string }> | null>(null);
@@ -397,6 +398,8 @@ export const useEsphomeDeviceActions = () => {
   }, [requestSerialPort]);
 
   const handleYamlStage = useCallback(async () => {
+    compileRequestRef.current = null;
+
     const uploadYaml = async (yaml: string) => {
       try {
         const response = await API.post(postYamlApiEndpoint(targetDeviceName), { yaml });
@@ -424,9 +427,8 @@ export const useEsphomeDeviceActions = () => {
         setStage("upload");
         setModalFeedback({ message, details: { error: false } });
       } else {
-        setTimeout(() => {
-          setStage("compile");
-        }, 1000);
+        setModalFeedback({ message: "Queued for compilation...", details: { error: false } });
+        setStage("compile");
       }
 
       if (targetDeviceModel) {
@@ -448,8 +450,36 @@ export const useEsphomeDeviceActions = () => {
   }, [targetDeviceModel, targetDeviceName]);
 
   const compile = useCallback(async () => {
-    const response = await fetch(compileActionUrl(targetDeviceName, compileSessionId));
-    await response.json();
+    if (!compileSessionId || !targetDeviceName) {
+      setModalFeedback({
+        message: "Compilation session is not ready. Please try again.",
+        details: { error: true },
+      });
+      return;
+    }
+
+    if (compileRequestRef.current === compileSessionId) return;
+    compileRequestRef.current = compileSessionId;
+
+    try {
+      setModalFeedback({
+        message: "Starting remote compilation...",
+        details: { error: false },
+      });
+
+      const response = await fetch(compileActionUrl(targetDeviceName, compileSessionId));
+      if (!response.ok) {
+        throw new Error(`Compile request failed (${response.status})`);
+      }
+      await response.json();
+    } catch (err) {
+      console.error("Error starting compilation:", err);
+      compileRequestRef.current = null;
+      setModalFeedback({
+        message: "Error starting compilation. Please retry.",
+        details: { error: true },
+      });
+    }
   }, [compileSessionId, targetDeviceName]);
 
   const write = useCallback(async () => {
@@ -591,6 +621,12 @@ export const useEsphomeDeviceActions = () => {
   }, [stage, clearDeviceDisconnect]);
 
   useEffect(() => {
+    if (stage === "" || stage === "yaml") {
+      compileRequestRef.current = null;
+    }
+  }, [stage]);
+
+  useEffect(() => {
     const processStage = async () => {
       switch (stage) {
         case "yaml":
@@ -605,14 +641,16 @@ export const useEsphomeDeviceActions = () => {
         case "upload":
           startUploadStage();
           break;
-        case "console":
-          if (logSource === "usb") startConsole();
-          break;
       }
     };
 
     processStage();
-  }, [stage, logSource, handleYamlStage, compile, write, startUploadStage, startConsole]);
+  }, [stage, handleYamlStage, compile, write, startUploadStage]);
+
+  useEffect(() => {
+    if (stage !== "console") return;
+    if (logSource === "usb") startConsole();
+  }, [stage, logSource, startConsole]);
 
   const mqttDebugTopic =
     logSource === "mqtt" && targetDeviceName ? [`devices/${targetDeviceName}/debug`] : [];

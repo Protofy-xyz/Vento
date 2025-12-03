@@ -242,6 +242,7 @@ export default {
                   }}
                   element={element}
                   width={width}
+                  onPress={() => router.push(`/boards/view?board=${element.name}`)}
                 />,
           }}
           defaultView={"grid"}

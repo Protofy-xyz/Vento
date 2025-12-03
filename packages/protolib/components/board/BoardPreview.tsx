@@ -19,7 +19,7 @@ const Chip = ({ name }: { name: string }) => (
     </XStack>
 );
 
-export default ({ element, width, onDelete, ...props }: any) => {
+export default ({ element, width, onDelete, onPress, ...props }: any) => {
     const board = new BoardModel(element);
     const [editSettingsDialog, seteditSettingsDialog] = useState(false);
     const [createTemplateDialog, setCreateTemplateDialog] = useState(false);
@@ -65,7 +65,7 @@ export default ({ element, width, onDelete, ...props }: any) => {
 
     return (
         <YStack
-            cursor="default"
+            cursor={onPress ? "pointer" : "default"}
             bg="$bgPanel"
             elevation={4}
             br="$4"
@@ -76,6 +76,8 @@ export default ({ element, width, onDelete, ...props }: any) => {
             p="$4"
             gap="$4"
             pointerEvents={editSettingsDialog || createTemplateDialog ? 'none' : 'auto'}
+            onPress={onPress}
+            hoverStyle={onPress ? { opacity: 0.9 } : {}}
             {...props}
         >
             {hidden && (
@@ -160,6 +162,7 @@ export default ({ element, width, onDelete, ...props }: any) => {
                 jc="flex-start"
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
+                als="flex-start"
                 mb="$2"
             >
                 <Tinted>

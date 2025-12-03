@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useTransition } from "react";
-import { XStack, YStack, Text, Button, Input, Switch, useToastController, TextArea } from '@my/ui';
+import { XStack, YStack, Text, Button, Input, Switch, useToastController, TextArea, Select } from '@my/ui';
 import { AlertDialog } from 'protolib/components/AlertDialog';
 import { Tinted } from 'protolib/components/Tinted';
-import { Plus, Trash2, Save, X, ChevronDown } from "@tamagui/lucide-icons";
+import { Plus, Trash2, Save, X, ChevronDown, Check, Maximize2 } from "@tamagui/lucide-icons";
 import { API } from 'protobase';
 
 const safeStringify = (value: any) => {
@@ -26,14 +26,28 @@ const deepClone = <T,>(value: T): T => {
 const JsonField = ({ label, value, onChange, placeholder }: { label: string, value: any, onChange: (v: any) => void, placeholder?: string }) => {
     const [text, setText] = useState<string>(safeStringify(value));
     const [error, setError] = useState<string | null>(null);
+    const [expanded, setExpanded] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
-        setText(safeStringify(value));
-    }, [value]);
+        if (!isEditing) {
+            setText(safeStringify(value));
+        }
+    }, [value, isEditing]);
 
     const handleChange = (val: any) => {
         const next = typeof val === 'string' ? val : val?.target?.value ?? '';
         setText(next);
+        if (next.trim() === '') {
+            setError(null);
+            return;
+        }
+        try {
+            JSON.parse(next);
+            setError(null);
+        } catch (err: any) {
+            setError(err?.message ?? 'Invalid JSON');
+        }
     };
 
     const commit = () => {
@@ -53,17 +67,43 @@ const JsonField = ({ label, value, onChange, placeholder }: { label: string, val
 
     return (
         <YStack gap="$1" width="100%">
-            <Text size="$2" color="$color10">{label}</Text>
+            <XStack justifyContent="space-between" alignItems="center">
+                <Text size="$2" color="$color10">{label}</Text>
+                <Button size="$1" icon={Maximize2} onPress={() => setExpanded(true)} />
+            </XStack>
             <TextArea
                 value={text}
                 onChange={handleChange}
                 onChangeText={handleChange}
-                onBlur={commit}
+                onFocus={() => setIsEditing(true)}
+                onBlur={() => { commit(); setIsEditing(false); }}
                 minHeight={100}
                 fontFamily="monospace"
                 placeholder={placeholder}
             />
             {error ? <Text size="$2" color="$red10">{error}</Text> : null}
+            <AlertDialog open={expanded} setOpen={(v) => { if (!v) commit(); setExpanded(!!v); }} hideAccept={true} width={"100vw"} height={"100vh"} p="$0">
+                <YStack gap="$2" padding="$4" height="100%" width="100%">
+                    <XStack justifyContent="space-between" alignItems="center">
+                        <Text fow="700">{label}</Text>
+                        <Button size="$2" icon={X} onPress={() => { commit(); setExpanded(false); }} />
+                    </XStack>
+                    <YStack flex={1} width="100%">
+                        <TextArea
+                            value={text}
+                            onChange={handleChange}
+                            onChangeText={handleChange}
+                            onFocus={() => setIsEditing(true)}
+                            onBlur={() => { commit(); setIsEditing(false); }}
+                            fontFamily="monospace"
+                            minHeight="100%"
+                            flex={1}
+                            placeholder={placeholder}
+                        />
+                        {error ? <Text size="$2" color="$red10">{error}</Text> : null}
+                    </YStack>
+                </YStack>
+            </AlertDialog>
         </YStack>
     );
 };
@@ -174,7 +214,7 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
     const addAction = (subsystemIndex: number) => startTransition(() => setDraftSubsystems((prev) => {
         const next = [...(prev ?? [])];
         const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
-        const actions = [...(currentSubsystem.actions ?? []), { name: '', label: '', endpoint: '', connectionType: 'mqtt', payload: {} }];
+        const actions = [...(currentSubsystem.actions ?? []), { name: '', label: '', endpoint: '', connectionType: 'mqtt', payload: { type: 'str', value: '' } }];
         next[subsystemIndex] = { ...currentSubsystem, actions };
         return next;
     }));
@@ -185,6 +225,53 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
         next[subsystemIndex] = { ...currentSubsystem, actions };
         return next;
     }));
+
+    const getPayloadType = (payload: any): string => {
+        if (Array.isArray(payload)) return 'select';
+        const t = (payload?.type ?? '').toString();
+        if (['slider', 'json-schema', 'select', 'str', 'string', 'int', 'integer', 'float', 'number', 'json'].includes(t)) return t;
+        if (payload?.value !== undefined) return 'str';
+        return 'str';
+    };
+
+    const setPayloadType = (subsystemIndex: number, actionIndex: number, nextType: string) => {
+        startTransition(() => {
+            setDraftSubsystems((prev) => {
+                const next = [...(prev ?? [])];
+                const subsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
+                const actions = [...(subsystem.actions ?? [])];
+                let payload: any;
+                switch (nextType) {
+                    case 'select':
+                        payload = [{ label: 'Option 1', value: 'option1' }];
+                        break;
+                    case 'slider':
+                        payload = { type: 'slider', min_value: 0, max_value: 100, step: 1, initial_value: 0, unit: '' };
+                        break;
+                    case 'json-schema':
+                        payload = { type: 'json-schema', schema: {} };
+                        break;
+                    case 'int':
+                    case 'integer':
+                        payload = { type: 'int', value: 0 };
+                        break;
+                    case 'float':
+                    case 'number':
+                        payload = { type: 'float', value: 0 };
+                        break;
+                    case 'json':
+                        payload = { type: 'json', value: {} };
+                        break;
+                    default:
+                        payload = { type: nextType, value: '' };
+                        break;
+                }
+                actions[actionIndex] = { ...(actions[actionIndex] ?? {}), payload };
+                next[subsystemIndex] = { ...subsystem, actions };
+                return next;
+            });
+        });
+    };
 
     const onSave = async () => {
         if (!deviceName) {
@@ -261,8 +348,8 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
 
     return (
         <AlertDialog open={open} setOpen={(v) => { if (!v) onClose(); }} hideAccept={true} width={"95vw"} height={"85vh"} p="$0">
-            <YStack padding="$4" gap="$3" height="100%" overflow="scroll" width="100%" maxWidth="100%" alignSelf="stretch">
-                <XStack justifyContent="space-between" alignItems="center">
+            <YStack padding="$4" gap="$3" height="100%" overflow="hidden" width="100%" maxWidth="100%" alignSelf="stretch">
+                <XStack justifyContent="space-between" alignItems="center" position="sticky" top={0} zIndex={1} backgroundColor="$background" paddingBottom="$2">
                     <Text fow="700">Edit subsystems</Text>
                     <XStack gap="$2">
                         <Button size="$2" icon={X} disabled={saving} onPress={() => onClose()}>
@@ -275,7 +362,7 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                 </XStack>
                 {error ? <Text color="$red10" size="$2">{error}</Text> : null}
 
-                <YStack gap="$3" width="100%" maxWidth="100%">
+                <YStack gap="$3" width="100%" maxWidth="100%" overflow="auto" flex={1}>
                     {draftSubsystems?.map((subsystem, subsystemIndex) => (
                         <Tinted key={`sub-${subsystemIndex}`} width="100%">
                             <YStack gap="$3" padding="$3" width="100%">
@@ -446,12 +533,127 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                                                                 onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'replyTimeoutMs', e.target.value)}
                                                             />
                                                         </XStack>
-                                                        <JsonField
-                                                            label="Payload (JSON)"
-                                                            value={action?.payload ?? {}}
-                                                            onChange={(v) => updateActionField(subsystemIndex, actionIndex, 'payload', v ?? {})}
-                                                            placeholder='{"type":"str","value":"ON"}'
-                                                        />
+                                                        {/* Payload editor */}
+                                                        <YStack gap="$2" width="100%">
+                                                            <Text fow="600">Payload</Text>
+                                                            <XStack gap="$2" flexWrap="wrap" alignItems="center">
+                                                                <Text size="$2">Type</Text>
+                                                            <Select
+                                                                value={getPayloadType(action?.payload)}
+                                                                onValueChange={(val) => setPayloadType(subsystemIndex, actionIndex, val)}
+                                                                disablePreventBodyScroll
+                                                            >
+                                                                <Select.Trigger iconAfter={ChevronDown} width={180}>
+                                                                    <Select.Value placeholder="Type" />
+                                                                </Select.Trigger>
+                                                                <Select.Content zIndex={1000000}>
+                                                                    <Select.Viewport>
+                                                                        <Select.Group>
+                                                                            {['str', 'int', 'float', 'number', 'json', 'select', 'slider', 'json-schema'].map((opt) => (
+                                                                                <Select.Item key={opt} value={opt}>
+                                                                                    <Select.ItemText>{opt}</Select.ItemText>
+                                                                                    <Select.ItemIndicator marginLeft="auto">
+                                                                                        <Check size={16} />
+                                                                                    </Select.ItemIndicator>
+                                                                                </Select.Item>
+                                                                            ))}
+                                                                        </Select.Group>
+                                                                    </Select.Viewport>
+                                                                </Select.Content>
+                                                            </Select>
+                                                            </XStack>
+
+                                                            {(() => {
+                                                                const pType = getPayloadType(action?.payload);
+                                                                if (pType === 'select') {
+                                                                    const options = Array.isArray(action?.payload) ? action.payload : [];
+                                                                    return (
+                                                                        <YStack gap="$2">
+                                                                            {options.map((opt, optIndex) => (
+                                                                                <XStack key={`opt-${optIndex}`} gap="$2" alignItems="center">
+                                                                                    <Input
+                                                                                        placeholder="Label"
+                                                                                        value={opt?.label ?? ''}
+                                                                                        onChange={(e) => {
+                                                                                            const next = options.map((o, i) => i === optIndex ? { ...o, label: e.target.value } : o);
+                                                                                            updateActionField(subsystemIndex, actionIndex, 'payload', next);
+                                                                                        }}
+                                                                                    />
+                                                                                    <Input
+                                                                                        placeholder="Value"
+                                                                                        value={opt?.value ?? ''}
+                                                                                        onChange={(e) => {
+                                                                                            const next = options.map((o, i) => i === optIndex ? { ...o, value: e.target.value } : o);
+                                                                                            updateActionField(subsystemIndex, actionIndex, 'payload', next);
+                                                                                        }}
+                                                                                    />
+                                                                                    <Button size="$2" icon={Trash2} theme="red" onPress={() => {
+                                                                                        const next = options.filter((_, i) => i !== optIndex);
+                                                                                        updateActionField(subsystemIndex, actionIndex, 'payload', next);
+                                                                                    }}>
+                                                                                        Remove
+                                                                                    </Button>
+                                                                                </XStack>
+                                                                            ))}
+                                                                            <Button size="$2" icon={Plus} onPress={() => updateActionField(subsystemIndex, actionIndex, 'payload', [...options, { label: 'Option', value: '' }])}>
+                                                                                Add option
+                                                                            </Button>
+                                                                        </YStack>
+                                                                    );
+                                                                }
+
+                                                                if (pType === 'slider') {
+                                                                    const slider = action?.payload ?? {};
+                                                                    const setSliderField = (field: string, val: any) => {
+                                                                        updateActionField(subsystemIndex, actionIndex, 'payload', { ...(action?.payload ?? {}), [field]: val, type: 'slider' });
+                                                                    };
+                                                                    return (
+                                                                        <XStack gap="$2" flexWrap="wrap">
+                                                                            <Input placeholder="Min" value={slider.min_value ?? ''} onChange={(e) => setSliderField('min_value', e.target.value)} />
+                                                                            <Input placeholder="Max" value={slider.max_value ?? ''} onChange={(e) => setSliderField('max_value', e.target.value)} />
+                                                                            <Input placeholder="Step" value={slider.step ?? ''} onChange={(e) => setSliderField('step', e.target.value)} />
+                                                                            <Input placeholder="Initial" value={slider.initial_value ?? ''} onChange={(e) => setSliderField('initial_value', e.target.value)} />
+                                                                            <Input placeholder="Unit" value={slider.unit ?? ''} onChange={(e) => setSliderField('unit', e.target.value)} />
+                                                                        </XStack>
+                                                                    );
+                                                                }
+
+                                                                if (pType === 'json-schema') {
+                                                                    const schemaVal = action?.payload?.schema ?? {};
+                                                                    return (
+                                                                        <JsonField
+                                                                            label="Schema (JSON)"
+                                                                            value={schemaVal}
+                                                                            onChange={(v) => updateActionField(subsystemIndex, actionIndex, 'payload', { type: 'json-schema', schema: v ?? {} })}
+                                                                            placeholder='{"type":"object","properties":{}}'
+                                                                        />
+                                                                    );
+                                                                }
+
+                                                                // default scalar/json
+                                                                if (pType === 'json') {
+                                                                    return (
+                                                                        <JsonField
+                                                                            label="Value (JSON)"
+                                                                            value={action?.payload?.value ?? {}}
+                                                                            onChange={(v) => updateActionField(subsystemIndex, actionIndex, 'payload', { ...(action?.payload ?? {}), type: 'json', value: v ?? {} })}
+                                                                            placeholder='{"key":"value"}'
+                                                                        />
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <XStack gap="$2" flexWrap="wrap">
+                                                                        <Input
+                                                                            placeholder="Value"
+                                                                            value={action?.payload?.value ?? ''}
+                                                                            onChange={(e) => updateActionField(subsystemIndex, actionIndex, 'payload', { ...(action?.payload ?? {}), type: pType, value: e.target.value })}
+                                                                            flex={1}
+                                                                        />
+                                                                    </XStack>
+                                                                );
+                                                            })()}
+                                                        </YStack>
                                                         <JsonField
                                                             label="Props (JSON)"
                                                             value={action?.props ?? {}}

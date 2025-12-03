@@ -12,7 +12,9 @@ type TemplateDialogState = {
   boardName: string
   subsystems: any[]
   error?: string
+  warning?: string
   submitting: boolean
+  overwriteConfirmed: boolean
 }
 
 type UseEsphomeTemplateCreatorOptions = {
@@ -50,7 +52,9 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
     boardName: '',
     subsystems: [],
     error: undefined,
-    submitting: false
+    warning: undefined,
+    submitting: false,
+    overwriteConfirmed: false
   })
   const [boardOptions, setBoardOptions] = useState<string[]>([])
 
@@ -138,7 +142,9 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
       boardName: '',
       subsystems: [],
       error: undefined,
-      submitting: true
+      warning: undefined,
+      submitting: true,
+      overwriteConfirmed: false
     })
 
     try {
@@ -173,7 +179,9 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
         subsystems: deviceSubsystems,
         description: '',
         error: undefined,
-        submitting: false
+        warning: undefined,
+        submitting: false,
+        overwriteConfirmed: false
       }))
     } catch (err) {
       console.error('Error preparing template dialog:', err)
@@ -182,7 +190,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
   }
 
   const submitTemplateDialog = async () => {
-    const { device, yaml, templateName, description, boardName, subsystems } = templateDialog
+    const { device, yaml, templateName, description, boardName, subsystems, overwriteConfirmed } = templateDialog
     if (!device || !yaml) {
       setTemplateDialog(prev => ({ ...prev, error: 'Missing device data or YAML content.' }))
       return
@@ -209,15 +217,44 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
         return
       }
 
+      let existingDefinition: any | null = null
+      try {
+        const existingResp = await API.get(`/api/core/v1/devicedefinitions/${encodeURIComponent(safeTemplateName)}`)
+        const status = existingResp?.status ?? existingResp?.error?.response?.status ?? existingResp?.error?.result
+        const notFound = status === 404 || status === 'not found'
+        if (!existingResp?.isError && existingResp?.data) {
+          existingDefinition = existingResp.data
+        } else if (existingResp?.isError && notFound) {
+          existingDefinition = null
+        }
+      } catch (err) {
+        console.error('Error checking existing template definition:', err)
+      }
+
+      if (existingDefinition && !overwriteConfirmed) {
+        setTemplateDialog(prev => ({
+          ...prev,
+          submitting: false,
+          error: undefined,
+          warning: 'A template with this name already exists. Press "Create template" again to overwrite it.',
+          overwriteConfirmed: true
+        }))
+        return
+      }
+
       const subsystemsRecord = toSubsystemRecord(subsystems)
 
-      const createResponse = await API.post('/api/core/v1/devicedefinitions', {
+      const definitionPayload = {
         name: safeTemplateName,
         sdk: 'esphome-yaml',
         board: boardResponse.data,
         ...(descriptionValue ? { description: descriptionValue } : {}),
         ...(Object.keys(subsystemsRecord).length ? { subsystems: subsystemsRecord } : {})
-      })
+      }
+
+      const createResponse = existingDefinition
+        ? await API.post(`/api/core/v1/devicedefinitions/${encodeURIComponent(safeTemplateName)}`, definitionPayload)
+        : await API.post('/api/core/v1/devicedefinitions', definitionPayload)
 
       if (createResponse?.isError) {
         setTemplateDialog(prev => ({ ...prev, error: `Error creating template: ${JSON.stringify(createResponse?.error) ?? 'Unknown error'}`, submitting: false }))
@@ -239,7 +276,9 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
           boardName: '',
           subsystems: [],
           error: undefined,
-          submitting: false
+          warning: undefined,
+          submitting: false,
+          overwriteConfirmed: false
         })
       }
 
@@ -256,12 +295,14 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
       device: null,
       yaml: '',
       templateName: '',
-      description: '',
-      boardName: '',
-      subsystems: [],
-      error: undefined,
-      submitting: false
-    })
+    description: '',
+    boardName: '',
+    subsystems: [],
+    error: undefined,
+    warning: undefined,
+    submitting: false,
+    overwriteConfirmed: false
+  })
   }
 
   return {

@@ -13,7 +13,9 @@ type TemplateDialogState = {
   boardName: string
   subsystems: any[]
   error?: string
+  warning?: string
   submitting: boolean
+  overwriteConfirmed: boolean
 }
 
 type EsphomeTemplateDialogProps = {
@@ -52,7 +54,12 @@ export const EsphomeTemplateDialog = ({
           <Input
             placeholder="Template name"
             value={templateDialog.templateName}
-            onChangeText={(v) => setTemplateDialog(prev => ({ ...prev, templateName: v }))}
+            onChangeText={(v) => setTemplateDialog(prev => ({
+              ...prev,
+              templateName: v,
+              warning: undefined,
+              overwriteConfirmed: false
+            }))}
             disabled={templateDialog.submitting}
           />
         </YStack>
@@ -76,6 +83,9 @@ export const EsphomeTemplateDialog = ({
             placeholder="Select a board"
           />
         </YStack>
+        {templateDialog.warning ? (
+          <Text color="$yellow10" fontSize="$3">{templateDialog.warning}</Text>
+        ) : null}
         {templateDialog.error ? (
           <Text color="$red9" fontSize="$3">{templateDialog.error}</Text>
         ) : null}

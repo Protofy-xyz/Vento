@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AlertDialog } from 'protolib/components/AlertDialog'
 import { Tinted } from 'protolib/components/Tinted'
 import { Switch, useThemeName } from '@my/ui'
 import { Maximize, Minimize, Upload, X, SearchCode, RefreshCcw, Download } from '@tamagui/lucide-icons'
-import { Button, YStack, Text, XStack } from "@my/ui"
+import { Button, YStack, Text, XStack, TextArea } from "@my/ui"
 import { EspWebInstall } from "./EspWebInstall"
 import { EspConsole } from "./espConsole";
 
@@ -54,12 +54,15 @@ const DeviceModal = ({
   onSelectAction,
   logSource, // 'mqtt' | 'usb' | null | undefined
   disconnectInfo,
+  compileMessages = [],
 }) => {    
     const [fullscreen, setFullscreen] = useState(false);
     const [manifestUrl, setManifestUrl] = useState(null)
     const isError = modalFeedback?.details?.error
     const isLoading = ['write'].includes(stage) && !isError && !modalFeedback?.message?.includes('Please hold "Boot"')
     const themeName = useThemeName();
+    const compileLogRef = useRef<HTMLTextAreaElement | null>(null);
+    const stickToBottomRef = useRef(true);
     const stages = {
         'yaml': 'Uploading yaml to the project...',
         'compile': 'Compiling firmware...',
@@ -110,6 +113,16 @@ const DeviceModal = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [showModal, onCancel]);
 
+    useEffect(() => {
+        if (stage === 'compile' && fullscreen && compileLogRef.current && stickToBottomRef.current) {
+            compileLogRef.current.scrollTop = compileLogRef.current.scrollHeight;
+        }
+    }, [compileMessages, stage, fullscreen]);
+
+    useEffect(() => {
+        // Reset autoscroll when re-entering compile or toggling fullscreen
+        stickToBottomRef.current = true;
+    }, [stage, fullscreen]);
 
     return <AlertDialog open={showModal} hideAccept={true}>
         <YStack
@@ -184,14 +197,35 @@ const DeviceModal = ({
                         </YStack>
                     ) : (
                         <YStack justifyContent="center" flex={1} gap={"$2"} maxHeight="100%">
-                            <Text fontWeight={"600"} textAlign="center" color={isError ? 'red' : ''}>
-                                {modalFeedback && ['write', 'compile', 'upload', 'yaml'].includes(stage)
-                                    ? modalFeedback.message
-                                    : stages[stage]
-                                }
-                            </Text>
+                            {!(stage === 'compile' && fullscreen) && (
+                                <Text fontWeight={"600"} textAlign="center" color={isError ? 'red' : ''}>
+                                    {modalFeedback && ['write', 'compile', 'upload', 'yaml'].includes(stage)
+                                        ? modalFeedback.message
+                                        : stages[stage]
+                                    }
+                                </Text>
+                            )}
+                            {stage === 'compile' && fullscreen && (
+                                <TextArea
+                                    ref={compileLogRef}
+                                    value={(compileMessages ?? []).join("\n")}
+                                    f={1}
+                                    minHeight={180}
+                                    maxHeight="100%"
+                                    overflow="auto"
+                                    textAlign="left"
+                                    resize="none"
+                                    readOnly
+                                    onScroll={(e) => {
+                                        const target = e.currentTarget;
+                                        const { scrollTop, scrollHeight, clientHeight } = target;
+                                        const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+                                        stickToBottomRef.current = distanceFromBottom < 20;
+                                    }}
+                                />
+                            )}
                             {
-                                !isError && images[themeName] && images[themeName][isLoading ? 'loading' : stage] && (
+                                !(stage === 'compile' && fullscreen) && !isError && images[themeName] && images[themeName][isLoading ? 'loading' : stage] && (
                                     <img
                                         alt="protofito dancing"
                                         style={{

@@ -32,11 +32,11 @@ const renderIcon = (icon?: IconLike, size = 16) => {
 }
 
 export const TabBar = React.forwardRef<any, TabBarProps>(
-  ({ tabs, selectedId, onSelect, iconSize = 16 }, ref) => {
+  ({ tabs, selectedId, onSelect, iconSize = 16, ...props }, ref) => {
     const items = normalizeTabs(tabs)
 
     return (
-      <XStack borderBottomColor="$gray6" borderBottomWidth="1px" ref={ref}>
+      <XStack borderBottomColor="$gray6" borderBottomWidth="1px" ref={ref} {...props}>
         {items.map((tab, index) => {
           const isSelected = selectedId === tab.id
 

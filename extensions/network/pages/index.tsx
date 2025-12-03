@@ -7,7 +7,6 @@ import { AdminPage } from "protolib/components/AdminPage"
 import { PaginatedData, SSR } from "protolib/lib/SSR"
 import { withSession } from "protolib/lib/Session"
 import { useRouter } from 'solito/navigation';
-import BoardPreview from 'protolib/components/board/BoardPreview'
 import { createParam } from 'solito'
 import { AsyncView } from 'protolib/components/AsyncView'
 import { YStack, XStack, Spacer, ScrollView, Text, Paragraph, Button } from "@my/ui";
@@ -15,23 +14,18 @@ import { AlertDialog } from 'protolib/components/AlertDialog'
 import { useState } from 'react'
 import { Slides } from 'protolib/components/Slides';
 import { TemplateCard } from '../../apis/TemplateCard';
-import { Eye, EyeOff, Plus, Bot, Sparkles } from '@tamagui/lucide-icons'
+import { Eye, EyeOff, Plus, Bot, Sparkles, Network } from '@tamagui/lucide-icons'
 import { usePageParams } from 'protolib/next'
 import { Tinted } from 'protolib/components/Tinted'
-import { Board } from '@extensions/boards/pages/view'
 import { BoardView } from '@extensions/boards/pages/view'
 import { networkOptions, NetworkOption } from '../options'
 import { shouldShowInArea } from 'protolib/helpers/Visibility'
+import { NetworkTopologyView } from '../components/NetworkTopologyView'
+import { NetworkCard } from '../components/NetworkCard'
 
 const { useParams } = createParam()
 
 const sourceUrl = '/api/core/v1/boards'
-
-// ========== TOGGLE DE VISTA ==========
-// Cambiar a true para usar la vista embebida (NetworkPreview)
-// Cambiar a false para usar la vista de cards (BoardPreview)
-const USE_EMBEDDED_VIEW = false
-// =====================================
 
 const SelectGrid = ({ children }) => {
   return <XStack jc="flex-start" ai="flex-start" gap={25} flexWrap='wrap' width="100%" maxWidth={760} mx="auto">
@@ -106,25 +100,6 @@ const CategorySlide = ({ selected, setSelected }: { selected: NetworkOption | nu
   </YStack>
 }
 
-// Vista alternativa: NetworkPreview - Muestra el board embebido directamente en la card
-const NetworkPreview = ({ board, width, onDelete }: any) => {
-    return (
-        <YStack
-            cursor="pointer"
-            bg="$bgPanel"
-            elevation={4}
-            br="$4"
-            width={'100%'}
-            f={1}
-            display="flex"
-            maxWidth={width ?? 474}
-            gap="$4"
-            height="500px"
-        >
-            <Board forceViewMode={'ui'} key={board?.name} board={board} icons={[]} />
-        </YStack>
-    )
-}
 
 export default {
   boards: {
@@ -182,71 +157,80 @@ export default {
             </XStack>
           </YStack>
         </AlertDialog>
-
-        <DataView
-          entityName={"network"}
-          itemData={itemData}
-          sourceUrl={sourceUrl}
-          sourceUrlParams={query}
-          hideDeleteAll={true}
-          extraActions={[
-            <Tinted key="toggle-visibility-scope">
-              <DataViewActionButton
-                id="admin-dataview-add-btn"
-                icon={query.all === 'true' ? EyeOff : Eye}
-                description={
-                  query.all === 'true'
-                    ? 'Show only boards visible in this view'
-                    : 'Show boards from all views'
+          <DataView
+            entityName={"network"}
+            itemData={itemData}
+            sourceUrl={sourceUrl}
+            sourceUrlParams={query}
+            hideDeleteAll={true}
+            extraViews={[{
+              name: 'topology',
+              icon: Network,
+              component: ()=> <NetworkTopologyView 
+                showAll={query.all === 'true'}
+                onNodeClick={(nodeData) => {
+                  if (nodeData?.originalData?.name) {
+                    router.push(`/boards/view?board=${nodeData.originalData.name}`)
+                  }
+                }} 
+              />,
+            }]}
+            extraActions={[
+              <Tinted key="toggle-visibility-scope">
+                <DataViewActionButton
+                  id="admin-dataview-add-btn"
+                  icon={query.all === 'true' ? EyeOff : Eye}
+                  description={
+                    query.all === 'true'
+                      ? 'Show only boards visible in this view'
+                      : 'Show boards from all views'
+                  }
+                  onPress={() => {
+                    push('all', query.all === 'true' ? 'false' : 'true')
+                  }}
+                />
+              </Tinted>
+            ]}
+            extraFilters={[{ queryParam: "all" }]}
+            
+            initialItems={initialItems}
+            numColumnsForm={1}
+            onAdd={(data) => { router.push(`/boards/view?board=${data.name}`); return data }}
+            name="Network Element"
+            disableViews={['raw', 'list']}
+            onEdit={data => { console.log("DATA (onEdit): ", data); return data }}
+            onSelectItem={(item) => router.push(`/boards/view?board=${item.data.name}`)}
+            columns={DataTable2.columns(
+              DataTable2.column("name", row => row.name, "name")
+            )}
+            onAddButton={() => setAddOpen(true)}
+            model={BoardModel}
+            pageState={pageState}
+            dataTableGridProps={{
+              emptyMessage: <EmptyAgentsState onCreateClick={() => setAddOpen(true)} />,
+              itemsTransform: (items) => {
+                const list = Array.isArray(items) ? [...items] : [];
+                if (query.all !== 'true') {
+                  return list.filter((item) => shouldShowInArea(item, 'agents'));
                 }
-                onPress={() => {
-                  push('all', query.all === 'true' ? 'false' : 'true')
-                }}
-              />
-            </Tinted>
-          ]}
-          extraFilters={[{ queryParam: "all" }]}
-          initialItems={initialItems}
-          numColumnsForm={1}
-          onAdd={(data) => { router.push(`/boards/view?board=${data.name}`); return data }}
-          name="Network Element"
-          disableViews={['raw']}
-          onEdit={data => { console.log("DATA (onEdit): ", data); return data }}
-          onSelectItem={(item) => router.push(`/boards/view?board=${item.data.name}`)}
-          columns={DataTable2.columns(
-            DataTable2.column("name", row => row.name, "name")
-          )}
-          onAddButton={() => setAddOpen(true)}
-          model={BoardModel}
-          pageState={pageState}
-          dataTableGridProps={{
-            emptyMessage: <EmptyAgentsState onCreateClick={() => setAddOpen(true)} />,
-            itemsTransform: (items) => {
-              const list = Array.isArray(items) ? [...items] : [];
-              if (query.all !== 'true') {
-                return list.filter((item) => shouldShowInArea(item, 'agents'));
-              }
-              return list;
-            },
-            getCard: (element, width) => USE_EMBEDDED_VIEW 
-              ? <NetworkPreview 
-                  board={element} 
-                  width={width} 
+                return list;
+              },
+              getCard: (element, width) => (
+                <NetworkCard
+                  board={element}
+                  platform={element.platform || 'virtual'}
+                  mode="card"
+                  width={width}
+                  onPress={() => router.push(`/boards/view?board=${element.name}`)}
                   onDelete={async () => {
                     await API.get(`/api/core/v1/boards/${element.name}/delete`);
                   }}
                 />
-              : <BoardPreview
-                  onDelete={async () => {
-                    await API.get(`/api/core/v1/boards/${element.name}/delete`);
-                  }}
-                  element={element}
-                  width={width}
-                  onPress={() => router.push(`/boards/view?board=${element.name}`)}
-                />,
-          }}
-          defaultView={"grid"}
-        />
+              ),
+            }}
+            defaultView={"topology"}
+          />
+        
       </AdminPage>)
     },
     getServerSideProps: PaginatedData(sourceUrl, ['admin'])

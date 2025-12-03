@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { YStack, XStack, Text, Paragraph, Input, Progress } from '@my/ui'
+import { YStack, XStack, Text, Paragraph, Input, Progress, Checkbox, Label } from '@my/ui'
 import { AlertDialog } from './AlertDialog'
 import { Tinted } from './Tinted'
 import { Bot, Cpu, Cloud, Sparkles, Key, ChevronLeft, Download, CheckCircle, AlertCircle, Loader } from '@tamagui/lucide-icons'
@@ -87,9 +87,10 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
     const [selectedProvider, setSelectedProvider] = useState('chatgpt')
     const [selectedModel, setSelectedModel] = useState('gemma3-12b')
     const [apiKey, setApiKey] = useState('')
+    const [telemetryEnabled, setTelemetryEnabled] = useState(true)
     const [step, setStep] = useState<Step>('provider')
     const [session] = useSession()
-    
+
     // Download state
     const [downloadId, setDownloadId] = useState<string | null>(null)
     const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({
@@ -135,7 +136,7 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
 
             if (newDownloadId) {
                 setDownloadId(newDownloadId)
-                
+
                 // If already downloaded, show completed immediately
                 if (alreadyDownloaded) {
                     // Fetch final progress to get file size
@@ -149,25 +150,25 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                     })
                     return
                 }
-                
+
                 // If download already in progress, start polling immediately
                 setDownloadProgress(prev => ({ ...prev, status: existing ? 'downloading' : 'downloading' }))
-                
+
                 // Start polling for progress
                 pollIntervalRef.current = setInterval(() => {
                     pollDownloadProgress(newDownloadId, token)
                 }, 1000)
-                
+
                 // Also poll immediately to get current status
                 if (existing) {
                     pollDownloadProgress(newDownloadId, token)
                 }
             }
         } catch (err: any) {
-            setDownloadProgress(prev => ({ 
-                ...prev, 
-                status: 'error', 
-                error: err?.message || 'Failed to start download' 
+            setDownloadProgress(prev => ({
+                ...prev,
+                status: 'error',
+                error: err?.message || 'Failed to start download'
             }))
         }
     }
@@ -175,7 +176,7 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
     const pollDownloadProgress = async (id: string, token: string) => {
         try {
             const response = await API.get(`/api/core/v1/llama/models/download/${id}?token=${token}`)
-            
+
             if (response.error) {
                 return
             }
@@ -240,12 +241,12 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
 
     const saveSettings = async () => {
         const token = (session as any)?.token
-        
+
         if (!token) {
             console.error('AISetupWizard: No session token available!')
             return
         }
-        
+
         console.log('AISetupWizard: Saving provider:', selectedProvider)
 
         try {
@@ -282,6 +283,13 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                 })
                 console.log('AISetupWizard: ai.localmodel save result:', modelRes)
             }
+
+            // Save telemetry setting
+            const telemetryRes = await API.post(`/api/core/v1/settings?token=${token}`, {
+                name: 'cloud.telemetry',
+                value: telemetryEnabled ? 'true' : 'false'
+            })
+            console.log('AISetupWizard: cloud.telemetry save result:', telemetryRes)
         } catch (error) {
             console.error('AISetupWizard: Error saving settings:', error)
         }
@@ -353,9 +361,9 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
 
     const isAcceptDisabled = () => {
         if (step === 'download') {
-            return downloadProgress.status === 'downloading' || 
-                   downloadProgress.status === 'starting' ||
-                   downloadProgress.status === 'retrying'
+            return downloadProgress.status === 'downloading' ||
+                downloadProgress.status === 'starting' ||
+                downloadProgress.status === 'retrying'
         }
         return false
     }
@@ -435,7 +443,7 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                     <Input
                         placeholder="sk-proj-..."
                         value={apiKey}
-                        onChangeText={setApiKey} 
+                        onChangeText={setApiKey}
                         size="$4"
                         backgroundColor="$background"
                         borderColor="$color6"
@@ -532,8 +540,8 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
             }
         }
 
-        const progressColor = status === 'completed' ? '$green10' : 
-                              status === 'error' ? '$red10' : '$color10'
+        const progressColor = status === 'completed' ? '$green10' :
+            status === 'error' ? '$red10' : '$color10'
 
         return (
             <Tinted>
@@ -584,16 +592,16 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
 
                         {/* Progress bar */}
                         <Progress value={percent} size="$2">
-                            <Progress.Indicator 
+                            <Progress.Indicator
                                 backgroundColor={progressColor}
                             />
                         </Progress>
 
                         {/* Percentage */}
                         <XStack justifyContent="center">
-                            <Text 
-                                fontSize="$8" 
-                                fontWeight="bold" 
+                            <Text
+                                fontSize="$8"
+                                fontWeight="bold"
                                 color={status === 'completed' ? '$green10' : '$color12'}
                             >
                                 {percent}%
@@ -603,9 +611,9 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
 
                     {/* Error message */}
                     {status === 'error' && error && (
-                        <XStack 
-                            padding="$3" 
-                            borderRadius="$3" 
+                        <XStack
+                            padding="$3"
+                            borderRadius="$3"
                             backgroundColor="$red3"
                             gap="$2"
                             alignItems="center"
@@ -619,9 +627,9 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
 
                     {/* Success message */}
                     {status === 'completed' && (
-                        <XStack 
-                            padding="$3" 
-                            borderRadius="$3" 
+                        <XStack
+                            padding="$3"
+                            borderRadius="$3"
                             backgroundColor="$green3"
                             gap="$2"
                             alignItems="center"
@@ -650,11 +658,11 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
             showCancel={step !== 'download' || downloadProgress.status === 'error' || downloadProgress.status === 'idle'}
             onAccept={handleContinue}
             onCancel={handleBack}
-            acceptButtonProps={{ 
+            acceptButtonProps={{
                 icon: step === 'provider' ? Sparkles : step === 'localmodel' ? Download : undefined,
                 disabled: isAcceptDisabled()
             }}
-            cancelButtonProps={{ 
+            cancelButtonProps={{
                 icon: step !== 'provider' ? ChevronLeft : undefined,
                 ...(step === 'provider' ? {
                     chromeless: true,
@@ -674,9 +682,39 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                 {step === 'download' && renderDownloadStep()}
 
                 {step === 'provider' && (
-                    <Paragraph size="$2" color="$color10" textAlign="center" mt="$2">
-                        You can change this later in Settings
-                    </Paragraph>
+                    <>
+                        <XStack
+                            alignItems="center"
+                            justifyContent="center"
+                            gap="$2"
+                            mt="$3"
+                            opacity={0.7}
+                            cursor="pointer"
+                            onPress={() => setTelemetryEnabled(!telemetryEnabled)}
+                        >
+                            <Checkbox
+                                id="telemetry-checkbox"
+                                size="$3"
+                                checked={telemetryEnabled}
+                                onCheckedChange={(checked) => setTelemetryEnabled(checked === true)}
+                                borderWidth={0}
+                                backgroundColor={telemetryEnabled ? '$color7' : '$color4'}
+                                focusStyle={{ outlineWidth: 0 }}   // 👈 esto quita el borde blanco
+                            >
+                                <Checkbox.Indicator>
+                                    <Text color="$color12" fontSize="$2">✓</Text>
+                                </Checkbox.Indicator>
+                            </Checkbox>
+                            <Label
+                                htmlFor="telemetry-checkbox"
+                                size="$2"
+                                color="$color10"
+                                cursor="pointer"
+                            >
+                                Send anonymous usage data to help improve Vento
+                            </Label>
+                        </XStack>
+                    </>
                 )}
             </YStack>
         </AlertDialog>

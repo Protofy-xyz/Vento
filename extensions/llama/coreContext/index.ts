@@ -554,11 +554,14 @@ const findExistingDownload = (url: string, filename: string): DownloadProgress |
 
 /**
  * Start a model download (returns immediately with download ID)
+ * - If file already exists on disk → returns completed status with 100%
+ * - If download already in progress → returns existing download ID
+ * - Otherwise → starts new download
  */
 export const llamaStartDownload = async (options: {
     url: string;
     filename?: string;
-}): Promise<{ downloadId: string; existing?: boolean } | { error: string }> => {
+}): Promise<{ downloadId: string; existing?: boolean; alreadyDownloaded?: boolean } | { error: string }> => {
     const { url, filename } = options;
     
     try {
@@ -570,7 +573,7 @@ export const llamaStartDownload = async (options: {
         if (url.includes('/resolve/') && url.endsWith('.gguf')) {
             downloadUrl = url;
             if (!outputFilename) {
-                outputFilename = path.basename(url);
+                outputFilename = path.basename(url).split('?')[0]; // Remove query params
             }
         } else if (url.includes('huggingface.co') || url.match(/^[\w-]+\/[\w-]+$/)) {
             return { error: 'Please provide a direct link to a .gguf file.' };
@@ -580,6 +583,36 @@ export const llamaStartDownload = async (options: {
             return { error: 'Could not determine filename. Please provide a filename.' };
         }
         
+        // Check if file already exists on disk
+        const finalPath = path.join(modelsDir, outputFilename);
+        if (fs.existsSync(finalPath)) {
+            const stats = fs.statSync(finalPath);
+            const downloadId = `completed_${outputFilename}`;
+            
+            // Create a completed progress entry so getDownloadProgress works
+            const completedProgress: DownloadProgress = {
+                id: downloadId,
+                url: downloadUrl,
+                filename: outputFilename,
+                status: 'completed',
+                percent: 100,
+                downloaded: stats.size,
+                total: stats.size,
+                startedAt: stats.mtime,
+                completedAt: stats.mtime,
+                path: finalPath,
+                retryCount: 0,
+                maxRetries: DOWNLOAD_CONFIG.maxRetries
+            };
+            
+            activeDownloads.set(downloadId, completedProgress);
+            scheduleCleanup(downloadId);
+            
+            logger.info({ downloadId, filename: outputFilename, size: stats.size }, 'Model already downloaded');
+            return { downloadId, alreadyDownloaded: true };
+        }
+        
+        // Check if there's an active download for this file
         const existingDownload = findExistingDownload(downloadUrl, outputFilename);
         if (existingDownload) {
             logger.info({ downloadId: existingDownload.id, filename: outputFilename }, 'Download already in progress');

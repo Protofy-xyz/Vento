@@ -1,5 +1,6 @@
 import { API } from "protobase";
 import { getLogger } from "protobase";
+import { getServiceToken } from "protonode";
 
 const logger = getLogger()
 
@@ -9,10 +10,13 @@ export const get = async ({ key = '', done = (key) => {}, error = (err) => {}, t
         return
     }
 
+    // Use provided token or fall back to service token
+    const authToken = token || getServiceToken();
+
     var urlEnch = '/api/core/v1/settings/' + key
 
-    if (token) {
-        urlEnch = urlEnch + "?token=" + token
+    if (authToken) {
+        urlEnch = urlEnch + "?token=" + authToken
     }
 
     const result = await API.get(urlEnch)

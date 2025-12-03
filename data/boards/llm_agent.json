@@ -134,9 +134,10 @@
                 },
                 "provider": {
                     "visible": true,
-                    "defaultValue": "chatgpt",
+                    "defaultValue": "default",
                     "type": "select",
                     "data": [
+                        "default",
                         "llama",
                         "chatgpt",
                         "lmstudio"
@@ -144,10 +145,13 @@
                 },
                 "model": {
                     "visible": true,
-                    "defaultValue": "gpt-4.1",
+                    "defaultValue": "default",
                     "type": "select",
                     "dataFromField": "provider",
                     "dataMap": {
+                        "default": [
+                            "default"
+                        ],
                         "chatgpt": [
                             "gpt-4.1",
                             "gpt-4o",
@@ -196,8 +200,10 @@
             "links": [],
             "color": "var(--color7)",
             "theme": "dark",
-            "domId": "2a8bbc00-c102-4290-8b54-1233eb799eb3",
-            "cardState": {}
+            "domId": "7f755c4e-9c3b-4e2f-8384-0d86f20e3116",
+            "cardState": {},
+            "editRulesInLowCode": false,
+            "editRulesInNaturalLanguage": false
         },
         {
             "key": "action_1762627462167",
@@ -451,41 +457,41 @@
         "default": "/api/agents/v1/[object Object]/agent_input"
     },
     "version": 1,
-    "savedAt": 1764700475242,
+    "savedAt": 1764720893247,
     "rules": [
         ""
     ],
     "graphLayout": {
         "group-base": {
             "x": 0,
-            "y": -1.0430199225875185,
+            "y": 0,
             "layer": "base",
             "type": "group"
         },
         "agent_input": {
             "x": 100,
-            "y": 161.04301992258752,
+            "y": 160,
             "layer": "base",
             "parent": "group-base",
             "type": "node"
         },
         "call_ai_provider": {
-            "x": 1339.8574578579703,
-            "y": 164.79957258197007,
+            "x": 1341.6573451990168,
+            "y": 162.62269470116038,
             "layer": "base",
             "parent": "group-base",
             "type": "node"
         },
         "current_request": {
             "x": 820,
-            "y": 161.04301992258752,
+            "y": 160,
             "layer": "base",
             "parent": "group-base",
             "type": "node"
         },
         "reply": {
             "x": 1860,
-            "y": 161.04301992258752,
+            "y": 160,
             "layer": "base",
             "parent": "group-base",
             "type": "node"

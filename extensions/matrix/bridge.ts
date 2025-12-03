@@ -62,10 +62,33 @@ let ventoRoomId: string | null = null;
 let ventoRoomEnsured = false;
 // Max history messages to keep per DM
 const MAX_DM_HISTORY = 50;
+// Timeout for agent calls (in milliseconds)
+const AGENT_CALL_TIMEOUT_MS = 120000; // 2 minutes
 
 interface ChatMessage {
     role: 'user' | 'assistant' | 'system';
     content: string;
+}
+
+/**
+ * Wrap a promise with a timeout
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            reject(new Error(errorMessage));
+        }, timeoutMs);
+
+        promise
+            .then((result) => {
+                clearTimeout(timeoutId);
+                resolve(result);
+            })
+            .catch((error) => {
+                clearTimeout(timeoutId);
+                reject(error);
+            });
+    });
 }
 
 /**
@@ -471,7 +494,13 @@ async function callAgentInput(boardId: string, message: string, sender: string):
 
     logger.debug({ url, message, sender }, 'Calling agent input');
 
-    const response = await API.get(url + `?message=${encodeURIComponent(message)}&sender=${encodeURIComponent(sender)}&token=${token}`);
+    const apiCall = API.get(url + `?message=${encodeURIComponent(message)}&sender=${encodeURIComponent(sender)}&token=${token}`);
+    
+    const response = await withTimeout(
+        apiCall,
+        AGENT_CALL_TIMEOUT_MS,
+        `Agent ${boardId} did not respond within ${AGENT_CALL_TIMEOUT_MS / 1000} seconds`
+    );
 
     if (response.isError) {
         throw new Error(response.error?.message || 'Agent call failed');
@@ -491,7 +520,13 @@ async function callAgentWithHistory(boardId: string, messages: ChatMessage[], se
 
     // Send messages array as JSON in the message parameter
     const messageParam = JSON.stringify(messages);
-    const response = await API.get(url + `?message=${encodeURIComponent(messageParam)}&sender=${encodeURIComponent(sender)}&token=${token}`);
+    const apiCall = API.get(url + `?message=${encodeURIComponent(messageParam)}&sender=${encodeURIComponent(sender)}&token=${token}`);
+    
+    const response = await withTimeout(
+        apiCall,
+        AGENT_CALL_TIMEOUT_MS,
+        `Agent ${boardId} did not respond within ${AGENT_CALL_TIMEOUT_MS / 1000} seconds`
+    );
 
     if (response.isError) {
         throw new Error(response.error?.message || 'Agent call failed');
@@ -566,7 +601,10 @@ async function handleInvite(event: any): Promise<void> {
 async function handleMatrixEvent(event: any): Promise<void> {
     // Handle invites first
     if (event.type === 'm.room.member') {
-        await handleInvite(event);
+        // Handle invite in background (non-blocking)
+        handleInvite(event).catch(err => {
+            logger.error({ error: err.message }, 'Error handling invite');
+        });
         return;
     }
 
@@ -583,7 +621,7 @@ async function handleMatrixEvent(event: any): Promise<void> {
     // Don't respond to our own messages
     if (sender.startsWith(`@${USER_PREFIX}`)) return;
 
-    logger.debug({ sender, roomId, body }, 'Processing Matrix event');
+    logger.debug({ sender, roomId, body: body.substring(0, 50) }, 'Processing Matrix message');
 
     // Check if message mentions an agent
     for (const [boardId, agent] of Array.from(registeredAgents)) {
@@ -598,66 +636,114 @@ async function handleMatrixEvent(event: any): Promise<void> {
                 const message = match[1].trim();
                 logger.info({ agent: boardId, message, sender }, 'Agent mentioned');
 
-                try {
-                    await registerAgentUser(agent);
-                    await joinAgentToRoom(agent, roomId);
-                    
-                    // Show typing indicator while processing
-                    await setTypingIndicator(agent, roomId, true);
-                    
-                    try {
-                        const response = await callAgentInput(boardId, message, sender);
-                        await setTypingIndicator(agent, roomId, false);
-                        await sendMessageAsAgent(agent, roomId, response);
-                    } catch (agentError: any) {
-                        await setTypingIndicator(agent, roomId, false);
-                        throw agentError;
-                    }
-                } catch (error: any) {
-                    logger.error({ error: error.message, agent: boardId }, 'Error handling agent request');
-                    await sendErrorAsAgent(agent, roomId, error);
-                }
+                // Handle agent call in background (non-blocking)
+                handleAgentMention(agent, boardId, roomId, message, sender);
                 return;
             }
         }
     }
 
     // No mention found - check if this is a DM with an agent
-    // A DM is detected when one of our agents is a member of this room (not #vento)
-    const dmAgent = await detectDMAgent(roomId, sender);
-    if (dmAgent) {
-        logger.info({ agent: dmAgent.boardId, message: body, sender, roomId }, 'DM to agent');
+    // Handle DM detection and processing in background (fully non-blocking)
+    processMessageAsDM(roomId, body, sender);
+}
+
+/**
+ * Process a message as potential DM (non-blocking)
+ */
+async function processMessageAsDM(roomId: string, body: string, sender: string): Promise<void> {
+    try {
+        const dmAgent = await detectDMAgent(roomId, sender);
+        if (dmAgent) {
+            logger.debug({ agent: dmAgent.boardId, sender, roomId }, 'DM to agent detected');
+            // Don't await - let it run in background
+            handleAgentDM(dmAgent, roomId, body, sender).catch(err => {
+                logger.error({ error: err.message, roomId, agent: dmAgent.boardId }, 'handleAgentDM failed');
+            });
+        }
+    } catch (error: any) {
+        logger.error({ error: error.message, roomId }, 'Error detecting DM agent');
+    }
+}
+
+
+/**
+ * Handle agent mention in background (non-blocking)
+ */
+async function handleAgentMention(agent: VentoAgent, boardId: string, roomId: string, message: string, sender: string): Promise<void> {
+    try {
+        await registerAgentUser(agent);
+        await joinAgentToRoom(agent, roomId);
         
         // Show typing indicator while processing
-        await setTypingIndicator(dmAgent, roomId, true);
+        await setTypingIndicator(agent, roomId, true);
         
         try {
-            // Load conversation history (per room, so new DM = fresh conversation)
-            const history = loadDMHistory(dmAgent.boardId, roomId);
-            
-            // Add user's new message to history
-            history.push({ role: 'user', content: body });
-            
-            // Call agent with full history
-            const response = await callAgentWithHistory(dmAgent.boardId, history, sender);
-            
-            // Stop typing indicator
-            await setTypingIndicator(dmAgent, roomId, false);
-            
-            // Add assistant's response to history
-            history.push({ role: 'assistant', content: response });
-            
-            // Save updated history
-            saveDMHistory(dmAgent.boardId, roomId, history);
-            
-            // Send response to Matrix
-            await sendMessageAsAgent(dmAgent, roomId, response);
-        } catch (error: any) {
-            // Stop typing indicator on error
-            await setTypingIndicator(dmAgent, roomId, false);
-            
-            logger.error({ error: error.message, stack: error.stack, agent: dmAgent.boardId }, 'Error handling DM');
-            await sendErrorAsAgent(dmAgent, roomId, error);
+            const response = await callAgentInput(boardId, message, sender);
+            await setTypingIndicator(agent, roomId, false);
+            await sendMessageAsAgent(agent, roomId, response);
+        } catch (agentError: any) {
+            await setTypingIndicator(agent, roomId, false);
+            throw agentError;
+        }
+    } catch (error: any) {
+        logger.error({ error: error.message, agent: boardId }, 'Error handling agent request');
+        await sendErrorAsAgent(agent, roomId, error);
+    }
+}
+
+/**
+ * Handle DM to agent - each message is processed independently (no queue/locks)
+ * This allows multiple messages to be sent while waiting for responses
+ */
+async function handleAgentDM(agent: VentoAgent, roomId: string, body: string, sender: string): Promise<void> {
+    logger.debug({ roomId, agent: agent.boardId }, 'handleAgentDM called');
+    
+    try {
+        // Show typing indicator while processing
+        await setTypingIndicator(agent, roomId, true).catch(() => {});
+        
+        // Load conversation history (per room, so new DM = fresh conversation)
+        const history = loadDMHistory(agent.boardId, roomId);
+        
+        // Add user's new message to history
+        history.push({ role: 'user', content: body });
+        
+        // Save history with user message immediately (so parallel requests see it)
+        saveDMHistory(agent.boardId, roomId, history);
+        
+        // Call agent with full history
+        logger.debug({ roomId, agent: agent.boardId, historyLength: history.length }, 'Calling agent API');
+        const response = await callAgentWithHistory(agent.boardId, history, sender);
+        logger.debug({ roomId, agent: agent.boardId, responseLength: response?.length }, 'Agent responded');
+        
+        // Stop typing indicator
+        await setTypingIndicator(agent, roomId, false).catch(() => {});
+        
+        // Re-load history (it may have changed while we were waiting)
+        const updatedHistory = loadDMHistory(agent.boardId, roomId);
+        
+        // Add assistant's response to history
+        updatedHistory.push({ role: 'assistant', content: response });
+        
+        // Save updated history
+        saveDMHistory(agent.boardId, roomId, updatedHistory);
+        
+        // Send response to Matrix
+        await sendMessageAsAgent(agent, roomId, response);
+        logger.info({ roomId, agent: agent.boardId }, 'Response sent to Matrix');
+    } catch (error: any) {
+        // Stop typing indicator on error (ignore failures)
+        await setTypingIndicator(agent, roomId, false).catch(() => {});
+        
+        logger.error({ error: error.message, agent: agent.boardId, roomId }, 'Error handling DM message');
+        
+        // Try to send error message (but don't fail if this fails)
+        try {
+            await sendErrorAsAgent(agent, roomId, error);
+            logger.info({ roomId }, 'Error message sent to Matrix');
+        } catch (sendError: any) {
+            logger.error({ error: sendError.message }, 'Failed to send error message to Matrix');
         }
     }
 }
@@ -950,6 +1036,7 @@ export async function updateAllAgentsPresence(): Promise<void> {
         await setAgentPresence(agent, 'online');
     }
 }
+
 
 /**
  * Leave a room as an agent

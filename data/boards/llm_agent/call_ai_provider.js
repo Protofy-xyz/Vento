@@ -1,12 +1,14 @@
 await executeAction({ name: "agent_input.skip"})
 
 // Obtener el provider y modelo local por defecto desde settings
-const defaultProvider = await context.settings.get({ key: 'ai.provider' }) ?? 'llama'
-const defaultLocalModel = await context.settings.get({ key: 'ai.localmodel' }) ?? 'gemma3-12b'
+const defaultProvider = await context.settings.get({ key: 'ai.provider' }) ?? 'skip'
+const defaultLocalModel = await context.settings.get({ key: 'ai.localmodel' }) ?? ''
+
+logger.info('**************************************Default provider: ', defaultProvider)
 
 let {provider, model, ...llmParams} = params
-provider = board?.["current_request"]?.["params"]?.["provider"] ?? params.provider ?? defaultProvider
-model = board?.["current_request"]?.["params"]?.["model"] ?? params.model
+provider = board?.["current_request"]?.["params"]?.["provider"] ?? params.provider != 'default' ? params.provider :  defaultProvider
+model = board?.["current_request"]?.["params"]?.["model"] ?? params.model != 'default' ? params.model : defaultLocalModel
 
 
 // if the provider is skip or not set, return an error

@@ -39,7 +39,7 @@ export const EsphomeTemplateDialog = ({
       setOpen={(open) => {
         if (!open) resetTemplateDialog()
       }}
-      title="Create template from ESPHome device"
+      title="Create template"
       description=""
       hideAccept
       onOpenChange={(open) => {

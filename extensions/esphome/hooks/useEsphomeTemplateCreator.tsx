@@ -9,6 +9,7 @@ type TemplateDialogState = {
   yaml: string
   templateName: string
   boardName: string
+  subsystems: any[]
   error?: string
   submitting: boolean
 }
@@ -21,6 +22,22 @@ type UseEsphomeTemplateCreatorOptions = {
 const sanitizeTemplateName = (value: string) =>
   value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
 
+const normalizeSubsystems = (subsystems: any): any[] => {
+  if (Array.isArray(subsystems)) return subsystems
+  if (subsystems && typeof subsystems === 'object') return Object.values(subsystems)
+  return []
+}
+
+const toSubsystemRecord = (subsystems: any[]): Record<string, any> => {
+  return (subsystems || []).reduce((acc, subsystem) => {
+    const key =
+      (typeof subsystem?.name === 'string' && subsystem.name) ||
+      `subsystem_${Object.keys(acc).length}`
+    acc[key] = subsystem
+    return acc
+  }, {} as Record<string, any>)
+}
+
 export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOptions = {}) => {
   const { deviceDefinitions, refreshDefinitions } = options
   const [templateDialog, setTemplateDialog] = useState<TemplateDialogState>({
@@ -29,6 +46,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
     yaml: '',
     templateName: '',
     boardName: '',
+    subsystems: [],
     error: undefined,
     submitting: false
   })
@@ -115,12 +133,27 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
       yaml: '',
       templateName: defaultName,
       boardName: '',
+      subsystems: [],
       error: undefined,
       submitting: true
     })
 
     try {
       await loadBoards()
+      const existingSubsystems = normalizeSubsystems(device?.data?.subsystem)
+
+      let deviceSubsystems = existingSubsystems
+      if (!deviceSubsystems.length) {
+        try {
+          const deviceResponse = await API.get(`/api/core/v1/devices/${encodeURIComponent(device.data.name)}`)
+          if (!deviceResponse?.isError) {
+            deviceSubsystems = normalizeSubsystems(deviceResponse?.data?.subsystem)
+          }
+        } catch (err) {
+          console.error('Error fetching device to resolve subsystems:', err)
+        }
+      }
+
       const yamlResponse = await API.get('/api/core/v1/files/' + configFile)
       if (yamlResponse?.isError) {
         setTemplateDialog(prev => ({ ...prev, error: 'Could not read device YAML file.', submitting: false }))
@@ -134,6 +167,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
         ...prev,
         yaml: yamlContent,
         boardName: boardName ?? '',
+        subsystems: deviceSubsystems,
         error: undefined,
         submitting: false
       }))
@@ -144,7 +178,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
   }
 
   const submitTemplateDialog = async () => {
-    const { device, yaml, templateName, boardName } = templateDialog
+    const { device, yaml, templateName, boardName, subsystems } = templateDialog
     if (!device || !yaml) {
       setTemplateDialog(prev => ({ ...prev, error: 'Missing device data or YAML content.' }))
       return
@@ -170,10 +204,13 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
         return
       }
 
+      const subsystemsRecord = toSubsystemRecord(subsystems)
+
       const createResponse = await API.post('/api/core/v1/devicedefinitions', {
         name: safeTemplateName,
         sdk: 'esphome-yaml',
-        board: boardResponse.data
+        board: boardResponse.data,
+        ...(Object.keys(subsystemsRecord).length ? { subsystems: subsystemsRecord } : {})
       })
 
       if (createResponse?.isError) {
@@ -189,13 +226,14 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
       } else {
         setTemplateDialog({
           open: false,
-          device: null,
-          yaml: '',
-          templateName: '',
-          boardName: '',
-          error: undefined,
-          submitting: false
-        })
+        device: null,
+        yaml: '',
+        templateName: '',
+        boardName: '',
+        subsystems: [],
+        error: undefined,
+        submitting: false
+      })
       }
 
       await refreshDefinitions?.()
@@ -212,6 +250,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
       yaml: '',
       templateName: '',
       boardName: '',
+      subsystems: [],
       error: undefined,
       submitting: false
     })

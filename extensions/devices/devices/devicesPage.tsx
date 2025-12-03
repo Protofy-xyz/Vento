@@ -158,7 +158,7 @@ export default {
         isVisible: (element) => element?.data?.data?.lastCompile?.success
       },
       {
-        text: "Create template from YAML",
+        text: "Create template from ESPHome device",
         icon: BookOpen,
         action: async (element) => {
           await openCreateTemplateDialog(element)

@@ -10,6 +10,7 @@ type TemplateDialogState = {
   yaml: string
   templateName: string
   boardName: string
+  subsystems: any[]
   error?: string
   submitting: boolean
 }
@@ -35,7 +36,7 @@ export const EsphomeTemplateDialog = ({
       setOpen={(open) => {
         if (!open) resetTemplateDialog()
       }}
-      title="Create template from YAML"
+      title="Create template from ESPHome device"
       description=""
       hideAccept
       onOpenChange={(open) => {

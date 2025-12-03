@@ -1,6 +1,12 @@
 import { ProtoModel, SessionDataType, API, Schema, z } from 'protobase'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
 
+const normalizeDefinitionSubsystems = (subsystems: any): any[] => {
+  if (Array.isArray(subsystems)) return subsystems
+  if (subsystems && typeof subsystems === 'object') return Object.values(subsystems)
+  return []
+}
+
 export const DevicesSchema = Schema.object({
   name: z.string().hint("Device name").static().regex(/^[a-z0-9_]+$/, "Only lower case chars, numbers or _").id().search().label("Name"),
   deviceDefinition: z.string().label("Template").optional(),
@@ -235,6 +241,18 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
         if (yamlObject.mqtt) {
           yamlObject.mqtt.topic_prefix = getPeripheralTopic(this.data.name)
         }
+
+        // If the definition provides subsystems and the device has none, hydrate them here
+        const defSubsystems = normalizeDefinitionSubsystems(deviceDefinition?.subsystems)
+        if (!this.data.subsystem?.length && defSubsystems.length) {
+          this.data.subsystem = defSubsystems
+          try {
+            await API.post(withToken("/api/core/v1/devices/" + this.data.name), { ...this.data })
+          } catch (err) {
+            console.error('Error persisting subsystems from definition: ', err)
+          }
+        }
+
         yaml = yamlStringify(yamlObject)
         await API.post(withToken("/api/v1/esphome/" + this.data.name + "/yamls"), { yaml })
         return yaml
@@ -283,10 +301,19 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
       return;
     }
     const deviceDefinition = response.data
-    const jsCode = deviceDefinition.config.components;
-    const deviceCode = 'device(' + jsCode.replace(/;/g, "") + ')';
-    const deviceObj = eval(deviceCode)
-    const subsystems = deviceObj.getSubsystemsTree(this.data.name, deviceDefinition)
+    // For esphome-yaml definitions, prefer stored subsystems instead of rebuilding from components
+    let subsystems: any[] = []
+    if (deviceDefinition?.sdk === 'esphome-yaml') {
+      subsystems = normalizeDefinitionSubsystems(deviceDefinition?.subsystems)
+    } else {
+      const jsCode = deviceDefinition.config.components;
+      const deviceCode = 'device(' + jsCode.replace(/;/g, "") + ')';
+      const deviceObj = eval(deviceCode)
+      subsystems = deviceObj.getSubsystemsTree(this.data.name, deviceDefinition)
+    }
+
+    if (!subsystems.length) return
+
     const deviceObject = await API.get("/api/core/v1/devices/" + this.data.name)
     if (deviceObject.isError) {
       console.error(deviceObject.error)

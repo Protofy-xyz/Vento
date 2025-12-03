@@ -13,9 +13,10 @@ import { ItemMenu } from 'protolib/components/ItemMenu';
 import { Tinted } from 'protolib/components/Tinted';
 import * as deviceFunctions from 'protodevice/src/device'
 import { Subsystems } from 'protodevice/src/Subsystem'
+import { SubsystemsEditor } from 'protodevice/src/SubsystemEditor'
 import { Paragraph, XStack, YStack, Text, Button } from '@my/ui';
 import { getPendingResult } from "protobase";
-import { Pencil, UploadCloud, Navigation, Bug } from '@tamagui/lucide-icons';
+import { Pencil, UploadCloud, Navigation, Bug, Radio } from '@tamagui/lucide-icons';
 import { usePageParams } from 'protolib/next';
 import { downloadDeviceFirmwareEndpoint, downloadDeviceElfEndpoint  } from "@extensions/esphome/utils";
 import { SSR } from 'protolib/lib/SSR'
@@ -56,6 +57,7 @@ export default {
     // Handle "created" parameter from network wizard
     const [createdDevice, setCreatedDevice] = useState<any>(null)
     const [showCreatedDialog, setShowCreatedDialog] = useState(false)
+    const [subsystemsEditorState, setSubsystemsEditorState] = useState<{ open: boolean, device: DevicesModel | null }>({ open: false, device: null })
 
     useEffect(() => {
       const created = query?.created
@@ -79,6 +81,12 @@ export default {
 
 
     const extraMenuActions = [
+      {
+        text: "Edit subsystems",
+        icon: Radio,
+        action: (element) => setSubsystemsEditorState({ open: true, device: element }),
+        isVisible: (element) => true
+      },
       {
         text: "Upload definition file",
         icon: UploadCloud,
@@ -351,6 +359,12 @@ export default {
           }
         }}}
         extraMenuActions={extraMenuActions}
+      />
+      <SubsystemsEditor
+        open={subsystemsEditorState.open}
+        deviceName={subsystemsEditorState.device?.data?.name}
+        subsystems={subsystemsEditorState.device?.data?.subsystem ?? []}
+        onClose={() => setSubsystemsEditorState({ open: false, device: null })}
       />
     </AdminPage>)
   },

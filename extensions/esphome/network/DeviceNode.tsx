@@ -1,6 +1,6 @@
 import { Text, TooltipSimple, YStack } from '@my/ui'
 import React, { memo } from 'react'
-import { Handle, Position, type NodeProps } from 'reactflow'
+import { Handle, Position, type NodeProps } from '@xyflow/react'
 
 export const DeviceNode = memo(({ data, selected }: NodeProps<any>) => {
   const {

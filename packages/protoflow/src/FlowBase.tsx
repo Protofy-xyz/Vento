@@ -2,7 +2,7 @@ import '@tamagui/core/reset.css'
 import '@tamagui/font-inter/css/400.css'
 import '@tamagui/font-inter/css/700.css'
 import React, { useCallback, useMemo, useEffect, useRef, useState, useContext } from 'react';
-import { Panel, useNodesInitialized } from 'reactflow';
+import { Panel, useNodesInitialized } from '@xyflow/react';
 import { PORT_TYPES, createNode, getId, saveNodes } from './lib/Node';
 import { getDiffs } from './lib/diff'
 import { NodeTypes } from './nodes';
@@ -740,11 +740,11 @@ const FlowsBase = ({
     }
 
     const handleRelayout = async () => {
-        const reduceNodes = nds => nds.reduce((total, n) => total += n.id + " " + n.height + ',', '')
+        const reduceNodes = nds => nds.reduce((total, n) => total += n.id + " " + (n.measured?.height ?? n.height) + ',', '')
         let currentReducedNodes = reduceNodes(nodes)
 
         if (prevReducedNodes != currentReducedNodes) {
-            if (nodes && nodes.length && nodes.filter(n => n.width && n.height).length == nodes.length) {
+            if (nodes && nodes.length && nodes.filter(n => (n.measured?.width ?? n.width) && (n.measured?.height ?? n.height)).length == nodes.length) {
                 const { layoutedNodes } = await reLayout(currentLayout, nodes, edges, setNodes, setEdges, _getFirstNode, setNodesMetaData, nodeData)
                 setPrevReducedNodes(reduceNodes(layoutedNodes))
             }

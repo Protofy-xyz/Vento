@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useContext } from 'react';
-import { Edge, Node } from 'reactflow';
+import { Edge, Node } from '@xyflow/react';
 import { FlowStoreContext } from '../store/FlowsStore'
 import { useProtoflow } from '../store/DiagramStore';
 

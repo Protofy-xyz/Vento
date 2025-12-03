@@ -1,6 +1,6 @@
 import React, { memo, useContext, useRef } from 'react';
 import Text from "./NodeText"
-import { Handle, Position } from 'reactflow';
+import { Handle, Position } from '@xyflow/react';
 import chroma from "chroma-js";
 import { FlowStoreContext } from '../store/FlowsStore'
 import { DEVMODE, flowDirection } from '../toggles'

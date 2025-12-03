@@ -13,7 +13,7 @@ import {
     applyNodeChanges,
     getBezierPath,
     MiniMap
-} from 'reactflow';
+} from '@xyflow/react';
 
 const CFG = {
     GROUP_PADDING: 100,
@@ -297,7 +297,7 @@ const materializeNodes = (
         return {
             id: c.name,
             type: 'default',
-            parentNode: groupId,
+            parentId: groupId,  // v12: parentNode renamed to parentId
             position: { x, y },
             data: { ...c, ports: buildPortsFor(c.name, edges) },
             style: { width: `${sz.width}px`, height: `${sz.height}px`, background: 'transparent' },
@@ -349,7 +349,7 @@ const normalizeGroupNodes = (nodes: RFNode[]): RFNode[] => {
     const groups = next.filter(n => n.type === 'layerGroup');
 
     for (const g of groups) {
-        const children = next.filter(n => n.parentNode === g.id);
+        const children = next.filter(n => n.parentId === g.id);
         if (!children.length) continue;
 
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -427,7 +427,7 @@ const Flow = memo(({
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const n of nodes) {
             const { width, height } = getNodeSize(n);
-            const parent = n.parentNode ? nodesMap.get(n.parentNode) : null;
+            const parent = n.parentId ? nodesMap.get(n.parentId) : null;
             const absX = (parent?.position?.x || 0) + n.position.x;
             const absY = (parent?.position?.y || 0) + n.position.y;
             minX = Math.min(minX, absX); minY = Math.min(minY, absY);
@@ -451,7 +451,7 @@ const Flow = memo(({
                 x: n.position.x,
                 y: n.position.y,
                 layer: n.data.layer,
-                parent: n.parentNode,
+                parent: n.parentId,
                 type: n.type === 'layerGroup' ? 'group' : 'node',
             };
         }
@@ -507,7 +507,7 @@ const Flow = memo(({
     // Sync nodes when initial data changes
     useLayoutEffect(() => {
         const structuralKey = processedNodes
-            .map(n => `${n.id}:${n.parentNode || ''}:${n.data?.layer || ''}:${n.position?.x ?? 0}:${n.position?.y ?? 0}`)
+            .map(n => `${n.id}:${n.parentId || ''}:${n.data?.layer || ''}:${n.position?.x ?? 0}:${n.position?.y ?? 0}`)
             .sort().join('|');
 
         if (initialNodesKeyRef.current !== structuralKey) {

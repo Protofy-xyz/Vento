@@ -15,7 +15,7 @@ export { filterCallback, restoreCallback, filterCallbackNodes, restoreCallbackNo
 export { default as FallbackPort, FallbackPortList } from './FallbackPort';
 export { generateId } from './lib/IdGenerator';
 export { connectNodes } from './lib/Edge';
-export { Panel } from 'reactflow';
+export { Panel } from '@xyflow/react';
 export { default as Button } from './Button'
 export { getDataFromField, getFieldValue, getFieldType } from "./utils"
 export { CustomFieldsList } from './fields/CustomFieldsList'

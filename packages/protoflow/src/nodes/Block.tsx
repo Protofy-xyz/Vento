@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { connectItem, dumpConnection, getId, PORT_TYPES, DumpType, createNode } from '../lib/Node';
 import Node, { FlowPort, headerSize } from '../Node';
-import { Background, useEdges } from 'reactflow';
+import { Background, useEdges } from '@xyflow/react';
 import { FlowStoreContext } from "../store/FlowsStore";
 import { NODE_TREE } from '../toggles';
 import { DataOutput } from '../lib/types';

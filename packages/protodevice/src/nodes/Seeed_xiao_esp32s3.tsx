@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { PORT_TYPES, Node, FlowStoreContext } from 'protoflow';
-import { Handle, Position, useEdges } from "reactflow";
+import { Handle, Position, useEdges } from "@xyflow/react";
 import { getColor } from ".";
 
 const isHandleConnected = (edges, handleId) => edges.find(e => (e.targetHandle == handleId || e.sourceHandle == handleId))

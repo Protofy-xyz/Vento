@@ -17,11 +17,13 @@ const layoutOptions = {
 const toELK = (node, index=0, edges) => {
     const numConnections = edges.filter((e) => e.target == node.id).length
     const connectionsOffset = Math.max(0, numConnections-1)*40
+    const nodeWidth = node.measured?.width ?? node.width
+    const nodeHeight = node.measured?.height ?? node.height
     return { 
         layoutOptions: node.children?.length?layoutOptions:{}, 
         id: node.id, 
-        width: node.width+connectionsOffset, 
-        height: node.height, 
+        width: nodeWidth+connectionsOffset, 
+        height: nodeHeight, 
         children: node.children ? node.children.map((c, index) => toELK(c, index, edges)) : [] 
     };
 }
@@ -44,10 +46,14 @@ const getLayoutedElements = async (nodes, edges, node) => {
 
     const flatten = (nodes) => {
         const total = []
-        const toFlow = (node, graph, parentNode) => {
-            const obj = { ...node }
+        const toFlow = (node, graph, parentNodeId) => {
+            const obj = { 
+                ...node,
+                position: node.position ? { ...node.position } : undefined,
+                data: { ...node.data }
+            }
             delete obj.children
-            if (parentNode) obj.parentNode = parentNode
+            if (parentNodeId) obj.parentId = parentNodeId  // v12: parentNode renamed to parentId
             total.push(obj)
 
             if (node.children && node.children.length) {

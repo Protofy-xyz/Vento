@@ -31,8 +31,8 @@ const toELK = (node, index=0, edges, nodeData) => {
     return {
         layoutOptions: node.children?.length?layoutOptions:{}, 
         id: node.id, 
-        width: node.width, 
-        height: node.height, 
+        width: node.measured?.width ?? node.width, 
+        height: node.measured?.height ?? node.height, 
         children: node.children ? node.children.map((c, index) => toELK(c, index, edges, nodeData)) : [] 
     };
 }
@@ -87,10 +87,15 @@ const getLayoutedElements = async (nodes, edges, node, nodeData) => {
 
     const flatten = (nodes) => {
         const total = []
-        const toFlow = (node, parentNode) => {
-            const obj = { ...node, data: {...node.data} }
+        const toFlow = (node, parentNodeId) => {
+            // v12: deep clone to avoid mutating frozen objects
+            const obj = { 
+                ...node, 
+                position: node.position ? { ...node.position } : undefined,
+                data: {...node.data} 
+            }
             delete obj.children
-            if (parentNode) obj.parentNode = parentNode
+            if (parentNodeId) obj.parentId = parentNodeId  // v12: parentNode renamed to parentId
             total.push(obj)
 
             if (node.children && node.children.length) {

@@ -1,14 +1,15 @@
 import React, { useCallback, useRef, useState, useContext, useEffect, cloneElement } from 'react';
-import ReactFlow, {
+import {
+    ReactFlow,
     MiniMap,
     Background,
     ReactFlowProvider,
     OnNodesDelete,
-    NodeDragHandler,
+    OnNodeDrag,
     OnEdgesDelete,
     SelectionDragHandler,
     useNodesInitialized
-} from 'reactflow';
+} from '@xyflow/react';
 import useUndoRedo from '../hooks/useUndoRedo';
 import useKeypress from 'react-use-keypress';
 import { FlowStoreContext } from "../store/FlowsStore"
@@ -112,7 +113,7 @@ const Diagram = React.forwardRef(({
         event.dataTransfer.dropEffect = 'move';
     }, []);
 
-    const onNodeDragStart: NodeDragHandler = useCallback(() => {
+    const onNodeDragStart: OnNodeDrag = useCallback(() => {
         // 👇 make dragging a node undoable
         takeSnapshot();
         // 👉 you can place your event handlers here

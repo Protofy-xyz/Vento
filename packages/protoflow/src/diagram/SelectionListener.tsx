@@ -6,7 +6,7 @@ import ReactFlow, {
     Panel,
     ReactFlowProvider,
     useOnSelectionChange 
-} from 'reactflow';
+} from '@xyflow/react';
 
 export default ({onSelectionChange}) => {
     useOnSelectionChange({

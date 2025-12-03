@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { PORT_TYPES, Node, FlowStoreContext } from "protoflow";
-import { Handle, Position, useEdges } from "reactflow";
+import { Handle, Position, useEdges } from "@xyflow/react";
 import { getColor } from ".";
 import useTheme from "protoflow/src/diagram/Theme";
 

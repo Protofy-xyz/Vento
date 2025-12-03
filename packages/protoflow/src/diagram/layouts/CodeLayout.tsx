@@ -46,7 +46,7 @@ const computeLayout = (nodes, edges, node, pos={x:0, y: 0}, metadata={}, tracker
     const originalPosY = pos.y
     const originalPosX = pos.x
 
-    let nodeWidth = node.width
+    let nodeWidth = node.measured?.width ?? node.width
     if (flowNode) {
         const flowNodeType = flowNode.type ?? flowNode
         if(flowNodeType && flowNodeType.getWidth) {
@@ -101,14 +101,18 @@ const computeLayout = (nodes, edges, node, pos={x:0, y: 0}, metadata={}, tracker
 
     metadata[node.id] = {layouted: true, childWidth: tracker.x, childHeight: pos.y - originalPosY, childHeights: childHeights}
     pos.x -= nodeWidth + (marginX*spacingFactorX)
-    const nodeHeight = node.height
+    const nodeHeight = node.measured?.height ?? node.height
     pos.y += pos.y - originalPosY > (nodeHeight+(marginY*spacingFactorY)) ? 0 : (nodeHeight + (marginY*spacingFactorY)) - (pos.y - originalPosY)
     
     return metadata
 }
 
 const getLayoutedElements = async (nodes, edges, node) => {
-    const layoutedNodes = nodes.map(n => {return {...n}})
+    const layoutedNodes = nodes.map(n => ({
+        ...n,
+        position: { ...n.position },
+        data: { ...n.data }
+    }))
     await sleep(1)
     const metadata = computeLayout(layoutedNodes, edges, node)
     await sleep(1)

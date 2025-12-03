@@ -12,8 +12,10 @@ import {
     Position,
     applyNodeChanges,
     getBezierPath,
-    MiniMap
+    MiniMap,
+    NodeResizer
 } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 
 const CFG = {
     GROUP_PADDING: 100,
@@ -36,7 +38,7 @@ type Card = { name: string; layer?: string; links?: Link[]; rulesCode?: string; 
 type Ports = { inputs: string[]; outputs: string[] };
 type RFNode = any;
 type RFEdge = any;
-type GraphLayout = Record<string, { x: number; y: number; layer?: string; parent?: string; type?: 'group' | 'node' }>;
+type GraphLayout = Record<string, { x: number; y: number; width?: number; height?: number; layer?: string; parent?: string; type?: 'group' | 'node' }>;
 
 const NODE_STYLE_BASE: CSSProperties = {
     width: '100%',
@@ -48,20 +50,21 @@ const NODE_STYLE_BASE: CSSProperties = {
     alignItems: 'flex-start',
     color: 'var(--color)',
     position: 'relative',
-    zIndex: 2,
     transition: 'border 0.2s ease, box-shadow 0.2s ease',
 };
 
 const NODE_STYLE_SELECTED: CSSProperties = {
     ...NODE_STYLE_BASE,
     border: '2px solid var(--color9)',
-    boxShadow: '0 0 0 4px rgba(0,0,0,0.05)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.25), 0 0 0 2px var(--color9)',
+    zIndex: 1000,
 };
 
 const NODE_STYLE_DEFAULT: CSSProperties = {
     ...NODE_STYLE_BASE,
     border: '1px solid var(--gray6)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    zIndex: 1,
 };
 
 const GROUP_STYLE: CSSProperties = {
@@ -99,12 +102,14 @@ const FLOW_STYLES = `
 .react-flow__nodesselection, .react-flow__nodesselection-rect { pointer-events: none !important; background: transparent !important; border: none !important; }
 .rf-selecting .react-flow__node, .rf-selecting .react-flow__handle, .rf-selecting .layer-group-header { pointer-events: none !important; }
 body.rf-noselect, body.rf-noselect * { user-select: none !important; }
+.react-flow__node.selected { z-index: 1000 !important; }
 `;
 
 
 const getNodeSize = (n: RFNode) => ({
-    width: parseFloat(n?.style?.width) || CFG.NODE_DEFAULT_SIZE.width,
-    height: parseFloat(n?.style?.height) || CFG.NODE_DEFAULT_SIZE.height,
+    // v12: measured contains actual dimensions after resize
+    width: n?.measured?.width ?? parseFloat(n?.style?.width) ?? CFG.NODE_DEFAULT_SIZE.width,
+    height: n?.measured?.height ?? parseFloat(n?.style?.height) ?? CFG.NODE_DEFAULT_SIZE.height,
 });
 
 const groupByLayer = (cards: Card[]): Map<string, Card[]> => {
@@ -193,7 +198,7 @@ const layoutsEqual = (a?: GraphLayout, b?: GraphLayout): boolean => {
     if (aKeys.length !== Object.keys(b).length) return false;
     return aKeys.every(k => {
         const av = a[k], bv = b[k];
-        return bv && av.x === bv.x && av.y === bv.y && av.layer === bv.layer && av.parent === bv.parent && av.type === bv.type;
+        return bv && av.x === bv.x && av.y === bv.y && av.width === bv.width && av.height === bv.height && av.layer === bv.layer && av.parent === bv.parent && av.type === bv.type;
     });
 };
 
@@ -202,17 +207,32 @@ const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean })
     const outCount = data?.ports?.outputs?.length ?? 0;
 
     return (
-        <div style={selected ? NODE_STYLE_SELECTED : NODE_STYLE_DEFAULT}>
-            {data.content}
-            {data?.ports?.inputs?.map((_: string, i: number) => (
-                <Handle key={`in-${i}`} id={`input-${i}`} type="target" position={Position.Left}
-                    style={{ top: `${((i + 1) * 100) / (inCount + 1)}%` }} />
-            ))}
-            {data?.ports?.outputs?.map((_: string, i: number) => (
-                <Handle key={`out-${i}`} id={`output-${i}`} type="source" position={Position.Right}
-                    style={{ top: `${((i + 1) * 100) / (outCount + 1)}%` }} />
-            ))}
-        </div>
+        <>
+            <NodeResizer 
+                minWidth={180} 
+                minHeight={120}
+                isVisible={selected}
+                color="transparent"
+                handleStyle={{ 
+                    width: 30, 
+                    height: 30, 
+                    borderRadius: 3,
+                    backgroundColor: 'transparent',
+                    opacity: 0,
+                }}
+            />
+            <div style={selected ? NODE_STYLE_SELECTED : NODE_STYLE_DEFAULT}>
+                {data.content}
+                {data?.ports?.inputs?.map((_: string, i: number) => (
+                    <Handle key={`in-${i}`} id={`input-${i}`} type="target" position={Position.Left}
+                        style={{ top: `${((i + 1) * 100) / (inCount + 1)}%` }} />
+                ))}
+                {data?.ports?.outputs?.map((_: string, i: number) => (
+                    <Handle key={`out-${i}`} id={`output-${i}`} type="source" position={Position.Right}
+                        style={{ top: `${((i + 1) * 100) / (outCount + 1)}%` }} />
+                ))}
+            </div>
+        </>
     );
 });
 
@@ -294,13 +314,17 @@ const materializeNodes = (
             y = groupId ? (pos.y - offset.y) + GROUP_PAD_TOP : pos.y + offset.y;
         }
 
+        // Use saved dimensions if available, otherwise use computed size
+        const width = saved?.width ?? sz.width;
+        const height = saved?.height ?? sz.height;
+
         return {
             id: c.name,
             type: 'default',
             parentId: groupId,  // v12: parentNode renamed to parentId
             position: { x, y },
             data: { ...c, ports: buildPortsFor(c.name, edges) },
-            style: { width: `${sz.width}px`, height: `${sz.height}px`, background: 'transparent' },
+            style: { width: `${width}px`, height: `${height}px`, background: 'transparent' },
         };
     });
 };
@@ -447,9 +471,13 @@ const Flow = memo(({
     const exportLayout = useCallback((nds: RFNode[]): GraphLayout => {
         const layout: GraphLayout = {};
         for (const n of nds) {
+            const width = n.measured?.width ?? n.width ?? parseFloat(n.style?.width) ?? undefined;
+            const height = n.measured?.height ?? n.height ?? parseFloat(n.style?.height) ?? undefined;
             layout[n.id] = {
                 x: n.position.x,
                 y: n.position.y,
+                ...(width ? { width } : {}),
+                ...(height ? { height } : {}),
                 layer: n.data.layer,
                 parent: n.parentId,
                 type: n.type === 'layerGroup' ? 'group' : 'node',
@@ -464,7 +492,10 @@ const Flow = memo(({
             setEdges(eds => eds.filter(e => !removedIds.includes(e.source) && !removedIds.includes(e.target)));
         }
 
-        const shouldPersist = changes.some(c => c.type === 'position' && c.dragging === false) || removedIds.length > 0;
+        const shouldPersist = changes.some(c => 
+            (c.type === 'position' && c.dragging === false) || 
+            (c.type === 'dimensions' && c.resizing === false)
+        ) || removedIds.length > 0;
 
         setNodes(nds => {
             const next = normalizeGroupNodes(applyNodeChanges(changes, nds));

@@ -9,6 +9,7 @@ type TemplateDialogState = {
   device: any
   yaml: string
   templateName: string
+  description: string
   boardName: string
   subsystems: any[]
   error?: string
@@ -52,6 +53,15 @@ export const EsphomeTemplateDialog = ({
             placeholder="Template name"
             value={templateDialog.templateName}
             onChangeText={(v) => setTemplateDialog(prev => ({ ...prev, templateName: v }))}
+            disabled={templateDialog.submitting}
+          />
+        </YStack>
+        <YStack gap="$1">
+          <Text fontSize="$3" fontWeight="600" color="$gray11">Description</Text>
+          <Input
+            placeholder="What is this template for?"
+            value={templateDialog.description}
+            onChangeText={(v) => setTemplateDialog(prev => ({ ...prev, description: v }))}
             disabled={templateDialog.submitting}
           />
         </YStack>

@@ -8,6 +8,7 @@ type TemplateDialogState = {
   device: DevicesModel | null
   yaml: string
   templateName: string
+  description: string
   boardName: string
   subsystems: any[]
   error?: string
@@ -45,6 +46,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
     device: null,
     yaml: '',
     templateName: '',
+    description: '',
     boardName: '',
     subsystems: [],
     error: undefined,
@@ -132,6 +134,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
       device,
       yaml: '',
       templateName: defaultName,
+      description: '',
       boardName: '',
       subsystems: [],
       error: undefined,
@@ -168,6 +171,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
         yaml: yamlContent,
         boardName: boardName ?? '',
         subsystems: deviceSubsystems,
+        description: '',
         error: undefined,
         submitting: false
       }))
@@ -178,7 +182,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
   }
 
   const submitTemplateDialog = async () => {
-    const { device, yaml, templateName, boardName, subsystems } = templateDialog
+    const { device, yaml, templateName, description, boardName, subsystems } = templateDialog
     if (!device || !yaml) {
       setTemplateDialog(prev => ({ ...prev, error: 'Missing device data or YAML content.' }))
       return
@@ -198,6 +202,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
     setTemplateDialog(prev => ({ ...prev, submitting: true, error: undefined }))
 
     try {
+      const descriptionValue = description.trim()
       const boardResponse = await API.get(`/api/core/v1/deviceboards/${encodeURIComponent(boardName)}`)
       if (boardResponse?.isError || !boardResponse?.data) {
         setTemplateDialog(prev => ({ ...prev, error: 'Could not load board data for the selected board.', submitting: false }))
@@ -210,6 +215,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
         name: safeTemplateName,
         sdk: 'esphome-yaml',
         board: boardResponse.data,
+        ...(descriptionValue ? { description: descriptionValue } : {}),
         ...(Object.keys(subsystemsRecord).length ? { subsystems: subsystemsRecord } : {})
       })
 
@@ -226,14 +232,15 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
       } else {
         setTemplateDialog({
           open: false,
-        device: null,
-        yaml: '',
-        templateName: '',
-        boardName: '',
-        subsystems: [],
-        error: undefined,
-        submitting: false
-      })
+          device: null,
+          yaml: '',
+          templateName: '',
+          description: '',
+          boardName: '',
+          subsystems: [],
+          error: undefined,
+          submitting: false
+        })
       }
 
       await refreshDefinitions?.()
@@ -249,6 +256,7 @@ export const useEsphomeTemplateCreator = (options: UseEsphomeTemplateCreatorOpti
       device: null,
       yaml: '',
       templateName: '',
+      description: '',
       boardName: '',
       subsystems: [],
       error: undefined,

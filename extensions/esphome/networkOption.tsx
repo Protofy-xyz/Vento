@@ -20,12 +20,18 @@ const SelectGrid = ({ children }) => {
 const TemplateSlide = ({ selected, setSelected, definitions }) => {
     const templates = [
         { id: '__none__', name: 'Blank Device', description: 'Create a device without a template', icon: 'cpu' },
-        ...(definitions?.data?.items || []).map(def => ({
-            id: def.name,
-            name: def.name,
-            description: `Board: ${def.board?.name || 'Unknown'}`,
-            icon: 'circuit-board'
-        }))
+        ...(definitions?.data?.items || []).map(def => {
+            const boardName = typeof def.board === 'string' ? def.board : def.board?.name
+            const description = (typeof def.description === 'string' && def.description.trim().length)
+                ? def.description
+                : `Board: ${boardName || 'Unknown'}`
+            return {
+                id: def.name,
+                name: def.name,
+                description,
+                icon: 'circuit-board'
+            }
+        })
     ]
 
     return <YStack>
@@ -186,4 +192,3 @@ export const devicesOption: NetworkOption = {
     icon: 'cpu',
     Component: DevicesWizard
 }
-

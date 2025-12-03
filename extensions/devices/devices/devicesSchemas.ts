@@ -226,6 +226,10 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
         }
         // Ensure the 'esphome' section exists and set the device name. In the future we could add mqtt broker, keys, etc in a per -device basis
         yamlObject.esphome = { ...(yamlObject.esphome ?? {}), name: this.data.name }
+        //if yamlObject has mqtt ensure mqtt.topic_prefix is set to devices/<device_name>
+        if (yamlObject.mqtt) {
+          yamlObject.mqtt.topic_prefix = getPeripheralTopic(this.data.name)
+        }
         yaml = yamlStringify(yamlObject)
         await API.post("/api/v1/esphome/" + this.data.name + "/yamls", { yaml })
         return yaml

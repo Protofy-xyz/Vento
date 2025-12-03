@@ -30,11 +30,13 @@ const MqttTest = ({
   onSetModalFeedback,
   compileSessionId,
   stage,
+  onSetCompileMessages,
 }: {
   onSetStage: (stage: DeviceModalStage | "") => void;
   onSetModalFeedback: (feedback: any) => void;
   compileSessionId: string;
   stage: DeviceModalStage | "";
+  onSetCompileMessages: (messages: string[]) => void;
 }) => {
   const [messages, setMessages] = React.useState<string[]>([]);
   const messagesRef = React.useRef<string[]>([]);
@@ -58,8 +60,9 @@ const MqttTest = ({
       isDoneRef.current = false;
       setMessages([]);
       onSetModalFeedback(undefined);
+      onSetCompileMessages([]);
     }
-  }, [stage, onSetModalFeedback]);
+  }, [stage, onSetModalFeedback, onSetCompileMessages]);
 
   React.useEffect(() => {
     if (stage !== "compile") return;
@@ -85,6 +88,7 @@ const MqttTest = ({
       if (trimmedText) {
         messagesRef.current = [...messagesRef.current, trimmedText];
         setMessages(messagesRef.current);
+        onSetCompileMessages(messagesRef.current);
       }
 
       // ---- queue / position updates ----
@@ -120,6 +124,7 @@ const MqttTest = ({
         isDoneRef.current = true;
         messagesRef.current = [];
         setMessages([]);
+        onSetCompileMessages([]);
         onSetStage("upload");
       } else if (data.event === "exit" && data.code !== 0) {
         isDoneRef.current = true;
@@ -170,6 +175,7 @@ export const useEsphomeDeviceActions = () => {
   const [consoleOutput, setConsoleOutput] = useState("");
   const [port, setPort] = useState<any>(null);
   const [compileSessionId, setCompileSessionId] = useState("");
+  const [compileMessages, setCompileMessages] = useState<string[]>([]);
   const [logsRequested, setLogsRequested] = useState(false);
   const [serialChooser, setSerialChooser] = useState<
     | null
@@ -782,6 +788,7 @@ export const useEsphomeDeviceActions = () => {
           selectedDevice={targetDeviceModel ?? undefined}
           compileSessionId={compileSessionId}
           disconnectInfo={deviceDisconnectInfo}
+          compileMessages={compileMessages}
           onSelectAction={(next) => {
             if (next === "console") {
               setConsoleOutput("");
@@ -810,6 +817,7 @@ export const useEsphomeDeviceActions = () => {
           onSetModalFeedback={(v) => setModalFeedback(v)}
           compileSessionId={compileSessionId}
           stage={stage}
+          onSetCompileMessages={setCompileMessages}
         />
       </Connector>
 

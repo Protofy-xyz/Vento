@@ -131,19 +131,6 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                     throw result.error
                 }
 
-                if (hasTemplate) {
-                    try {
-                        const yaml = await obj.getYaml()
-                        if (!yaml) {
-                            throw new Error('Template did not generate a config.yaml')
-                        }
-                    } catch (yamlErr: any) {
-                        toast.show('Config.yaml generation failed', {
-                            message: yamlErr?.message || 'Device created but config.yaml could not be generated'
-                        })
-                        console.error('Error generating config.yaml from template', yamlErr)
-                    }
-                }
 
                 toast.show('Device created', {
                     message: data.name

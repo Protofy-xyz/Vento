@@ -7,8 +7,24 @@ const defaultLocalModel = await context.settings.get({ key: 'ai.localmodel' }) ?
 logger.info('**************************************Default provider: ', defaultProvider)
 
 let {provider, model, ...llmParams} = params
-provider = board?.["current_request"]?.["params"]?.["provider"] ?? params.provider != 'default' ? params.provider :  defaultProvider
-model = board?.["current_request"]?.["params"]?.["model"] ?? params.model != 'default' ? params.model : defaultLocalModel
+
+// Primero intentar obtener del request, luego de params, luego del default
+const requestProvider = board?.["current_request"]?.["params"]?.["provider"]
+const requestModel = board?.["current_request"]?.["params"]?.["model"]
+
+// Usar el provider del request si existe y no es 'default', sino usar el de params, sino el default
+provider = (requestProvider && requestProvider !== 'default') 
+  ? requestProvider 
+  : (params.provider && params.provider !== 'default') 
+    ? params.provider 
+    : defaultProvider
+
+// Usar el modelo del request si existe y no es 'default', sino usar el de params, sino el default
+model = (requestModel && requestModel !== 'default') 
+  ? requestModel 
+  : (params.model && params.model !== 'default') 
+    ? params.model 
+    : defaultLocalModel
 
 
 // if the provider is skip or not set, return an error
@@ -23,12 +39,12 @@ if (provider === 'llama') {
   // Use the llama extension with local GGUF models
   reply = await context.llama.llamaPrompt({
     ...llmParams,
-    model: model ?? defaultLocalModel
+    model: model || defaultLocalModel
   });
 } else if (provider === 'chatgpt') {
   reply = await context.chatgpt.chatGPTPrompt({
     ...llmParams,
-    model: model ?? "gpt-4.1"
+    model: model || "gpt-5.1"
   });
 
   let raw = reply

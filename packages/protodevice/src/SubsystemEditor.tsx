@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { XStack, YStack, Text, Button, Input, Switch, useToastController, TextArea } from '@my/ui';
 import { AlertDialog } from 'protolib/components/AlertDialog';
 import { Tinted } from 'protolib/components/Tinted';
@@ -107,6 +107,7 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
     const [draftSubsystems, setDraftSubsystems] = useState<any[]>(deepClone(subsystems ?? []));
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
         if (open) {
@@ -116,68 +117,74 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
     }, [open, subsystems]);
 
     const updateSubsystemField = (index: number, field: string, value: any) => {
-        setDraftSubsystems((prev) => {
-            const next = [...(prev ?? [])];
-            const current = next[index] ?? { monitors: [], actions: [] };
-            next[index] = { ...current, [field]: value };
-            return next;
+        startTransition(() => {
+            setDraftSubsystems((prev) => {
+                const next = [...(prev ?? [])];
+                const current = next[index] ?? { monitors: [], actions: [] };
+                next[index] = { ...current, [field]: value };
+                return next;
+            });
         });
     };
 
     const updateMonitorField = (subsystemIndex: number, monitorIndex: number, field: string, value: any) => {
-        setDraftSubsystems((prev) => {
-            const next = [...(prev ?? [])];
-            const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
-            const monitors = [...(currentSubsystem.monitors ?? [])];
-            monitors[monitorIndex] = { ...(monitors[monitorIndex] ?? {}), [field]: value };
-            next[subsystemIndex] = { ...currentSubsystem, monitors };
-            return next;
+        startTransition(() => {
+            setDraftSubsystems((prev) => {
+                const next = [...(prev ?? [])];
+                const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
+                const monitors = [...(currentSubsystem.monitors ?? [])];
+                monitors[monitorIndex] = { ...(monitors[monitorIndex] ?? {}), [field]: value };
+                next[subsystemIndex] = { ...currentSubsystem, monitors };
+                return next;
+            });
         });
     };
 
     const updateActionField = (subsystemIndex: number, actionIndex: number, field: string, value: any) => {
-        setDraftSubsystems((prev) => {
-            const next = [...(prev ?? [])];
-            const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
-            const actions = [...(currentSubsystem.actions ?? [])];
-            actions[actionIndex] = { ...(actions[actionIndex] ?? {}), [field]: value };
-            next[subsystemIndex] = { ...currentSubsystem, actions };
-            return next;
+        startTransition(() => {
+            setDraftSubsystems((prev) => {
+                const next = [...(prev ?? [])];
+                const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
+                const actions = [...(currentSubsystem.actions ?? [])];
+                actions[actionIndex] = { ...(actions[actionIndex] ?? {}), [field]: value };
+                next[subsystemIndex] = { ...currentSubsystem, actions };
+                return next;
+            });
         });
     };
 
-    const addSubsystem = () => setDraftSubsystems((prev) => [...(prev ?? []), { name: `subsystem_${(prev?.length ?? 0) + 1}`, type: '', monitors: [], actions: [] }]);
-    const removeSubsystem = (index: number) => setDraftSubsystems((prev) => (prev ?? []).filter((_, i) => i !== index));
+    const addSubsystem = () => startTransition(() => setDraftSubsystems((prev) => [...(prev ?? []), { name: `subsystem_${(prev?.length ?? 0) + 1}`, type: '', monitors: [], actions: [] }]));
+    const removeSubsystem = (index: number) => startTransition(() => setDraftSubsystems((prev) => (prev ?? []).filter((_, i) => i !== index)));
 
-    const addMonitor = (subsystemIndex: number) => setDraftSubsystems((prev) => {
+    const addMonitor = (subsystemIndex: number) => startTransition(() => setDraftSubsystems((prev) => {
         const next = [...(prev ?? [])];
         const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
         const monitors = [...(currentSubsystem.monitors ?? []), { name: '', label: '', endpoint: '', units: '', connectionType: 'mqtt' }];
         next[subsystemIndex] = { ...currentSubsystem, monitors };
         return next;
-    });
-    const removeMonitor = (subsystemIndex: number, monitorIndex: number) => setDraftSubsystems((prev) => {
+    }));
+    const removeMonitor = (subsystemIndex: number, monitorIndex: number) => startTransition(() => setDraftSubsystems((prev) => {
         const next = [...(prev ?? [])];
         const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
         const monitors = (currentSubsystem.monitors ?? []).filter((_, i) => i !== monitorIndex);
         next[subsystemIndex] = { ...currentSubsystem, monitors };
         return next;
-    });
+    }));
 
-    const addAction = (subsystemIndex: number) => setDraftSubsystems((prev) => {
+    const addAction = (subsystemIndex: number) => startTransition(() => setDraftSubsystems((prev) => {
         const next = [...(prev ?? [])];
         const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
         const actions = [...(currentSubsystem.actions ?? []), { name: '', label: '', endpoint: '', connectionType: 'mqtt', payload: {} }];
         next[subsystemIndex] = { ...currentSubsystem, actions };
         return next;
-    });
-    const removeAction = (subsystemIndex: number, actionIndex: number) => setDraftSubsystems((prev) => {
+    }));
+    const removeAction = (subsystemIndex: number, actionIndex: number) => startTransition(() => setDraftSubsystems((prev) => {
         const next = [...(prev ?? [])];
         const currentSubsystem = next[subsystemIndex] ?? { monitors: [], actions: [] };
         const actions = (currentSubsystem.actions ?? []).filter((_, i) => i !== actionIndex);
         next[subsystemIndex] = { ...currentSubsystem, actions };
         return next;
-    });
+    }));
 
     const onSave = async () => {
         if (!deviceName) {
@@ -270,7 +277,7 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
 
                 <YStack gap="$3" width="100%" maxWidth="100%">
                     {draftSubsystems?.map((subsystem, subsystemIndex) => (
-                        <Tinted key={subsystem?.name ?? subsystemIndex} width="100%">
+                        <Tinted key={`sub-${subsystemIndex}`} width="100%">
                             <YStack gap="$3" padding="$3" width="100%">
                                 <XStack justifyContent="space-between" alignItems="center">
                                     <Text fow="600">{subsystem?.name || `Subsystem ${subsystemIndex + 1}`}</Text>
@@ -318,7 +325,7 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                                             <Button size="$2" icon={Plus} onPress={() => addMonitor(subsystemIndex)} disabled={saving}>Add monitor</Button>
                                         </XStack>
                                         {subsystem?.monitors?.map((monitor, monitorIndex) => (
-                                            <Tinted key={`${monitor?.name ?? monitorIndex}-${subsystemIndex}`} width="100%">
+                                            <Tinted key={`sub-${subsystemIndex}-mon-${monitorIndex}`} width="100%">
                                                 <CollapsibleSection title={monitor?.label || monitor?.name || `Monitor ${monitorIndex + 1}`}>
                                                     <YStack gap="$2" padding="$2" width="100%">
                                                         <XStack justifyContent="space-between" alignItems="center">
@@ -385,7 +392,7 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
                                             <Button size="$2" icon={Plus} onPress={() => addAction(subsystemIndex)} disabled={saving}>Add action</Button>
                                         </XStack>
                                         {subsystem?.actions?.map((action, actionIndex) => (
-                                            <Tinted key={`${action?.name ?? actionIndex}-${subsystemIndex}`} width="100%">
+                                            <Tinted key={`sub-${subsystemIndex}-act-${actionIndex}`} width="100%">
                                                 <CollapsibleSection title={action?.label || action?.name || `Action ${actionIndex + 1}`}>
                                                     <YStack gap="$2" padding="$2" width="100%">
                                                         <XStack justifyContent="space-between" alignItems="center">
@@ -472,4 +479,3 @@ export const SubsystemsEditor = ({ open, onClose, deviceName, subsystems, onSave
         </AlertDialog>
     );
 };
-

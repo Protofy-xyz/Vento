@@ -8,6 +8,7 @@ import * as fspath from 'path';
 import { addAction } from "@extensions/actions/coreContext/addAction";
 import { addCard } from "@extensions/cards/coreContext/addCard";
 import { removeActions } from "@extensions/actions/coreContext/removeActions";
+import { ensureEsphomeYamlConfigFile } from "@extensions/esphome/coreApis";
 import { gridSizes as GRID } from 'protolib/lib/gridConfig';
 import { compileMessagesTopic } from "@extensions/esphome/utils";
 import { connect as mqttConnect, IClientOptions } from 'mqtt';
@@ -808,6 +809,18 @@ export const DevicesAutoAPI = AutoAPI({
         }
 
     },
+    onAfterCreate: async (data, session) => {
+        if (data?.platform === 'esphome') {
+            await ensureEsphomeYamlConfigFile(data, session);
+        }
+        return data;
+    },
+    onAfterUpdate: async (data, session) => {
+        if (data?.platform === 'esphome') {
+            await ensureEsphomeYamlConfigFile(data, session);
+        }
+        return data;
+    },
     onBeforeDelete: async (data, session, req) => {
         console.log("🤖 ~ data:", data)
         if(typeof data === 'string') {
@@ -1315,4 +1328,3 @@ export default (app, context) => {
     });
 
 }
-

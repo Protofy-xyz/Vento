@@ -211,7 +211,7 @@ const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean })
             <NodeResizer 
                 minWidth={180} 
                 minHeight={120}
-                isVisible={selected}
+                isVisible={true}
                 color="transparent"
                 handleStyle={{ 
                     width: 30, 

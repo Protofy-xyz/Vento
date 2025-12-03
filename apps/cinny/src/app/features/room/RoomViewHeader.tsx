@@ -278,7 +278,13 @@ export function RoomViewHeader() {
           <BackRouteHandler>
             {(onBack) => (
               <Box shrink="No" alignItems="Center">
-                <IconButton onClick={onBack}>
+                <IconButton onClick={() => {
+                  // Notify parent that we're navigating back to network list
+                  if (window.parent !== window) {
+                    window.parent.postMessage({ type: 'cinny-back-to-network' }, '*');
+                  }
+                  onBack();
+                }}>
                   <Icon src={Icons.ArrowLeft} />
                 </IconButton>
               </Box>

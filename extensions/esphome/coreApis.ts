@@ -147,7 +147,7 @@ export default (_app, context) => {
       for (const act of sub.actions || []) {
         upsertBy(
           existing.actions,
-          (a) => a.endpoint === act.endpoint || a.name === act.name,
+          (a) => a.name === act.name,
           act
         );
       }
@@ -275,6 +275,8 @@ export default (_app, context) => {
     if (!stateEndpoint && !commandEndpoint) return;
 
     const subsystemName = slugify(component) || 'esphome';
+    const isLightSubsystem = subsystemName === 'light';
+    const effectList = Array.isArray(payload?.effect_list) ? payload.effect_list.filter((e) => !!e) : [];
 
     const baseEntry: PendingEntry =
       pending[deviceName] ||
@@ -307,16 +309,91 @@ export default (_app, context) => {
       });
     }
     if (commandEndpoint) {
-      subsystem.actions.push({
-        name: monitorName,
-        label: payload.name || monitorName,
-        description: payload.device_class
-          ? `Command for ${payload.device_class}`
-          : `Command for ${payload.name || monitorName}`,
-        endpoint: commandEndpoint,
-        connectionType: 'mqtt',
-        payload: { type: 'string' },
-      });
+      if (isLightSubsystem) {
+        const manualControl = {
+          name: 'manual_control',
+          label: 'Manual control',
+          description:
+            'Control the light manually by setting the state, color, effect and brightness. State can be ON or OFF. Color is an object with r, g and b values between 0 and 255. Effect is a string with the name of the effect to use. Brightness is a value between 0 and 255',
+          endpoint: commandEndpoint,
+          connectionType: 'mqtt',
+          payload: {
+            type: 'json-schema',
+            schema: {
+              state: { type: 'string', enum: ['ON', 'OFF'] },
+              color: {
+                type: 'object',
+                properties: {
+                  r: { type: 'int', minimum: 0, maximum: 255 },
+                  g: { type: 'int', minimum: 0, maximum: 255 },
+                  b: { type: 'int', minimum: 0, maximum: 255 },
+                },
+                required: ['r', 'g', 'b'],
+              },
+              effect: { type: 'string', enum: ['none', ...new Set(effectList)] },
+              brightness: { type: 'int', minimum: 0, maximum: 255, default: 255 },
+            },
+          },
+          cardProps: {
+            icon: 'wrench',
+          },
+        };
+        const preset = (name: string, label: string, color: { r: number; g: number; b: number }, theme: string, iconColor: string) => ({
+          name,
+          label,
+          description: `Turns on the light in ${label.toLowerCase()}`,
+          props: { theme, color: iconColor },
+          cardProps: { icon: 'lightbulb', color: iconColor },
+          endpoint: commandEndpoint,
+          connectionType: 'mqtt',
+          payload: {
+            type: 'json',
+            value: {
+              state: 'ON',
+              color,
+              effect: 'none',
+              brightness: 255,
+            },
+          },
+        });
+        const off = {
+          name: 'off',
+          label: 'Turn off',
+          description: 'Turns off the light',
+          props: { theme: 'black', color: '$black10' },
+          cardProps: { icon: 'lightbulb-off', color: '$black10' },
+          endpoint: commandEndpoint,
+          connectionType: 'mqtt',
+          payload: {
+            type: 'json',
+            value: {
+              state: 'OFF',
+              color: { r: 0, g: 0, b: 0 },
+              effect: 'none',
+              brightness: 255,
+            },
+          },
+        };
+        const presets = [
+          preset('red', 'Red', { r: 180, g: 0, b: 0 }, 'red', '$red10'),
+          preset('green', 'Green', { r: 0, g: 180, b: 0 }, 'green', '$green10'),
+          preset('blue', 'Blue', { r: 0, g: 0, b: 180 }, 'blue', '$blue10'),
+          preset('white', 'White', { r: 255, g: 255, b: 255 }, 'white', '$white10'),
+          off,
+        ];
+        subsystem.actions.push(manualControl, ...presets);
+      } else {
+        subsystem.actions.push({
+          name: monitorName,
+          label: payload.name || monitorName,
+          description: payload.device_class
+            ? `Command for ${payload.device_class}`
+            : `Command for ${payload.name || monitorName}`,
+          endpoint: commandEndpoint,
+          connectionType: 'mqtt',
+          payload: { type: 'string' },
+        });
+      }
     }
 
     baseEntry.data.subsystem = mergeSubsystems(baseEntry.data.subsystem, [subsystem]);

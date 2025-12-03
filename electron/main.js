@@ -281,16 +281,16 @@ module.exports = function start(rootPath) {
   // Generate a fake session for Electron - no real user needed
   // Matrix accepts the service token as password for appservice users
   const genNewSession = () => {
-    const { genToken } = require('protonode')
+    const { getServiceToken } = require('protonode')
     const data = {
-      id: 'electron@localhost',
+      id: 'electron',
       type: 'admin',
       admin: true,
       permissions: ['*', 'admin']
     }
     return {
       user: data,
-      token: genToken(data)
+      token: getServiceToken()
     }
   }
 

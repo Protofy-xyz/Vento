@@ -240,6 +240,25 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
         //if yamlObject has mqtt ensure mqtt.topic_prefix is set to devices/<device_name>
         if (yamlObject.mqtt) {
           yamlObject.mqtt.topic_prefix = getPeripheralTopic(this.data.name)
+          const mqttCreds = this.data?.credentials?.mqtt
+          if (mqttCreds) {
+            yamlObject.mqtt = {
+              ...yamlObject.mqtt,
+              broker: mqttCreds.host ?? yamlObject.mqtt.broker,
+              username: mqttCreds.username ?? yamlObject.mqtt.username,
+              password: mqttCreds.password ?? yamlObject.mqtt.password,
+              port: mqttCreds.port ?? yamlObject.mqtt.port
+            }
+          }
+        }
+        // inject Wi-Fi credentials when available
+        const wifiCreds = this.data?.credentials?.wifi
+        if (wifiCreds && (wifiCreds.ssid || wifiCreds.password)) {
+          yamlObject.wifi = {
+            ...(yamlObject.wifi ?? {}),
+            ssid: wifiCreds.ssid ?? yamlObject.wifi?.ssid,
+            password: wifiCreds.password ?? yamlObject.wifi?.password
+          }
         }
 
         // If the definition provides subsystems and the device has none, hydrate them here

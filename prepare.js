@@ -146,3 +146,25 @@ directories.forEach(directory => {
         console.error('Warning: Failed to download Vento agent. You can retry with: node scripts/download-agent.js');
     }
 })();
+
+// Download llama-server binary for local LLM inference
+(async () => {
+    const skipLlamaDownload = process.argv.includes('--skip-llama-download') || process.env.SKIP_LLAMA_DOWNLOAD === 'true';
+    
+    if (skipLlamaDownload) {
+        console.log('Skipping llama-server download (--skip-llama-download flag detected)');
+        return;
+    }
+    
+    try {
+        const downloadLlama = require('./scripts/download-llama');
+        const result = await downloadLlama(AdmZip);
+        
+        if (!result.success) {
+            console.error('Warning: Failed to download llama-server. You can retry with: node scripts/download-llama.js');
+        }
+    } catch (err) {
+        console.error('Warning: Failed to download llama-server:', err.message);
+        console.error('You can retry with: node scripts/download-llama.js');
+    }
+})();

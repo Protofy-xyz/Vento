@@ -43,6 +43,7 @@ module.exports = {
             windowsHide: true,
             treekill: true,
             kill_timeout: 5000,
+            restart_delay: 2000, // GPU processes need more time between restarts (prevents 0x10e crash)
             env: {
                 NODE_ENV: 'development',
                 ...commonEnv
@@ -62,6 +63,7 @@ module.exports = {
             windowsHide: true,
             treekill: true,
             kill_timeout: 5000,
+            restart_delay: 2000, // GPU processes need more time between restarts (prevents 0x10e crash)
             env: {
                 NODE_ENV: 'production',
                 ...commonEnv

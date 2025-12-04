@@ -26,7 +26,7 @@ const getSystemPrompt = ({ prompt, done = async (prompt) => prompt, error = (e) 
     return result
 }
 
-const cleanCode = (code) => {
+export const cleanCode = (code) => {
     //remove ```(plus anything is not an space) from the beginning of the code
     //remove ``` from the end of the code
     let cleaned = code.replace(/^```[^\s]+/g, '').replace(/```/g, '').trim()

@@ -20,6 +20,76 @@ import { startMqtt } from './mqtt';
 
 const isFullDev = process.env.FULL_DEV === '1';
 let watchEnabled = false
+// =============================================================================
+// CLEANUP HOOKS SYSTEM
+// 
+// Extensions (like llama) can register cleanup hooks that MUST run before
+// the process exits. This is CRITICAL for GPU-based extensions on Windows
+// where not releasing GPU memory causes system crashes (0x10e BSOD).
+//
+// How it works:
+// 1. Extensions call registerCleanupHook(name, asyncFn) during initialization
+// 2. Before hot reload or shutdown, runCleanupHooks() is called
+// 3. All hooks run in parallel with a timeout
+// 4. Only after cleanup completes does the process exit
+// =============================================================================
+const cleanupHooks: Map<string, () => Promise<void>> = new Map();
+let isCleaningUp = false;
+
+/**
+ * Register a cleanup hook that will be called before process exit.
+ * Extensions should use this for GPU/resource cleanup.
+ * @param name Unique identifier for this hook (e.g., 'llama-gpu')
+ * @param fn Async function to run during cleanup
+ */
+export const registerCleanupHook = (name: string, fn: () => Promise<void>) => {
+  cleanupHooks.set(name, fn);
+  console.log(`[core] Cleanup hook registered: ${name}`);
+};
+
+/**
+ * Remove a cleanup hook by name
+ */
+export const unregisterCleanupHook = (name: string) => {
+  cleanupHooks.delete(name);
+};
+
+/**
+ * Run all cleanup hooks with a timeout.
+ * Returns a promise that resolves when all hooks complete or timeout.
+ */
+const runCleanupHooks = async (timeoutMs: number = 5000): Promise<void> => {
+  if (isCleaningUp) return;
+  isCleaningUp = true;
+  
+  if (cleanupHooks.size === 0) {
+    console.log('[core] No cleanup hooks registered');
+    return;
+  }
+  
+  console.log(`[core] Running ${cleanupHooks.size} cleanup hook(s)...`);
+  
+  const hookPromises = Array.from(cleanupHooks.entries()).map(async ([name, fn]) => {
+    try {
+      console.log(`[core] Running cleanup: ${name}`);
+      await fn();
+      console.log(`[core] Cleanup complete: ${name}`);
+    } catch (err: any) {
+      console.error(`[core] Cleanup error in ${name}:`, err?.message || err);
+    }
+  });
+  
+  // Wait for all hooks with timeout
+  await Promise.race([
+    Promise.all(hookPromises),
+    new Promise<void>((resolve) => setTimeout(() => {
+      console.warn('[core] Cleanup timeout reached, continuing with exit');
+      resolve();
+    }, timeoutMs))
+  ]);
+  
+  console.log('[core] All cleanup hooks finished');
+};
 
 const isWatchEnabled = () =>{
   return watchEnabled;
@@ -64,12 +134,33 @@ const watch = () => {
     }
 
     restartTimer = setTimeout(async () => {
-      await generateEvent({
-        path: 'services/core/stop', //event type: / separated event category: files/create/file, files/create/dir, devices/device/online
-        from: 'core', // system entity where the event was generated (next, api, cmd...)
-        user: 'system', // the original user that generates the action, 'system' if the event originated in the system itself
-        payload: {}, // event payload, event-specific data
-      }, getServiceToken())
+      try {
+        await generateEvent({
+          path: 'services/core/stop', //event type: / separated event category: files/create/file, files/create/dir, devices/device/online
+          from: 'core', // system entity where the event was generated (next, api, cmd...)
+          user: 'system', // the original user that generates the action, 'system' if the event originated in the system itself
+          payload: {}, // event payload, event-specific data
+        }, getServiceToken())
+      } catch (e) {
+        console.error('[core] Error generating stop event:', e);
+      }
+      
+      // CRITICAL: Run cleanup hooks before exit (GPU memory release, etc.)
+      // This prevents Windows GPU crashes (0x10e) during hot reload
+      console.log('[core] Hot reload: running cleanup hooks before exit...');
+      try {
+        await runCleanupHooks(5000);
+      } catch (e) {
+        console.error('[core] Error in cleanup hooks:', e);
+      }
+      
+      // Small delay to ensure GPU driver has time to process memory release
+      // Windows NVIDIA drivers sometimes need a moment to reclaim VRAM
+      console.log('[core] Hot reload: waiting for GPU driver to release memory...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('[core] Hot reload: cleanup complete, exiting...');
+      
       // Exit code 100 = "restart requested" (will be restarted by process manager)
       // Exit code 0 would mean "clean shutdown, don't restart"
       process.exit(100)
@@ -122,7 +213,15 @@ export const startCore = (ready?) => {
         const adminModules = await import(pathToFileURL(require.resolve('./api/index')).href)
         logger.debug({ adminModules }, 'Admin modules: ', JSON.stringify(adminModules))
         import(pathToFileURL(require.resolve('app/bundles/coreApis')).href).then((BundleAPI) => {
-          BundleAPI.default(app, { mqtt, topicSub, topicPub, ...BundleContext });
+          // Pass registerCleanupHook to extensions so they can register GPU/resource cleanup
+          BundleAPI.default(app, { 
+            mqtt, 
+            topicSub, 
+            topicPub, 
+            registerCleanupHook,
+            unregisterCleanupHook,
+            ...BundleContext 
+          });
         });
       });
     })
@@ -174,6 +273,31 @@ export const startCore = (ready?) => {
   if(isFullDev) {
     watch();
   }
+  
+  // ==========================================================================
+  // SIGNAL HANDLERS FOR GRACEFUL SHUTDOWN
+  // 
+  // When the process receives SIGINT (Ctrl+C) or SIGTERM, we need to:
+  // 1. Run all cleanup hooks (GPU cleanup, etc.)
+  // 2. Then exit
+  // 
+  // This prevents Windows GPU crashes (0x10e BSOD) during normal shutdown.
+  // ==========================================================================
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`\n[core] Received ${signal}, shutting down gracefully...`);
+    
+    try {
+      await runCleanupHooks(5000);
+    } catch (err: any) {
+      console.error('[core] Error during shutdown cleanup:', err?.message || err);
+    }
+    
+    // Exit with appropriate code
+    process.exit(signal === 'SIGTERM' ? 0 : 130);
+  };
+  
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 }
 
 

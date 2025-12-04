@@ -41,6 +41,23 @@ if (provider === 'llama') {
     ...llmParams,
     model: model || defaultLocalModel
   });
+
+  const content = context.ai.cleanCode(reply[0])
+  let raw = reply
+
+  reply = {
+    choices: [
+      {
+        message: {
+          content
+        }
+      }
+    ]
+  }
+
+  if(!content) {
+    reply["raw"] = raw
+  }
 } else if (provider === 'chatgpt') {
   reply = await context.chatgpt.chatGPTPrompt({
     ...llmParams,

@@ -1,3 +1,13 @@
+/**
+ * =============================================================================
+ * LLAMA EXTENSION - HTTP API Routes
+ * =============================================================================
+ * 
+ * These routes handle /api/core/v1/llama/* endpoints.
+ * The actual inference is done by llama-server (binary), managed by coreContext.
+ * =============================================================================
+ */
+
 import { handler } from 'protonode';
 import { getLogger } from 'protobase';
 import {
@@ -9,7 +19,10 @@ import {
     llamaListDownloads,
     llamaDeleteModel,
     llamaUnloadModel,
-    llamaStatus
+    llamaStatus,
+    llamaSystemReset,
+    llamaFastShutdown,
+    llamaPreload
 } from './coreContext';
 
 const logger = getLogger();
@@ -17,7 +30,6 @@ const logger = getLogger();
 export default (app, context) => {
     /**
      * POST /api/core/v1/llama/chat
-     * Chat completions with message history
      */
     app.post('/api/core/v1/llama/chat', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -33,13 +45,10 @@ export default (app, context) => {
         }
 
         try {
-            const response = await llamaChat({
-                model: model || 'default',
-                messages
-            });
+            const response = await llamaChat({ model, messages });
 
             if ((response as any).isError) {
-                res.status(500).send(response);
+                res.status((response as any).statusCode || 500).send(response);
                 return;
             }
 
@@ -52,7 +61,6 @@ export default (app, context) => {
 
     /**
      * POST /api/core/v1/llama/generate
-     * Simple prompt (stateful session)
      */
     app.post('/api/core/v1/llama/generate', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -60,7 +68,7 @@ export default (app, context) => {
             return;
         }
 
-        const { model, prompt, sessionId } = req.body;
+        const { model, prompt } = req.body;
 
         if (!prompt) {
             res.status(400).send({ error: 'prompt is required' });
@@ -68,14 +76,10 @@ export default (app, context) => {
         }
 
         try {
-            const response = await llamaPrompt({
-                model: model || 'default',
-                message: prompt,
-                sessionId
-            });
+            const response = await llamaPrompt({ model, message: prompt });
 
             if ((response as any).isError) {
-                res.status(500).send(response);
+                res.status((response as any).statusCode || 500).send(response);
                 return;
             }
 
@@ -88,7 +92,6 @@ export default (app, context) => {
 
     /**
      * GET /api/core/v1/llama/models
-     * List available models in data/models/
      */
     app.get('/api/core/v1/llama/models', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -107,10 +110,6 @@ export default (app, context) => {
 
     /**
      * POST /api/core/v1/llama/models/download
-     * Start downloading a GGUF model (returns downloadId for progress tracking)
-     * 
-     * Body: { url: "https://huggingface.co/.../model.gguf", filename?: "custom-name.gguf" }
-     * Response: { downloadId: "uuid" }
      */
     app.post('/api/core/v1/llama/models/download', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -118,22 +117,17 @@ export default (app, context) => {
             return;
         }
 
-        const { url, filename } = req.body;
+        const { url, filename, modelName } = req.body;
 
         if (!url) {
             res.status(400).send({ error: 'url is required' });
             return;
         }
 
+        const name = modelName || filename || url.split('/').pop()?.replace('.gguf', '') || 'model';
+
         try {
-            const result = await llamaStartDownload({ url, filename });
-
-            if ('error' in result) {
-                res.status(400).send({ error: result.error });
-                return;
-            }
-
-            logger.info({ downloadId: result.downloadId, url }, 'Download started');
+            const result = await llamaStartDownload({ url, modelName: name });
             res.json(result);
         } catch (err: any) {
             logger.error({ error: err?.message, url }, 'Error in /llama/models/download');
@@ -143,9 +137,6 @@ export default (app, context) => {
 
     /**
      * GET /api/core/v1/llama/models/download/:downloadId
-     * Get download progress by ID
-     * 
-     * Response: { id, url, filename, status, percent, downloaded, total, error?, path? }
      */
     app.get('/api/core/v1/llama/models/download/:downloadId', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -153,35 +144,27 @@ export default (app, context) => {
             return;
         }
 
-        const { downloadId } = req.params;
-
-        const progress = llamaGetDownloadProgress(downloadId);
-
+        const progress = llamaGetDownloadProgress(req.params.downloadId);
         if (!progress) {
             res.status(404).send({ error: 'Download not found' });
             return;
         }
-
         res.json(progress);
     }));
 
     /**
      * GET /api/core/v1/llama/models/downloads
-     * List all active/recent downloads
      */
     app.get('/api/core/v1/llama/models/downloads', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
             res.status(401).send({ error: 'Unauthorized' });
             return;
         }
-
-        const downloads = llamaListDownloads();
-        res.json({ downloads });
+        res.json({ downloads: llamaListDownloads() });
     }));
 
     /**
      * DELETE /api/core/v1/llama/models/delete
-     * Delete a model file
      */
     app.delete('/api/core/v1/llama/models/delete', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -190,7 +173,6 @@ export default (app, context) => {
         }
 
         const { model } = req.body;
-
         if (!model) {
             res.status(400).send({ error: 'model name is required' });
             return;
@@ -198,22 +180,19 @@ export default (app, context) => {
 
         try {
             const result = await llamaDeleteModel(model);
-
             if (!result.success) {
                 res.status(500).send({ error: result.error });
                 return;
             }
-
             res.json(result);
         } catch (err: any) {
-            logger.error({ error: err?.message, model }, 'Error in /llama/models/delete');
+            logger.error({ error: err?.message }, 'Error in /llama/models/delete');
             res.status(500).send({ error: err?.message || 'Internal server error' });
         }
     }));
 
     /**
      * POST /api/core/v1/llama/models/unload
-     * Unload a model from memory
      */
     app.post('/api/core/v1/llama/models/unload', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -221,25 +200,40 @@ export default (app, context) => {
             return;
         }
 
-        const { model } = req.body;
+        try {
+            const result = await llamaUnloadModel();
+            res.json(result);
+        } catch (err: any) {
+            logger.error({ error: err?.message }, 'Error in /llama/models/unload');
+            res.status(500).send({ error: err?.message || 'Internal server error' });
+        }
+    }));
 
-        if (!model) {
-            res.status(400).send({ error: 'model name is required' });
+    /**
+     * POST /api/core/v1/llama/preload
+     * 
+     * Preload the model so it's ready when user talks.
+     * Called by AI Setup Wizard after download completes.
+     */
+    app.post('/api/core/v1/llama/preload', handler(async (req, res, session) => {
+        if (!session || !session.user.admin) {
+            res.status(401).send({ error: 'Unauthorized' });
             return;
         }
 
+        const { model } = req.body;
+
         try {
-            const result = await llamaUnloadModel(model);
+            const result = await llamaPreload(model);
             res.json(result);
         } catch (err: any) {
-            logger.error({ error: err?.message, model }, 'Error in /llama/models/unload');
+            logger.error({ error: err?.message }, 'Error in /llama/preload');
             res.status(500).send({ error: err?.message || 'Internal server error' });
         }
     }));
 
     /**
      * GET /api/core/v1/llama/status
-     * Get status of the LLM system
      */
     app.get('/api/core/v1/llama/status', handler(async (req, res, session) => {
         if (!session || !session.user.admin) {
@@ -255,4 +249,67 @@ export default (app, context) => {
             res.status(500).send({ error: err?.message || 'Internal server error' });
         }
     }));
+
+    /**
+     * POST /api/core/v1/llama/system/reset
+     */
+    app.post('/api/core/v1/llama/system/reset', handler(async (req, res, session) => {
+        if (!session || !session.user.admin) {
+            res.status(401).send({ error: 'Unauthorized' });
+            return;
+        }
+
+        try {
+            const result = await llamaSystemReset();
+            res.json(result);
+        } catch (err: any) {
+            logger.error({ error: err?.message }, 'Error in /llama/system/reset');
+            res.status(500).send({ error: err?.message || 'Internal server error' });
+        }
+    }));
+
+    // =========================================================================
+    // CLEANUP HOOK
+    // =========================================================================
+    
+    if (context.registerCleanupHook) {
+        context.registerCleanupHook('llama-server', async () => {
+            logger.info('Stopping llama-server...');
+            await llamaFastShutdown();
+        });
+    }
+
+    // =========================================================================
+    // AUTO-START: If ai.provider is 'llama', preload the model on startup
+    // =========================================================================
+    
+    (async () => {
+        try {
+            // Wait for settings to be available
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            const provider = await context.settings.get({ key: 'ai.provider' });
+            
+            if (provider !== 'llama') {
+                logger.debug({ provider }, 'Llama auto-start skipped: ai.provider is not llama');
+                return;
+            }
+            
+            const localModel = await context.settings.get({ key: 'ai.localmodel' });
+            
+            logger.info({ model: localModel }, 'Auto-starting llama server (ai.provider = llama)...');
+            
+            const result = await llamaPreload(localModel || undefined);
+            
+            if (result.success) {
+                logger.info({ model: result.model }, 'Llama server auto-started successfully');
+            } else {
+                logger.warn({ reason: result.message }, 'Llama server auto-start failed');
+            }
+        } catch (err: any) {
+            logger.debug({ error: err?.message }, 'Llama auto-start error (settings may not be configured yet)');
+        }
+    })();
+
+    logger.info('Llama extension loaded (uses external llama-server binary)');
 };

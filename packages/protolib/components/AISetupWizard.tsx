@@ -7,12 +7,12 @@ import { API } from 'protobase'
 import { useSession } from '../lib/useSession'
 
 const providers = [
-    // {
-    //     id: 'llama',
-    //     name: 'Local AI',
-    //     description: 'Run AI locally, no API key required. Use your own hardware to run AI.',
-    //     icon: Bot
-    // },
+    {
+        id: 'llama',
+        name: 'Local AI',
+        description: 'Run AI locally, no API key required. Use your own hardware to run AI.',
+        icon: Bot
+    },
     {
         id: 'chatgpt',
         name: 'ChatGPT',
@@ -173,6 +173,25 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
         }
     }
 
+    const preloadModel = async () => {
+        const token = (session as any)?.token
+        if (!token) return
+
+        const model = localModels.find(m => m.id === selectedModel)
+        if (!model) return
+
+        const modelName = model.filename?.replace('.gguf', '') || selectedModel
+
+        try {
+            console.log('AISetupWizard: Preloading model:', modelName)
+            await API.post(`/api/core/v1/llama/preload?token=${token}`, { model: modelName })
+            console.log('AISetupWizard: Model preloaded successfully')
+        } catch (err) {
+            // Non-fatal - model will load on first use
+            console.warn('AISetupWizard: Model preload failed (will load on first use):', err)
+        }
+    }
+
     const pollDownloadProgress = async (id: string, token: string) => {
         try {
             const response = await API.get(`/api/core/v1/llama/models/download/${id}?token=${token}`)
@@ -229,6 +248,8 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
         } else if (step === 'download') {
             if (downloadProgress.status === 'completed') {
                 await saveSettings()
+                // Preload the model so it's ready when user talks
+                await preloadModel()
                 onComplete(selectedProvider)
             } else if (downloadProgress.status === 'error') {
                 // Retry download

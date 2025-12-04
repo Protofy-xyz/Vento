@@ -111,7 +111,7 @@
         {
             "key": "action_1762627353207",
             "width": 2,
-            "height": 7,
+            "height": 12,
             "icon": "rocket",
             "type": "action",
             "name": "call_ai_provider",
@@ -457,7 +457,7 @@
         "default": "/api/agents/v1/[object Object]/agent_input"
     },
     "version": 1,
-    "savedAt": 1764720893247,
+    "savedAt": 1764779759424,
     "rules": [
         ""
     ],

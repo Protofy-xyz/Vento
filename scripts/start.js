@@ -426,14 +426,23 @@ class ManagedProcess {
         
         if (shouldRestart) {
             // Reset restart count if last restart was more than 5 minutes ago
-    const now = Date.now();
+            const now = Date.now();
             if (now - this.lastRestartTime > 5 * 60 * 1000) {
                 this.restartCount = 0;
             }
 
             // Backoff: 0.5s, 0.65s, 0.85s, 1.1s, 1.4s, 1.9s, 2.4s, 3.1s, 4.1s, 5s max
             // Never give up - just cap at 5 seconds
-            const delay = Math.min(500 * Math.pow(1.3, this.restartCount), 5000);
+            let delay = Math.min(500 * Math.pow(1.3, this.restartCount), 5000);
+            
+            // GPU processes (like core with llama) need more time between restarts
+            // to allow the GPU driver to fully release resources
+            // Use restart_delay config or default to calculated backoff
+            const minDelay = config.restart_delay || 0;
+            if (minDelay > delay) {
+                delay = minDelay;
+            }
+            
             this.restartCount++;
             this.lastRestartTime = now;
 
@@ -459,41 +468,43 @@ class ManagedProcess {
 
             this.isShuttingDown = true;
             const pid = this.child.pid;
-            const timeout = this.config.kill_timeout || 5000;
+            // GPU processes need more time for cleanup (prevents Windows GPU crash)
+            const timeout = this.config.kill_timeout || 10000;
             const serviceColor = getServiceColor(this.name);
 
             console.log(`${serviceColor}[${this.name}]${RESET} Stopping (PID: ${pid})...`);
 
-            // Try graceful kill first
-            kill(pid, 'SIGTERM', (err) => {
-                if (err) {
-                    // Force kill
+            // IMPORTANT: Send SIGTERM directly to the process first (not tree-kill)
+            // This gives the process a chance to do graceful cleanup (like GPU resources)
+            try {
+                process.kill(pid, 'SIGTERM');
+            } catch (e) {
+                // Process may already be dead
+                resolve();
+                return;
+            }
+
+            // Wait for process to exit gracefully
+            const forceKillTimer = setTimeout(() => {
+                if (this.child) {
+                    console.log(`${serviceColor}[${this.name}]${RESET} Force killing after timeout...`);
+                    // Now use tree-kill as last resort
                     kill(pid, 'SIGKILL', () => {
                         resolve();
                     });
                 } else {
-                    // Wait for process to exit or force kill after timeout
-                    const forceKillTimer = setTimeout(() => {
-                        if (this.child) {
-                            console.log(`${serviceColor}[${this.name}]${RESET} Force killing after timeout...`);
-                            kill(pid, 'SIGKILL', () => {
-                                resolve();
-                            });
-                        } else {
-                            resolve();
-                        }
-                    }, timeout);
-
-                    // Clear timer if process exits normally
-                    const checkInterval = setInterval(() => {
-                        if (!this.child) {
-                            clearTimeout(forceKillTimer);
-                            clearInterval(checkInterval);
-                            resolve();
-                        }
-                    }, 100);
+                    resolve();
                 }
-            });
+            }, timeout);
+
+            // Clear timer if process exits normally
+            const checkInterval = setInterval(() => {
+                if (!this.child) {
+                    clearTimeout(forceKillTimer);
+                    clearInterval(checkInterval);
+                    resolve();
+                }
+            }, 100);
         });
     }
 }
@@ -675,52 +686,66 @@ if (process.platform === 'win32') {
 async function stopExternal(targetName = null) {
     const state = readState();
     
+    // Helper: gracefully stop a single process
+    const gracefulStop = async (name, pid) => {
+        console.log(`Stopping ${name} (PID: ${pid})...`);
+        markProcessAsStopped(name);
+        
+        return new Promise(resolve => {
+            // Send SIGTERM directly first (allows graceful GPU cleanup)
+            try {
+                process.kill(pid, 'SIGTERM');
+            } catch (e) {
+                // Process may already be dead
+                resolve();
+                return;
+            }
+            
+            // Check if process exited, with timeout
+            let checks = 0;
+            const maxChecks = 100; // 10 seconds max (100 * 100ms)
+            
+            const checkInterval = setInterval(() => {
+                checks++;
+                try {
+                    // Check if process is still running (throws if dead)
+                    process.kill(pid, 0);
+                    
+                    if (checks >= maxChecks) {
+                        // Timeout - force kill
+                        console.log(`${name} didn't stop gracefully, force killing...`);
+                        clearInterval(checkInterval);
+                        kill(pid, 'SIGKILL', () => resolve());
+                    }
+                } catch (e) {
+                    // Process is dead
+                    clearInterval(checkInterval);
+                    console.log(`${name} stopped`);
+                    resolve();
+                }
+            }, 100);
+        });
+    };
+    
     if (targetName) {
         const proc = state.processes[targetName];
         if (proc && proc.pid) {
-            console.log(`Stopping ${targetName} (PID: ${proc.pid})...`);
-            
-            // IMPORTANTE: Marcar como "stopped manually" ANTES de matar el proceso
-            // Esto evita que el manager lo reinicie automáticamente
-            markProcessAsStopped(targetName);
-            
-            await new Promise(resolve => {
-                kill(proc.pid, 'SIGTERM', (err) => {
-                    if (err) {
-                        kill(proc.pid, 'SIGKILL', () => resolve());
-                    } else {
-                        // Dar tiempo al proceso para terminar limpiamente
-                        setTimeout(resolve, 500);
-                    }
-                });
-            });
-            console.log(`${targetName} stopped`);
+            await gracefulStop(targetName, proc.pid);
         } else {
             console.error(`Process '${targetName}' not found or not running`);
         }
     } else {
-        console.log('Stopping all processes...');
+        console.log('Stopping all processes (waiting for graceful shutdown)...');
         
-        // Marcar todos los procesos como "stopped manually" primero
-        for (const name of Object.keys(state.processes)) {
-            markProcessAsStopped(name);
-        }
-        
-        // Luego matarlos
+        // Stop all processes in parallel
+        const stopPromises = [];
         for (const [name, info] of Object.entries(state.processes)) {
             if (info.pid) {
-                console.log(`Stopping ${name} (PID: ${info.pid})...`);
-                await new Promise(resolve => {
-                    kill(info.pid, 'SIGTERM', (err) => {
-                        if (err) {
-                            kill(info.pid, 'SIGKILL', () => resolve());
-                        } else {
-                            setTimeout(resolve, 500);
-                        }
-                    });
-                });
+                stopPromises.push(gracefulStop(name, info.pid));
             }
         }
+        
+        await Promise.all(stopPromises);
         writeState({ startedAt: null, processes: {} });
         console.log('All processes stopped');
     }

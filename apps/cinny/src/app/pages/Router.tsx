@@ -34,6 +34,7 @@ import {
   getAppPathFromHref,
   getExploreFeaturedPath,
   getHomePath,
+  getHomeRoomPath,
   getInboxNotificationsPath,
   getLoginPath,
   getOriginBaseUrl,
@@ -155,10 +156,10 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             </PageRoot>
           }
         >
-          {/* Don't redirect automatically - let user see the Network list */}
           {mobile ? null : (
             <Route
               index
+              loader={() => redirect(getHomeRoomPath('#vento:vento.local'))}
               element={<WelcomePage />}
             />
           )}

@@ -1,7 +1,7 @@
 {
     "name": "{{{name}}}",
     "icon": "openai",
-    "disabled": true, 
+    "disabled": true,
     "settings": {},
     "layouts": {
         "lg": [
@@ -143,8 +143,7 @@
                     "defaultValue": "OPENAI_API_KEY"
                 }
             },
-            "rulesCode": "",
-            "html": "\n//@react\nreactCard(`\n  async function validateKey(apiKey) {\n   // return true or false if the key is valid or not\n    return true;\n  }\n\n  function Widget() {\n    return (\n          <View className=\"no-drag\">\n            <KeySetter\n              nameKey={data?.configParams?.nameKey?.defaultValue}\n              validate={validateKey}\n              onAdd={(key) => {\n                settings.set('ai.enabled', true)\n              }}\n              onRemove={(key) => {\n                settings.del('ai.enabled')\n              }}\n            />\n          </View>\n    );\n  }\n\n`, data.domId)\n\n            "
+            "rulesCode": ""
         },
         {
             "key": "value_1752225293068",
@@ -155,9 +154,7 @@
             "description": "Render formatted markdown using ReactMarkdown",
             "type": "value",
             "editorOptions": {},
-            "displayFrame": true,
-            "rulesCode": "return `# 🧠 ChatGPT Interaction Board\n\nThis board lets you chat with ChatGPT using the OpenAI API.Follow these simple steps to get started:\n\n## 🔑 Step 1: Get Your API Key\n\n1. Go to[OpenAI's API Keys page](https://platform.openai.com/account/api-keys).\n2. Log in and click ** \"Create new secret key\" **.\n3. Copy and save your key securely — it won't be shown again.\n\n    > ⚠️ ** Keep it secret! ** Your API key is private and usage - based.\n\n## 🔑 Step 2: Set Your API Key\n\n1. Add your key on Key Setter card and click \"+\" to add. \n\n## 💬 Step 3: Chat with ChatGPT\n\n- Enter your message in the ** input box **.\n- Click the ** \"Send\" ** button to interact.\n- You’ll receive a response from ChatGPT below.\n\nStart chatting now and build your own AI assistant! 🚀\n`",
-            "html": "//@react\nreturn markdown(data)"
+            "displayFrame": true
         },
         {
             "key": "action_1757089062959",
@@ -179,9 +176,7 @@
             },
             "displayIcon": false,
             "displayButton": true,
-            "displayButtonIcon": true,
-            "rulesCode": "const response = await context.chatgpt.prompt({\n  message: `\n<instructions>You are integrated into a board system.\nThe board is composed of states and actions.\nYou will receive a user message and your mission is to generate a json response.\nOnly respond with a JSON in the following format:\n\n{\n    \"response\": \"whatever you want to say\",\n    \"actions\": [\n        {\n            \"name\": \"action_1\",\n            \"params\": {\n                \"example_param\": \"example_value\"\n            } \n        }\n    ]\n}\n\nThe key response will be shown to the user as a response to the user prompt.\nThe actions array can be empty if the user prompt requires no actions to be executed.\nWhen executing an action, always use the action name. Never use the action id to execute actions, just the name. \n\n</instructions>\n<board_actions>\n${JSON.stringify(boardActions)}\n</board_action>\n<board_states>\n${JSON.stringify(board)}\n</board_states>\n\nThe user prompt is:\n\n${params.prompt}\n`,\n  conversation: await context.chatgpt.getSystemPrompt({\n    prompt: `You can analyze images provided in the same user turn. \nDo NOT claim you cannot see images. \nAnswer following the JSON contract only (no code fences).`,\n  }),\n  images: await context.boards.getStatesByType({\n    board: board,\n    type: \"frame\",\n    key: \"frame\",\n  }),\n  files: await context.boards.getStatesByType({\n    board: board,\n    type: \"file\",\n    key: \"path\",\n  }),\n});\n\nreturn context.chatgpt.processResponse({\n  response: response,\n  execute_action: execute_action,\n});\n",
-            "html": "//@card/react\n\nfunction Widget(card) {\n  const value = card.value;\n\n  const content = <YStack f={1}  mt={\"20px\"} ai=\"center\" jc=\"center\" width=\"100%\">\n      {card.icon && card.displayIcon !== false && (\n          <Icon name={card.icon} size={48} color={card.color}/>\n      )}\n      {card.displayResponse !== false && (\n          <CardValue mode={card.markdownDisplay ? 'markdown' : 'normal'} value={value ?? \"N/A\"} />\n      )}\n  </YStack>\n\n  return (\n      <Tinted>\n        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n          <ActionCard data={card}>\n            {card.displayButton !== false ? <ParamsForm data={card}>{content}</ParamsForm> : card.displayResponse !== false && content}\n          </ActionCard>\n        </ProtoThemeProvider>\n      </Tinted>\n  );\n}\n"
+            "displayButtonIcon": true
         }
     ],
     "autopilot": false,

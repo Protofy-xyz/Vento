@@ -1,0 +1,2 @@
+//@react
+return markdown(data)

@@ -547,6 +547,55 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                 }
 
                 let templateName: string | null = null
+                let boardData: any = null
+                const buildComponents = (boardInfo: any, mqttUrl?: string | null) => {
+                    const entries: string[] = [`"mydevice"`, `"${selectedBoard}"`]
+                    const ports = boardInfo?.ports || []
+                    const wifiComponent = selectedWifi ? `wifi("${selectedWifi.ssid}", "${selectedWifi.password}", "none")` : null
+                    const mqttComponent = mqttUrl ? `mqtt("${mqttUrl}")` : null
+
+                    const normalizeType = (t: any) => (typeof t === 'string' ? t.toLowerCase() : '')
+                    const isIoCapable = (t: string) => t === 'io' || t === 'i' || t === 'o'
+
+                    const virtualIndexes = ports
+                        .map((p, idx) => ({ idx, type: normalizeType(p?.type) }))
+                        .filter(p => p.type === 'virtual')
+                        .map(p => p.idx)
+
+                    const ioIndexes = ports
+                        .map((p, idx) => ({ idx, type: normalizeType(p?.type) }))
+                        .filter(p => isIoCapable(p.type))
+                        .map(p => p.idx)
+
+                    const pickIndex = (list: number[], exclude: number | null) => {
+                        for (const idx of list) {
+                            if (exclude === null || idx !== exclude) return idx
+                        }
+                        return null
+                    }
+
+                    const wifiIdx = wifiComponent
+                        ? (virtualIndexes[0] ?? ioIndexes[0] ?? null)
+                        : null
+                    const mqttIdx = mqttComponent
+                        ? (pickIndex(virtualIndexes, wifiIdx) ?? pickIndex(ioIndexes, wifiIdx) ?? null)
+                        : null
+
+                    const totalPorts = Math.max(ports.length, (wifiIdx !== null ? wifiIdx + 1 : 0), (mqttIdx !== null ? mqttIdx + 1 : 0), 2)
+
+                    for (let i = 0; i < totalPorts; i++) {
+                        if (i === wifiIdx && wifiComponent) {
+                            entries.push(wifiComponent)
+                        } else if (i === mqttIdx && mqttComponent) {
+                            entries.push(mqttComponent)
+                        } else {
+                            entries.push('null')
+                        }
+                    }
+
+                    entries.push('null') // trailing null as in existing implementation
+                    return `[\n  ${entries.join(',\n  ')}\n];`
+                }
                 const hasTemplate = data.template !== '__none__'
                 if (hasTemplate) {
                     deviceData.deviceDefinition = data.template
@@ -563,26 +612,16 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                         setBoardError('Unable to load selected board')
                         return
                     }
-
-                    const generateComponents = () => {
-                        // Mirrors generateBoardJs from deviceDefinitionsPage.tsx
-                        const components = ['mydevice', selectedBoard]
-                        const totalPorts = (boardResp.data?.ports || []).length
-                        for (let i = 0; i < totalPorts; i++) {
-                            components.push(null)
-                        }
-                        components.push(null) // trailing null as in existing implementation
-                        return JSON.stringify(components, null, 2) + ';'
-                    }
+                    boardData = boardResp.data
 
                     const definitionPayload: any = {
                         name: templateName,
                         sdk: 'esphome-idf',
-                        board: boardResp.data,
+                        board: boardData,
                         description: `Blank ESPHome template for ${data.name}`,
                         config: {
-                            components: generateComponents(),
-                            sdkConfig: boardResp.data?.config?.['esphome-idf'] ?? {}
+                            components: buildComponents(boardData, null),
+                            sdkConfig: boardData?.config?.['esphome-idf'] ?? {}
                         }
                     }
                     let definitionResult = await API.post('/api/core/v1/devicedefinitions', definitionPayload)
@@ -603,6 +642,31 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
 
                 if (result.isError) {
                     throw result.error
+                }
+
+                // Update template with actual MQTT host/port once device credentials exist
+                if (templateName) {
+                    try {
+                        const deviceResp = await API.get(`/api/core/v1/devices/${encodeURIComponent(data.name)}`)
+                        if (!deviceResp?.isError && deviceResp?.data && boardData) {
+                            const mqttCreds = deviceResp.data?.credentials?.mqtt
+                            const host = mqttCreds?.host
+                            const mqttUrl = host ? `${host}` : null
+                            const updatedPayload = {
+                                name: templateName,
+                                sdk: 'esphome-idf',
+                                board: boardData,
+                                description: `Blank ESPHome template for ${data.name}`,
+                                config: {
+                                    components: buildComponents(boardData, mqttUrl),
+                                    sdkConfig: boardData?.config?.['esphome-idf'] ?? {}
+                                }
+                            }
+                            await API.post(`/api/core/v1/devicedefinitions/${encodeURIComponent(templateName)}`, updatedPayload)
+                        }
+                    } catch (err) {
+                        // silently ignore; user can adjust manually in editor
+                    }
                 }
                 toast.show('Device created', {
                     message: data.name

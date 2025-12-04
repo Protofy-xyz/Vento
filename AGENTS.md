@@ -900,3 +900,418 @@ yarn build-agent
 - API: http://localhost:8000/api/core/v1/
 - WebSocket: ws://localhost:8000/websocket
 
+---
+
+## Technical Deep Dive
+
+### Authentication & Tokens
+
+**Token Generation:**
+```typescript
+// packages/protobase/src/crypt.ts
+import jwt from 'jsonwebtoken';
+
+// Tokens require TOKEN_SECRET environment variable
+export const genToken = (data, options = { expiresIn: '3600000s' }) => {
+    return jwt.sign(data, process.env.TOKEN_SECRET, options);
+}
+
+export const verifyToken = (token) => {
+    return jwt.verify(token, process.env.TOKEN_SECRET);
+}
+```
+
+**Service Token** (for internal API calls):
+```typescript
+// System-level token with admin privileges
+const token = getServiceToken()
+// Returns: jwt.sign({id:'system', type:'system', admin:true}, TOKEN_SECRET)
+```
+
+**Session Structure:**
+```typescript
+type SessionDataType = {
+    user: {
+        admin: boolean,
+        id: string,          // 'guest' if not logged in
+        type: 'user' | 'guest' | 'device' | 'system',
+        permissions: string[]
+    },
+    token: string,
+    loggedIn: boolean
+}
+```
+
+**API Handler Pattern:**
+```typescript
+// packages/protonode/src/lib/handler.ts
+import { handler } from 'protonode';
+
+// Auto-extracts session from cookies/query params
+app.get('/my-endpoint', handler(async (req, res, session, next) => {
+    if (!session.user.admin) {
+        res.status(401).send({error: "Unauthorized"})
+        return
+    }
+    // ... handle request
+}))
+```
+
+### MQTT Broker
+
+The core runs an **Aedes MQTT broker** on port 1883 with WebSocket support on 3003.
+
+**Ports:**
+- `1883` - MQTT TCP (for local agents)
+- `3003` - WebSocket (`/websocket` path for browser clients)
+
+**Client Connection:**
+```typescript
+import { getMQTTClient } from 'protonode';
+
+const mqtt = getMQTTClient('myservice', getServiceToken());
+mqtt.subscribe('notifications/#');
+mqtt.on('message', (topic, message) => {
+    // Handle message
+});
+mqtt.publish('my/topic', JSON.stringify(data));
+```
+
+**Topic Conventions:**
+- `notifications/event/create/{path}` - Event notifications
+- `notifications/{model}/{action}/{id}` - Model changes
+- `devices/{deviceId}/status` - Device status updates
+
+### Database (ProtoDB)
+
+Vento uses **SQLite** by default with an abstract `ProtoDB` class for potential backends.
+
+**Database Location:** `data/databases/{name}`
+
+**API Pattern:**
+```typescript
+import { connectDB } from 'app/bundles/storageProviders';
+
+const db = await connectDB('mydata');
+await db.put('key', JSON.stringify(value));
+const data = await db.get('key');
+await db.del('key');
+
+// Iteration
+const iterator = db.iterator();
+for await (const [key, value] of iterator) {
+    // Process entries
+}
+```
+
+### Event System
+
+**Event Schema:**
+```typescript
+{
+    path: string,        // Hierarchical: 'devices/esp32/online'
+    from: string,        // Source: 'core', 'api', etc.
+    user: string,        // User ID or 'system'
+    payload: object,     // Event-specific data
+    ephemeral?: boolean, // If true, not stored in DB
+    created: string      // ISO timestamp
+}
+```
+
+**Emit Event:**
+```typescript
+import { generateEvent } from 'protobase';
+
+await generateEvent({
+    path: 'services/core/start',
+    from: 'core',
+    user: 'system',
+    payload: { port: 8000 }
+}, getServiceToken());
+```
+
+**Subscribe to Events (in extension):**
+```typescript
+// Via MQTT topic
+topicSub(mqtt, 'notifications/event/create/#', (message, topic) => {
+    const event = JSON.parse(message);
+    // Handle event
+});
+```
+
+### boardConnect Function
+
+Cards execute via `boardConnect`, which manages IPC with the main process:
+
+```typescript
+// packages/protonode/src/lib/boardConnect.ts
+const { boardConnect } = require('protonode')
+
+const run = Protofy("code", async ({ context, states, board, params }) => {
+    // 'states' contains all board card values
+    // 'board' provides: { onChange, execute_action, log, id }
+    // 'context' has all extension functions
+    // 'params' are the card's input parameters
+    
+    return result; // Becomes card's value
+})
+
+boardConnect(run)
+```
+
+**board Object Methods:**
+```javascript
+// Watch for state changes
+board.onChange({ name: 'some_card', changed: (newValue) => {
+    console.log('Card changed:', newValue);
+}});
+
+// Execute another action
+await board.execute_action({
+    name: 'other_action',
+    params: { key: 'value' },
+    done: (result) => {},
+    error: (err) => {}
+});
+
+// Log with board prefix
+board.log('Message'); // Outputs: "Board log [boardId]: Message"
+```
+
+### Parameter Resolution
+
+Card params support **state references** (values from other cards):
+
+```javascript
+// In card config, params can reference board state:
+{
+    "message": "board.current_request"  // Resolves to card value
+}
+
+// Supported patterns:
+"board.cardName"           // Direct card value
+"board?.cardName"          // Optional chaining
+"board['cardName']"        // Bracket notation
+"board.cardName.nested"    // Nested properties
+```
+
+**Type Casting:**
+- `string`, `number`, `boolean` - Standard JS types
+- `json` - JSON.parse()
+- `array` - JSON.parse() expecting array
+- `state` - Resolve and stringify board state
+
+### API Client (Internal)
+
+```typescript
+import { API } from 'protobase';
+
+// GET request (with auto-retry)
+const result = await API.get('/api/core/v1/boards?token=' + token);
+if (result.isError) {
+    console.error(result.error);
+    return;
+}
+console.log(result.data);
+
+// POST request
+const result = await API.post('/api/core/v1/boards', boardData);
+```
+
+**PendingResult Shape:**
+```typescript
+{
+    isLoading: boolean,
+    isLoaded: boolean,
+    isError: boolean,
+    data: any,
+    error: any
+}
+```
+
+### Protofy Annotation
+
+`Protofy()` is a **no-op annotation** used for code analysis and tooling:
+
+```typescript
+// packages/protobase/src/Protofy.ts
+export const Protofy = (type, x) => x;
+
+// Used in schemas for admin panel features
+export const BoardSchema = Schema.object(Protofy("schema", {
+    name: z.string().id(),
+    // ...
+}));
+
+// Used in card code
+const run = Protofy("code", async ({ context }) => {
+    // ...
+});
+
+// Used for feature flags
+Protofy("features", { "adminPage": "/boards" });
+```
+
+### Masks (Visual Programming Nodes)
+
+Masks define how functions appear in the visual editor:
+
+```typescript
+// extensions/chatgpt/cardMasks/boardPrompt.tsx
+import { buildAutoMask, MaskDefinition } from 'protolib/components/GenericMask';
+
+const promptMask: MaskDefinition = {
+    from: 'Board',                    // Category
+    id: 'chatgpt.prompt',             // Unique identifier
+    title: 'ChatGPT Prompt',          // Display name
+    category: 'AI',
+    keywords: ['ai', 'llm', 'chatgpt'],
+    context: 'context.chatgpt.prompt', // Actual function path
+    icon: 'sparkles',
+    params: {
+        message: {
+            type: 'input',
+            label: 'Message',
+            initialValue: { value: '', kind: 'StringLiteral' }
+        },
+        done: {
+            type: 'output',
+            label: 'Done',
+            vars: ['response']    // Output variables
+        },
+        error: {
+            type: 'output',
+            label: 'Error',
+            vars: ['err']
+        }
+    }
+};
+
+export default buildAutoMask(promptMask);
+```
+
+### Keys Extension
+
+Secure storage for API keys and secrets:
+
+```typescript
+// Get key (falls back to env var, then defaultValue)
+const apiKey = await context.keys.getKey({
+    key: 'OPENAI_API_KEY',
+    token: getServiceToken(),  // Optional, auto-resolved
+    defaultValue: undefined    // Fallback if not found
+});
+
+// Keys are stored in data/keys/ as encrypted files
+// Accessible via /api/core/v1/keys/{keyName}
+```
+
+### Logging
+
+Uses **Pino** logger with multiple transports:
+
+```typescript
+import { getLogger } from 'protobase';
+
+const logger = getLogger();
+
+// Levels: fatal, error, warn, info, debug, trace
+logger.info({ userId: 123 }, 'User logged in');
+logger.error({ error: err }, 'Something failed');
+logger.debug('Detailed debug info');
+```
+
+**Log Destinations:**
+- Console (pino-pretty, colored)
+- File (`logs/{serviceName}.log`)
+- MQTT (for remote monitoring)
+
+### File Paths
+
+```typescript
+import { getRoot } from 'protonode';
+
+// Returns project root (default: '../../' from apps/)
+const root = getRoot();
+// Can be overridden with FILES_ROOT env var
+
+// Common paths
+const modelsDir = path.join(getRoot(), 'data', 'models');
+const boardsDir = path.join(getRoot(), 'data', 'boards');
+```
+
+### TypeScript Configuration
+
+Key `tsconfig.json` settings:
+```json
+{
+    "compilerOptions": {
+        "jsx": "react-native",     // For React Native compatibility
+        "moduleResolution": "node",
+        "strictNullChecks": false, // Relaxed null checks
+        "target": "ESNext"
+    }
+}
+```
+
+**Path Aliases** (via yarn workspaces):
+- `protobase` → `packages/protobase`
+- `protonode` → `packages/protonode`
+- `@extensions/*` → `extensions/*`
+- `app/*` → `packages/app/*`
+
+### Flow2 Context Functions
+
+Additional utility functions for flow programming:
+
+```typescript
+import flow2 from '@extensions/flow2/context';
+
+// Available functions:
+flow2.switch(value, cases)      // Switch/case
+flow2.forEach(array, callback)  // Iterate
+flow2.filter(array, predicate)  // Filter
+flow2.map(array, transform)     // Map
+flow2.split(string, delimiter)  // Split string
+flow2.join(array, delimiter)    // Join to string
+flow2.push(array, item)         // Push to array
+flow2.jsonParse(string)         // Parse JSON
+flow2.toJson(object)            // Stringify
+flow2.addObjectKey(obj, k, v)   // Add key to object
+```
+
+### Process Agent Response
+
+For AI agents that return structured actions:
+
+```typescript
+import { processAgentResponse } from 'protonode';
+
+// AI response format expected:
+// ```json
+// { "response": "...", "actions": [{ "name": "...", "params": {...} }] }
+// ```
+
+const result = await processAgentResponse({
+    response: aiResponse,
+    execute_action: async (name, params) => {
+        // Execute the action and return result
+        return await board.execute_action({ name, params });
+    },
+    done: (processed) => {
+        // { response, executedActions, approvals }
+    }
+});
+```
+
+### Common Gotchas
+
+1. **TOKEN_SECRET Required**: JWT tokens won't work without `TOKEN_SECRET` env var
+2. **No require/import in Cards**: Card code runs in isolated context, use `context.*`
+3. **Board Names**: Must be lowercase with underscores only (`/^[a-z0-9_]+$/`)
+4. **Hot Reload**: Needs `FULL_DEV=1` for `apps/core` file watching
+5. **GPU Cleanup**: LLM processes need proper shutdown to avoid Windows crashes
+6. **Static Pages**: UI served from `data/pages/` unless dev mode enabled
+7. **MQTT Auth**: Disabled by default, enable with `ENABLE_MQTT_AUTH=true`
+8. **Node Version**: Requires Node.js >= 18.0.0
+

@@ -402,6 +402,67 @@ CardSchema = {
   - Other cards/automations
 - Some contain queues and support building full state machines
 
+### Card JSON Schema
+
+Cards can be defined as JSON templates in `extensions/*/cards/*.json`:
+
+```json
+{
+  "id": "storage_mymodel_create",
+  "name": "create",
+  "group": "storages",
+  "tag": "mymodel",
+  "templateName": "Create mymodel in the storage",
+  "defaults": {
+    "name": "create mymodel",
+    "type": "action",
+    "description": "Creates a mymodel given its content",
+    "icon": "file-plus",
+    "width": 2,
+    "height": 8,
+    "displayResponse": true,
+    "displayButton": true,
+    "displayIcon": true,
+    "params": {
+      "name": "Name of the item",
+      "value": "Value to store"
+    },
+    "configParams": {
+      "name": { "visible": true, "defaultValue": "", "type": "string" },
+      "value": { "visible": true, "defaultValue": "", "type": "json" }
+    },
+    "presets": {
+      "quick-create": {
+        "description": "Create with default values",
+        "configParams": { "name": { "defaultValue": "default" } }
+      }
+    },
+    "rulesCode": "return execute_action('/api/v1/actions/mymodel/create', userParams)",
+    "html": "//@card/react\nfunction Widget(card) { ... }"
+  }
+}
+```
+
+**Card Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `type` | `action` or `value` |
+| `name` | Display name |
+| `description` | For AI context |
+| `icon` | Lucide icon name |
+| `width`/`height` | Grid units |
+| `params` | Input parameters |
+| `configParams` | Parameter configuration |
+| `presets` | Named parameter presets |
+| `rulesCode` | JavaScript execution code |
+| `html` | Custom HTML/React rendering |
+| `displayResponse` | Show return value |
+| `displayButton` | Show run button |
+| `displayIcon` | Show icon |
+| `manualAPIResponse` | Control HTTP response manually |
+| `enableAgentInputMode` | Accept agent inputs |
+
 ### Card Code Structure
 
 Cards are stored as `.js` files in `data/boards/{board}/`:
@@ -477,14 +538,18 @@ Instead, they access capabilities through `context.*` functions, which are injec
 | `context.chatgpt` | `prompt`, `chatGPTSession`, `getSystemPrompt`, `processResponse` | OpenAI GPT integration |
 | `context.llama` | `prompt`, `llamaChat`, `llamaListModels`, `llamaStatus`, `llamaPreload` | Local LLM inference |
 | `context.boards` | `setVar`, `getVar`, `hasVar`, `clearVar`, `getStatesByType`, `processAgentResponse` | Board state management |
-| `context.events` | `emit`, `on`, `once` | Event system |
+| `context.events` | `emit`, `on`, `onEvent`, `emitEvent`, `getLastEvent` | Event system |
 | `context.apis` | `getServiceToken`, `fetch` | API utilities |
 | `context.keys` | `getKey`, `setKey` | Secret management |
 | `context.files` | `read`, `write`, `list`, `delete` | File operations |
 | `context.databases` | `get`, `set`, `query` | Database operations |
 | `context.html` | `render` | HTML template rendering |
 | `context.state` | `get`, `set`, `subscribe` | Global state |
-| `context.automations` | `run`, `schedule` | Automation execution |
+| `context.automations` | `automation`, `createSchedule`, `createPeriodicSchedule`, `scheduleJob` | Task scheduling |
+| `context.statemachines` | `spawnStateMachine`, `emitToStateMachine`, `getStateMachine`, `stateMachineFilter`, `onStateMachineEvent` | State machine management |
+| `context.actions` | `add`, `execute` | Action registration |
+| `context.cards` | `add` | Card registration |
+| `context.flow2` | `switch`, `forEach`, `filter`, `map`, `split`, `join`, `push`, `jsonParse`, `toJson`, `addObjectKey` | Flow utilities |
 
 ### Example: Using ChatGPT Context
 
@@ -519,6 +584,293 @@ const run = Protofy("code", async ({ context, params }) => {
     
     return response
 })
+```
+
+---
+
+## Automations & Scheduling
+
+The automations extension (`extensions/automations/`) provides task scheduling and automation registration.
+
+### Creating Automations
+
+Automations are defined in `data/automations/` and expose custom API endpoints.
+
+```javascript
+// In data/automations/myTask.ts
+import { Protofy } from 'protobase'
+import APIContext from 'app/bundles/context'
+
+export default Protofy("code", async (app, context: typeof APIContext) => {
+    // Register automation with scheduling
+    await context.automations.automation({
+        name: 'daily-report',
+        app: app,
+        description: 'Generate daily report',
+        automationParams: {
+            email: { description: 'Email to send report to' }
+        },
+        onRun: async (params, res) => {
+            // Your automation logic here
+            console.log('Running daily report for', params.email)
+        }
+    })
+})
+```
+
+### Scheduling Tasks
+
+```javascript
+// One-time schedule (specific date/time)
+context.automations.createSchedule(
+    '14:30',           // time (HH:mm)
+    () => { ... },     // callback
+    15,                // day
+    'march',           // month
+    2025               // year
+)
+
+// Periodic schedule (cron-like)
+context.automations.createPeriodicSchedule(
+    8,                 // hour
+    30,                // minute
+    () => { ... },     // callback
+    'monday,wednesday,friday'  // days
+)
+
+// Advanced scheduling with job control
+const job = context.automations.scheduleJob({
+    name: 'backup-job',
+    hours: 2,
+    minutes: 0,
+    days: 'sunday',
+    callback: async () => { ... },
+    autoStart: true,
+    runOnInit: false   // Run immediately on creation
+})
+// job.stop() / job.start() for control
+```
+
+### Automation Registration
+
+When you call `context.automations.automation()`, it:
+1. Registers the automation in `/api/core/v1/automations`
+2. Creates an action at `/api/v1/automations/{name}`
+3. Adds a card for AI agents to use
+
+---
+
+## Network Options (+ Add Menu)
+
+The network view has a "+ Add" button that shows options for adding elements to your Vento network.
+
+### Available Network Options
+
+| Option | Extension | Description |
+|--------|-----------|-------------|
+| Android Device | `extensions/android` | Connect Android phones via APK |
+| Desktop Agent | `extensions/desktop` | Windows/macOS/Linux agents |
+| ESP32 Device | `extensions/esphome` | IoT devices with ESPHome |
+| Raspberry Pi Agent | `extensions/raspberrypi` | GPIO control for RPi |
+| Data Object | `extensions/objects` | Create data storage objects |
+| Virtual Agent | `extensions/boards` | AI-powered virtual agents |
+| Task | `extensions/apis` | Custom API endpoints |
+
+### Creating a Network Option
+
+To add a new option to the "+ Add" menu:
+
+1. Create `extensions/myextension/networkOption.tsx`:
+
+```tsx
+import type { NetworkOption } from '../network/options'
+
+const MyWizard = ({ onCreated, onBack }) => {
+    // Your wizard UI here
+    return (
+        <YStack>
+            {/* Configuration steps */}
+            <Button onPress={() => onCreated({ name: 'mydevice' })}>
+                Create
+            </Button>
+        </YStack>
+    )
+}
+
+export const myOption: NetworkOption = {
+    id: 'myoption',
+    name: 'My Device Type',
+    description: 'Add my custom device',
+    icon: 'box',
+    Component: MyWizard
+}
+```
+
+2. Register in `extensions/network/options/index.ts`:
+
+```typescript
+import { myOption } from '../../myextension/networkOption'
+
+export const networkOptions: NetworkOption[] = [
+    // ... other options
+    myOption,
+]
+```
+
+---
+
+## Board Templates
+
+When creating a virtual agent, you can choose from templates in `data/templates/boards/`:
+
+| Template | Description |
+|----------|-------------|
+| `blank` | Empty board with no cards |
+| `ai agent` | Basic AI agent with chat |
+| `chatgpt` | ChatGPT integration agent |
+| `rule-based agent` | Automation rules without AI |
+| `smart ai agent` | Advanced AI with multiple capabilities |
+
+### Template Structure
+
+Each template folder contains:
+- `{name}.json` - Board configuration and cards
+- `{name}.js` - Board code
+- `{name}_ui.js` - UI-specific card code
+- `README.md` - Template description
+
+---
+
+## Card HTML Rendering
+
+Cards can have custom HTML/React rendering via the `html` field. Two modes are supported:
+
+### React Mode (`//@card/react`)
+
+Renders React components directly in the DOM:
+
+```javascript
+// Card html field:
+//@card/react
+
+function Widget(card) {
+  const value = card.value;
+  
+  return (
+    <Tinted>
+      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
+        <YStack f={1} ai="center" jc="center">
+          <Icon name={card.icon} size={48} color={card.color}/>
+          <CardValue value={value ?? "N/A"} />
+        </YStack>
+      </ProtoThemeProvider>
+    </Tinted>
+  );
+}
+```
+
+### IFrame Mode (`//@card/reactframe`)
+
+Renders in an isolated iframe (better for complex/external libraries):
+
+```javascript
+// Card html field:
+//@card/reactframe
+
+function Widget(props) {
+  // props contains card data
+  // execute_action() is available for calling board actions
+  
+  return (
+    <div>
+      <button onClick={() => execute_action('my_action', { param: 'value' })}>
+        Run Action
+      </button>
+    </div>
+  );
+}
+```
+
+### Available Components in Card HTML
+
+| Component | Description |
+|-----------|-------------|
+| `Tinted` | Applies theme tinting |
+| `ProtoThemeProvider` | Theme context |
+| `YStack`, `XStack` | Flex containers |
+| `Icon` | Icon renderer |
+| `CardValue` | Display card value |
+| `ActionCard` | Action card wrapper |
+| `ParamsForm` | Form for action params |
+| `StorageView` | Object storage viewer |
+| `Markdown` | Markdown editor |
+| `FileBrowser` | File browser |
+
+### ViewLib Helpers (`extensions/boards/viewLib.js`)
+
+Available helpers for card HTML:
+
+```javascript
+// Create card container
+card({ content: '...', style: '', padding: '10px' })
+
+// Render icon
+icon({ name: 'search', size: 48, color: 'var(--color7)' })
+
+// Display JSON as collapsible tree
+jsonToDiv(data, indent, expandedDepth)
+
+// Create data table
+cardTable(dataArray)
+
+// Display card value
+cardValue({ value: '...', style: '' })
+
+// Action card with params form
+cardAction({ data: card, content: '...' })
+
+// YouTube embed
+youtubeEmbed({ url: 'https://...' })
+
+// Image
+boardImage({ src: '...', alt: '', style: '' })
+
+// IFrame
+iframe({ src: 'https://...' })
+
+// Get board states
+getStates()
+
+// Get board actions
+getActions()
+
+// Get storage data
+getStorage(modelName, key, defaultValue)
+```
+
+---
+
+## Prompt Templates
+
+AI prompts are stored in `data/prompts/*.tpl`:
+
+| Template | Purpose |
+|----------|---------|
+| `agentRules.tpl` | Main agent system prompt |
+| `actionRules.tpl` | Action card prompt rules |
+| `valueRules.tpl` | Value card prompt rules |
+| `aiSearch.tpl` | AI-powered search queries |
+| `llm.tpl` / `llmv2.tpl` | Local LLM prompts |
+| `explainActions.tpl` | Action explanation |
+| `componentGenerator.tpl` | UI component generation |
+
+### Prompt Template Variables
+
+Templates use `{variable}` syntax:
+```tpl
+You are an assistant for {system_name}.
+Current context: {context}
+User request: {request}
 ```
 
 ---

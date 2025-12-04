@@ -277,6 +277,13 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
 
     useImperativeHandle(ref, () => ({
         ensureSelection: async () => {
+            if (!selectedKey && networks.length > 0) {
+                // Fallback to first network to avoid stalled create flow
+                const first = networks[0]
+                setSelectedKey(first.key)
+                setForm({ ssid: first.ssid, password: first.password, key: first.key })
+            }
+
             if (selectedKey) {
                 const selected = networks.find(n => n.key === selectedKey)
                 if (selected) {
@@ -312,7 +319,7 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
     }
 
     return (
-        <YStack padding="$2" gap="$3" width="100%">
+        <YStack padding="$4" gap="$4" width="100%" maxWidth={820} alignSelf="center">
             {wifiError ? <Text color="$red9" fontSize="$2" marginBottom="$1">{wifiError}</Text> : null}
             {loading ? (
                 <XStack alignItems="center" gap="$2">
@@ -320,15 +327,15 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
                 </XStack>
             ) : (
                 <>
-                    {networks.length > 0 ? (
-                        <YStack gap="$2">
-                            <XStack justifyContent="space-between" alignItems="center">
-                                <Text fontWeight="600" fontSize="$5">Saved networks</Text>
-                                <Tinted>
-                                    <Button size="$3" onPress={startNew}>Add</Button>
-                                </Tinted>
-                            </XStack>
-                            <ScrollView maxHeight={220} paddingHorizontal="$2" paddingVertical="$4">
+                    <YStack gap="$3" boc="$color6" bw={1} br="$5" p="$3" bc="$bg">
+                        <XStack justifyContent="space-between" alignItems="center" paddingBottom="$2">
+                            <Text fontWeight="700" fontSize="$6">Saved networks</Text>
+                            <Tinted>
+                                <Button size="$3" onPress={startNew}>Add Wi-Fi</Button>
+                            </Tinted>
+                        </XStack>
+                        {networks.length > 0 ? (
+                            <ScrollView maxHeight={240} paddingHorizontal="$2" paddingVertical="$2">
                                 <YStack gap="$3">
                                     {networks.map(net => {
                                         const isSelected = selectedKey === net.key
@@ -346,19 +353,9 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
                                                     onPress={() => handleSelect(net.key)}
                                                 >
                                                     <XStack justifyContent="space-between" alignItems="center" gap="$3">
-                                                        <XStack gap="$2" alignItems="center">
+                                                        <YStack gap="$1">
                                                             <Text fontWeight="700" color="$color11">{net.ssid}</Text>
-                                                            {isSelected && (
-                                                                <XStack
-                                                                    paddingHorizontal="$2"
-                                                                    paddingVertical="$1"
-                                                                    borderRadius="$3"
-                                                                    backgroundColor="$color9"
-                                                                >
-                                                                    <Text color="$color1" fontSize="$2">Selected</Text>
-                                                                </XStack>
-                                                            )}
-                                                        </XStack>
+                                                        </YStack>
                                                         <Popover
                                                             allowFlip
                                                             placement="bottom-end"
@@ -374,7 +371,7 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
                                                                 />
                                                             </Popover.Trigger>
                                                             <Popover.Content padding="$2" br="$4" bw={1} boc="$color6" bc="$color1" onPress={(e) => e?.stopPropagation?.()}>
-                                                                <YStack gap="$2" minWidth={140}>
+                                                                <YStack gap="$2" minWidth={160}>
                                                                     <Button
                                                                         size="$3"
                                                                         icon={<Pencil size={16} />}
@@ -402,35 +399,36 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
                                     })}
                                 </YStack>
                             </ScrollView>
-                        </YStack>
-                    ) : (
-                        <YStack gap="$2">
-                            <XStack justifyContent="space-between" alignItems="center">
-                                <Text fontWeight="600" fontSize="$5">Add a Wi-Fi network</Text>
-                                <Tinted>
-                                    <Button size="$3" onPress={startNew}>Add</Button>
-                                </Tinted>
-                            </XStack>
-                            <Text color="$gray11">No Wi-Fi credentials found yet.</Text>
-                        </YStack>
-                    )}
+                        ) : (
+                            <YStack gap="$2">
+                                <Text color="$gray11">No Wi-Fi credentials found yet.</Text>
+                                <Text color="$gray10" fontSize="$2">Add one to speed up provisioning.</Text>
+                            </YStack>
+                        )}
+                    </YStack>
 
                     {showForm && (
-                        <YStack gap="$2">
-                            <Text fontWeight="600">{form.key ? 'Edit Wi-Fi' : 'New Wi-Fi'}</Text>
-                            <Input
-                                placeholder="SSID"
-                                value={form.ssid}
-                                onChangeText={(text) => setForm({ ...form, ssid: text })}
-                            />
-                            <FormInput
-                                placeholder="Password"
-                                secureTextEntry
-                                value={form.password}
-                                onChangeText={(text) => setForm({ ...form, password: text })}
-                            />
+                        <YStack gap="$3" boc="$color6" bw={1} br="$5" p="$3" bc="$bg">
+                            <Text fontWeight="700" fontSize="$6">{form.key ? 'Edit Wi-Fi' : 'New Wi-Fi'}</Text>
+                            <YStack gap="$2">
+                                <Text fontSize="$3" fontWeight="600" color="$gray11">SSID</Text>
+                                <Input
+                                    placeholder="SSID"
+                                    value={form.ssid}
+                                    onChangeText={(text) => setForm({ ...form, ssid: text })}
+                                />
+                            </YStack>
+                            <YStack gap="$2">
+                                <Text fontSize="$3" fontWeight="600" color="$gray11">Password</Text>
+                                <FormInput
+                                    placeholder="Password"
+                                    secureTextEntry
+                                    value={form.password}
+                                    onChangeText={(text) => setForm({ ...form, password: text })}
+                                />
+                            </YStack>
                             {error ? <Text color="$red9" fontSize="$2">{error}</Text> : <Text height="$1" />}
-                            <XStack gap="$2" justifyContent="center" marginBottom="$4">
+                            <XStack gap="$2" justifyContent="flex-end" marginTop="$2">
                                 <Button width={180} onPress={upsertNetwork} disabled={saving}>
                                     {form.key ? 'Update Wi-Fi' : 'Save Wi-Fi'}
                                 </Button>

@@ -516,7 +516,14 @@ const getDB = (path, req, session) => {
             // if folder does not exist, create it
             await promisesFs.mkdir(dataDir(getRoot(req)) + key, { recursive: true })
             try{
-                await promisesFs.writeFile(filePath, value)
+                let content = value
+                try {
+                    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+                    content = JSON.stringify(parsed, null, 2)
+                } catch (parseErr) {
+                    // leave content as-is if it's not valid JSON
+                }
+                await promisesFs.writeFile(filePath, content)
             }catch(error){
                 console.error("Error creating file: " + filePath, error)
             }

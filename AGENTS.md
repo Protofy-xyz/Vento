@@ -793,18 +793,88 @@ function Widget(props) {
 
 ### Available Components in Card HTML
 
+Components are registered via `packages/app/bundles/sharedComponents.tsx` and available globally in `@card/react`:
+
+**Layout Components:**
 | Component | Description |
 |-----------|-------------|
-| `Tinted` | Applies theme tinting |
-| `ProtoThemeProvider` | Theme context |
-| `YStack`, `XStack` | Flex containers |
-| `Icon` | Icon renderer |
-| `CardValue` | Display card value |
-| `ActionCard` | Action card wrapper |
+| `YStack`, `XStack` | Flex containers (vertical/horizontal) |
+| `View` | Generic container |
+| `Text`, `Paragraph` | Text elements |
+| `Button` | Clickable button |
+| `Input` | Text input |
+| `Spinner` | Loading indicator |
+
+**Card Components:**
+| Component | Description |
+|-----------|-------------|
+| `ActionCard` | Action card wrapper with run button |
+| `CardValue` | Display card value (auto JSON tree) |
 | `ParamsForm` | Form for action params |
-| `StorageView` | Object storage viewer |
-| `Markdown` | Markdown editor |
-| `FileBrowser` | File browser |
+| `Icon` | Lucide icon renderer |
+| `Tinted` | Applies theme tinting |
+| `ProtoThemeProvider` | Theme context wrapper |
+
+**Data Components:**
+| Component | Description |
+|-----------|-------------|
+| `StorageView` | Object storage CRUD view |
+| `ViewList` | List view with items |
+| `ViewObject` | Object detail view |
+| `JSONView` | JSON tree viewer |
+| `FileBrowser` | File browser UI |
+| `ObjectViewLoader` | Load and display objects |
+
+**Chart Components:**
+| Component | Description |
+|-----------|-------------|
+| `PieChart` | Pie chart |
+| `BarChart` | Bar chart |
+| `LineChart` | Line chart |
+| `AreaChart` | Area chart |
+| `RadarChart` | Radar chart |
+| `RadialBarChart` | Radial bar chart |
+
+**Media Components:**
+| Component | Description |
+|-----------|-------------|
+| `Markdown` | Markdown editor/viewer |
+| `Html` | HTML renderer |
+| `CameraPreview` | Camera feed preview |
+| `CameraCard` | Camera card component |
+| `CanvasDraw` | Drawing canvas |
+| `InteractiveGrid` | Interactive grid layout |
+
+**Utilities:**
+| Component | Description |
+|-----------|-------------|
+| `API` | HTTP client (`API.get`, `API.post`) |
+| `ProtoModel` | Data model class |
+| `MqttWrapper` | MQTT subscription wrapper |
+| `KeySetter`, `KeyGate` | API key management |
+| `useEventEffect` | Event subscription hook |
+| `useKeyState` | Key state hook |
+| `InteractiveIcon` | Clickable icon |
+
+**Example using charts:**
+```javascript
+//@card/react
+function Widget(card) {
+  const data = [
+    { name: 'A', value: 400 },
+    { name: 'B', value: 300 },
+    { name: 'C', value: 200 }
+  ];
+  
+  return (
+    <Tinted>
+      <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
+        <PieChart data={data} width={200} height={200} />
+      </ProtoThemeProvider>
+    </Tinted>
+  );
+}
+```
 
 ### ViewLib Helpers (`extensions/boards/viewLib.js`)
 

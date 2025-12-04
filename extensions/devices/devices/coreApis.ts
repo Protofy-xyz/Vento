@@ -14,6 +14,7 @@ import { compileMessagesTopic } from "@extensions/esphome/utils";
 import { connect as mqttConnect, IClientOptions } from 'mqtt';
 import { protoInfraUrls } from "@extensions/protoinfra/utils/protoInfraUrls";
 import { randomUUID } from 'crypto';
+import { getTemplate, TemplatesDir } from "@extensions/boards/system/boards";
 
 const PER_PARAM_ROWS = 1; // tweak as needed (extra grid rows per visible param)
 
@@ -288,14 +289,14 @@ function Widget(card) {
             }
         }
 
-        const aiTemplatePath = fspath.join(process.cwd(), '..', '..', 'data', 'templates', 'boards', 'smart ai agent', 'smart ai agent.json');
-        let aiTemplateJson: any = {};
-        if (fs.existsSync(aiTemplatePath)) {
-            const aiTemplateData = fs.readFileSync(aiTemplatePath, 'utf-8');
-            aiTemplateJson = JSON.parse(aiTemplateData);
+        // Load AI agent template with card code/html using getTemplate
+        try {
+            const aiTemplateJson = await getTemplate('smart ai agent');
             for (const card of aiTemplateJson.cards || []) {
                 cards.push(card);
             }
+        } catch (err) {
+            logger.warn({ err }, 'Failed to load smart ai agent template for device board');
         }
 
         // --- after you've finished filling `buckets` (lg/md/sm/xs) ---

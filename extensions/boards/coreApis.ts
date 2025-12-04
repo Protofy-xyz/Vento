@@ -11,7 +11,7 @@ import { VersionsDir } from '@extensions/versions/versions'
 import { Manager } from "./manager";
 import { dbProvider, getDBOptions } from 'protonode';
 import { acquireLock, releaseLock } from "./system/lock";
-import { BoardsDir, getBoard, getBoards, cleanObsoleteCardFiles, getBoardFilePath } from "./system/boards";
+import { BoardsDir, getBoard, getBoards, cleanObsoleteCardFiles, getBoardFilePath, TemplatesDir, getTemplate, getTemplates, saveTemplate } from "./system/boards";
 import { getActions, handleBoardAction, setActionValue, buildActionWrapper, normalizeRulesCode } from "./system/actions";
 import { TypeParser } from "./system/types";
 import { insertHistoryEntry, getCardHistory, cleanupOldEntries } from "./system/cardHistory";
@@ -20,7 +20,6 @@ import fetch from 'node-fetch';
 
 
 let eventListeners = {};
-const TemplatesDir = (root) => fspath.join(root, "/data/templates/boards/")
 
 const BOARD_REFRESH_INTERVAL = 5000 //in miliseconds (fallback, main trigger is via MQTT events)
 const defaultAIProvider = 'chatgpt'
@@ -748,20 +747,22 @@ export default async (app, context) => {
         console.log("Creating board:", name);
         console.log("Template: ", template);
 
-        const boardTemplate = fsSync.readFileSync(TemplatesDir(getRoot()) + '/' + template.id + '/' + template.id + '.json', 'utf-8');
-        let boardContent = boardTemplate.replace(/{{{name}}}/g, name);
-        //iterate over the keys in data and replace {{{key}}} with the value in data[key]
+        // Use getTemplate to read the template with card code/html injected
+        const templateData = await getTemplate(template.id);
+        
+        // Replace template variables
+        let boardContentStr = JSON.stringify(templateData).replace(/{{{name}}}/g, name);
         for (const key in data) {
-            boardContent = boardContent.replace(new RegExp(`{{{${key}}}}`, 'g'), data[key]);
+            boardContentStr = boardContentStr.replace(new RegExp(`{{{${key}}}}`, 'g'), data[key]);
         }
 
-        boardContent = JSON.parse(boardContent);
+        const boardContent = JSON.parse(boardContentStr);
 
         delete boardContent.version;
         delete boardContent.priority;
 
 
-        //first create the board
+        //first create the board (processCards will extract rulesCode/html to files)
         await API.post(`/api/core/v1/boards?token=` + token, boardContent);
 
         if (fsSync.existsSync(TemplatesDir(getRoot()) + '/' + template.id + '/' + template.id + '.js')) {
@@ -796,27 +797,14 @@ export default async (app, context) => {
         const { name, from, description } = req.body;
         console.log("Creating board template:", name);
         console.log("From: ", from);
-        if (!fsSync.existsSync(TemplatesDir(getRoot()))) {
-            fsSync.mkdirSync(TemplatesDir(getRoot()), { recursive: true });
-        }
-        if (fsSync.existsSync(TemplatesDir(getRoot()) + '/' + name)) {
-            //remove directory recursively
-            fsSync.rmSync(TemplatesDir(getRoot()) + '/' + name, { recursive: true, force: true });
-        }
-        fsSync.mkdirSync(TemplatesDir(getRoot()) + '/' + name, { recursive: true });
 
-        //get full board
+        //get full board with rulesCode and html injected
         const board = await getBoard(from)
-        board.name = '{{{name}}}'
-        delete board.version
-        delete board.savedAt
-        //fill uiCode and rulesCode
+        
+        // Save template using new structure (with card files in subdirectory)
+        await saveTemplate(name, board, { description });
 
-
-
-        //write board as {name}.json, uiCode as {name}_ui.js, rulesCode as {name}.js
-        fsSync.writeFileSync(TemplatesDir(getRoot()) + '/' + name + '/' + name + '.json', JSON.stringify(board, null, 4));
-
+        // Copy board automation and UI files
         if (fsSync.existsSync(BoardsDir(getRoot()) + '/' + from + '_ui.js')) {
             const uiCode = fsSync.readFileSync(BoardsDir(getRoot()) + '/' + from + '_ui.js', 'utf-8')
             fsSync.writeFileSync(TemplatesDir(getRoot()) + '/' + name + '/' + name + '_ui.js', uiCode);
@@ -826,7 +814,7 @@ export default async (app, context) => {
             const rulesCode = fsSync.readFileSync(BoardsDir(getRoot()) + '/' + from + '.js', 'utf-8')
             fsSync.writeFileSync(TemplatesDir(getRoot()) + '/' + name + '/' + name + '.js', rulesCode);
         }
-        fsSync.writeFileSync(TemplatesDir(getRoot()) + '/' + name + '/README.md', description);
+        
         res.send({ board });
         registerAgentTemplates();
     });

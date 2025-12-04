@@ -210,7 +210,7 @@ const ProtofyXIAOESP32S3devBoard = ({ node = {}, nodeData = {}, topics = {}, col
       <div style={{ marginTop: "20px", marginBottom: "80px" }}>
         <img
           src={"/public/images/device/ProtofyXIAOdevBoard.png"}
-          style={{ width: "100%" }}
+          style={{ width: "800px" }}
         />
         <div
           style={{

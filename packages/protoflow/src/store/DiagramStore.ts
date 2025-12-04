@@ -34,8 +34,13 @@ const getExtraData = () => {
 const wrapDiagramItem = (payload, dataToAdd) => { // wrapper for diagram edges and nodes
     // v12: exclude internal frozen properties when cloning
     const clone = (e) => {
-        const { measured, internals, ...rest } = e;
-        return { ...rest, data: { ...e.data, ...dataToAdd } };
+        const { measured, internals, width, height, ...rest } = e;
+        return { 
+            width: measured?.width ?? e.width,
+            height: measured?.height ?? e.height,
+            ...rest, 
+            data: { ...e.data, ...dataToAdd } 
+        };
     };
     
     if (typeof payload === 'function') {

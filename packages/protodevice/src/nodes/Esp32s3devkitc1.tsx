@@ -35,7 +35,7 @@ const Esp32s3devkitc1 = ({ node = {}, nodeData = {}, topics = {}, color }: any) 
     return (
         <Node output={false} skipCustom={true} node={node} color={color} isPreview={!id} title='ESP32' id={id} margin='200px' >
             <div style={{ marginTop: '20px', marginBottom: '20px' }}>
-                <img src={'/public/images/device/esp32s3-devkitc.png'} style={{ width: "100%" }} />
+                <img src={'/public/images/device/esp32s3-devkitc.png'} style={{ width: "268px" }} />
             </div>
             {Array(ports.length).fill(1).map((x, i) => {
                 if (["I", "O", "IO"].includes(ports[i].type)) {                    

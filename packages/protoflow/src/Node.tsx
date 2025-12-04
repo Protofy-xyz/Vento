@@ -306,7 +306,7 @@ const HandleField = ({ id, param, index = 0, portId = null, editing = false, onR
                 return <>
                     {getTypeByKind(fieldKind)
                         ? <div
-                            style={{ padding: '8px', justifyContent: 'center', position: 'absolute', zIndex: 100, cursor: 'pointer' }}
+                            style={{ padding: '4px', justifyContent: 'center', position: 'absolute', zIndex: 100, cursor: 'pointer' }}
                             onClick={() => {
                                 setNodeData(id, {
                                     ...nodeData, [param.field]: {
@@ -317,7 +317,7 @@ const HandleField = ({ id, param, index = 0, portId = null, editing = false, onR
                                 })
                             }}
                         >
-                            {React.createElement(getKindIcon(fieldKind), { size: 16, color: interactiveColor })}
+                            {React.createElement(getKindIcon(fieldKind), { size: 14, color: interactiveColor })}
                         </div>
                         : <></>}
                     <NodeInput
@@ -336,7 +336,7 @@ const HandleField = ({ id, param, index = 0, portId = null, editing = false, onR
                         }}>
                         {param.error ? <div style={{ alignItems: 'center', marginTop: '5px', display: 'flex' }}>
                             {/* @ts-ignore */}
-                            <AlertCircle size={"14px"} color='red' style={{ alignSelf: 'center', marginRight: '5px' }} />
+                            <AlertCircle size={14} color='red' style={{ alignSelf: 'center', marginLeft: '4px' }} />
                             <Text style={{ color: 'red', fontSize: '12px' }}>
                                 {param.error}
                             </Text> </div> : null}
@@ -395,15 +395,15 @@ const HandleField = ({ id, param, index = 0, portId = null, editing = false, onR
         <div style={{ alignItems: 'stretch', flexBasis: 'auto', flexShrink: 0, listStyle: 'none', position: 'relative', display: 'flex', zIndex: param.type == 'select' || param.type == 'colorPicker' ? 1100 : 0, flexDirection: "column" }}>
             {
                 !isDefaultCase ?
-                    <div ref={ref} style={{ flex: 1, fontSize: nodeFontSize + 'px', padding: '2px 6px', gap: '4px', display: 'flex', flexDirection: 'row', alignItems: 'stretch' }}>
-                        <div className={"handleKey"} ref={textBoxRef} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flex: 2 }}>
+                <div ref={ref} style={{ flex: 1, fontSize: nodeFontSize + 'px', padding: '2px 6px', gap: '4px', display: 'flex', flexDirection: 'row', alignItems: 'stretch' }}>
+                    <div className={"handleKey"} ref={textBoxRef} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flex: 2 }}>
                             {(param?.deleteable && isDeletedLeft) ? <DeleteButton color={colorError} size={nodeFontSize} onDelete={onDeleteParam} id={id} left={true} field={param.field} /> : null}
                             {getValue()}
-                        </div>
-                        <div className={"handleValue"} title={param.description} style={{ minWidth: '0px', marginRight: '10px', display: 'flex', flexDirection: 'row', justifyContent: param.type == 'boolean' ? 'flex-end' : '', alignItems: 'center', flex: 3 }}>
-                            {getInput(isConnected)}
-                            {(param?.deleteable && !isDeletedLeft) ? <DeleteButton color={colorError} size={nodeFontSize} onDelete={onDeleteParam} id={id} field={param.field} /> : null}
-                        </div>
+                    </div>
+                    <div className={"handleValue"} title={param.description} style={{ minWidth: '0px', marginRight: '10px', display: 'flex', flexDirection: 'row', justifyContent: param.type == 'boolean' ? 'flex-end' : '', alignItems: 'flex-start', flex: 3 }}>
+                        {getInput(isConnected)}
+                        {(param?.deleteable && !isDeletedLeft) ? <DeleteButton color={colorError} size={nodeFontSize} onDelete={onDeleteParam} id={id} field={param.field} /> : null}
+                    </div>
                     </div>
                     : null
             }

@@ -899,7 +899,7 @@ yarn build-agent
 - Admin Panel: http://localhost:8000/workspace/
 - API: http://localhost:8000/api/core/v1/
 - WebSocket: ws://localhost:8000/websocket
-
+aU
 ---
 
 ## Technical Deep Dive
@@ -1314,4 +1314,628 @@ const result = await processAgentResponse({
 6. **Static Pages**: UI served from `data/pages/` unless dev mode enabled
 7. **MQTT Auth**: Disabled by default, enable with `ENABLE_MQTT_AUTH=true`
 8. **Node Version**: Requires Node.js >= 18.0.0
+
+---
+
+## Object System (AutoAPI + DataView)
+
+Vento provides a powerful object system that automatically generates CRUD APIs from Zod schemas and creates matching admin panel interfaces. This system combines:
+
+- **AutoAPI**: Generates REST endpoints with pagination, search, filtering, and real-time MQTT notifications
+- **DataView**: React component that renders CRUD interfaces with automatic real-time updates
+- **ProtoModel**: Base class for data models with validation, serialization, and transformations
+
+### How It Works
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Zod Schema    │────▶│    AutoAPI      │────▶│  REST Endpoints │
+│  (ProtoModel)   │     │  (generateApi)  │     │   /api/v1/...   │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                         │
+                        ┌─────────────────┐              │ MQTT
+                        │    DataView     │◀─────────────┤ notifications
+                        │   (Frontend)    │              │
+                        └─────────────────┘              │
+                                ▲                        │
+                                └────────────────────────┘
+```
+
+### Creating Objects via Admin UI (Recommended)
+
+The easiest way to create objects is through the Vento admin panel:
+
+1. Go to `/workspace/objects` or click **"+ Add" → "Data Object"** in the network view
+2. Enter object name and define fields using the visual editor
+3. Click **"Create Object"**
+
+**What Vento auto-generates:**
+
+| Generated Item | Location | Purpose |
+|----------------|----------|---------|
+| Schema file | `data/objects/{name}.ts` | Zod schema + ProtoModel class |
+| AutoAPI | `data/automations/{name}.ts` | REST endpoints with CRUD |
+| Board | `data/boards/{name}_object/` | Cards for AI agent interaction |
+| Admin page | `/workspace/objects/view?object={name}Model` | DataView UI for CRUD |
+
+**The object immediately appears in:**
+- `/workspace/objects` - List of all objects
+- `/workspace/objects/view?object={name}Model` - CRUD interface for that object
+- API at `/api/v1/{name}` - Full REST endpoints
+
+### Field Types in Visual Editor
+
+When creating objects in the UI, you can choose:
+
+| Type | Description |
+|------|-------------|
+| `string` | Text field |
+| `number` | Numeric field |
+| `boolean` | True/false |
+| `array` | List of items |
+| `object` | Nested object |
+| `record` | Key-value map |
+| `date` | Date picker |
+| `relation` | Link to another object |
+
+### Field Modifiers in Visual Editor
+
+| Modifier | Description |
+|----------|-------------|
+| `id` | Primary key |
+| `search` | Enable search |
+| `optional` | Not required |
+| `email` | Email validation |
+| `color` | Color picker |
+| `file` | File upload |
+| `datePicker` | Date selector |
+| `textArea` | Multi-line text |
+| `label` | Display label |
+| `hint` | Help text |
+| `static` | Cannot change after creation |
+| `min/max` | Value limits |
+| `secret` | Hidden/masked |
+| `picker` | Dropdown selection |
+| `location` | GPS coordinates |
+
+### Storage Options
+
+When creating an object, you can choose:
+- **Default Provider** - SQLite database (default)
+- **Google Sheets** - Store data in a Google Spreadsheet
+- **JSON File** - Store as local JSON file
+
+### Creating Objects Manually (Advanced)
+
+For more control, you can create objects manually:
+
+1. **Define the Schema** (`data/objects/myobject.ts`):
+
+```typescript
+import { Protofy, Schema, BaseSchema, ProtoModel, SessionDataType, z } from 'protobase'
+
+Protofy("features", {
+    "AutoAPI": true,  // Enable automatic API generation
+    "adminPage": "/objects/view?object=myobjectModel"
+})
+
+export const BasemyobjectSchema = Schema.object(Protofy("schema", {
+    // Define your fields here using Zod
+    name: z.string().id().search(),           // .id() marks as primary key
+    email: z.string().search(),               // .search() enables full-text search
+    status: z.enum(['active', 'inactive']),
+    created: z.string().generate(() => new Date().toISOString()).indexed()
+}))
+
+// Extend with base fields if no custom id
+const hasId = Object.keys(BasemyobjectSchema.shape).some(key => BasemyobjectSchema.shape[key]._def.id)
+export const myobjectSchema = Schema.object({
+    ...(!hasId ? BaseSchema.shape : {}),
+    ...BasemyobjectSchema.shape
+});
+
+export type myobjectType = z.infer<typeof myobjectSchema>;
+
+export class myobjectModel extends ProtoModel<myobjectModel> {
+    constructor(data: myobjectType, session?: SessionDataType) {
+        super(data, myobjectSchema, session, "myobject");
+    }
+
+    public static getApiOptions() {
+        return Protofy("api", {
+            "name": "myobject",
+            "prefix": "/api/v1/"
+        })
+    }
+
+    protected static _newInstance(data: any, session?: SessionDataType): myobjectModel {
+        return new myobjectModel(data, session);
+    }
+
+    static load(data: any, session?: SessionDataType): myobjectModel {
+        return this._newInstance(data, session);
+    }
+}
+```
+
+### Schema Field Modifiers
+
+| Modifier | Description |
+|----------|-------------|
+| `.id()` | Marks field as primary key |
+| `.search()` | Enables full-text search on this field |
+| `.indexed()` | Creates database index for faster queries |
+| `.static()` | Field cannot be changed after creation |
+| `.hidden()` | Not shown in admin UI |
+| `.generate(fn)` | Auto-generate value on create |
+| `.secret()` | Masked in UI (for passwords, keys) |
+| `.display(['add', 'edit'])` | Control when field appears in forms |
+| `.groupIndex(name, fn)` | Group records by this field |
+| `.linkTo(model)` | Create foreign key relationship |
+
+### AutoAPI Options
+
+```typescript
+AutoAPI({
+    modelName: 'myobject',           // API path: /api/v1/myobject
+    modelType: myobjectModel,        // The ProtoModel class
+    prefix: '/api/v1/',              // API prefix
+    dbName: 'myobject',              // Database name (default: modelName)
+    
+    // Operations to enable
+    operations: ['create', 'read', 'update', 'delete', 'list'],
+    
+    // Require admin for specific operations
+    requiresAdmin: ['delete'],       // or ['*'] for all
+    
+    // Pagination
+    itemsPerPage: 25,
+    defaultOrderBy: 'created',
+    defaultOrderDirection: 'desc',
+    
+    // Lifecycle hooks
+    onBeforeCreate: async (data, session, req) => data,
+    onAfterCreate: async (data, session, req) => data,
+    onBeforeRead: async (data, session, req) => data,
+    onAfterRead: async (data, session, req) => data,
+    onBeforeUpdate: async (data, session, req) => data,
+    onAfterUpdate: async (data, session, req) => data,
+    onBeforeDelete: async (data, session, req) => data,
+    onAfterDelete: async (data, session, req) => data,
+    onBeforeList: async (data, session, req) => data,
+    onAfterList: async (data, session, req) => data,
+    
+    // Events
+    disableEvents: false,            // Emit events on CRUD
+    ephemeralEvents: false,          // Don't persist events
+    
+    // Advanced
+    allowUpsert: false,              // Allow create to update if exists
+    skipDatabaseIndexes: false,      // Skip index creation
+    single: false,                   // Single entity (not a list)
+})
+```
+
+### Generated API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/{model}` | GET | List items (paginated, searchable) |
+| `/api/v1/{model}` | POST | Create item |
+| `/api/v1/{model}/:id` | GET | Read single item |
+| `/api/v1/{model}/:id` | POST | Update item |
+| `/api/v1/{model}/:id/delete` | GET | Delete item |
+
+**Query Parameters for List:**
+- `page` - Page number (0-indexed)
+- `itemsPerPage` - Items per page
+- `search` - Full-text search query
+- `orderBy` - Field to sort by
+- `orderDirection` - `asc` or `desc`
+- `filter[field]` - Filter by field value
+- `all=true` - Return all items (no pagination)
+
+### MQTT Notifications
+
+AutoAPI automatically publishes MQTT messages on CRUD operations:
+
+```
+notifications/{modelName}/create/{id}
+notifications/{modelName}/update/{id}
+notifications/{modelName}/delete/{id}
+```
+
+**Payload:**
+```json
+{
+    "id": "item-id",
+    "data": { /* full item data */ }
+}
+```
+
+### DataView Component
+
+DataView is a React component that renders a complete CRUD interface:
+
+```tsx
+import { DataView } from 'protolib/components/DataView'
+import { myobjectModel } from '@/objects/myobject'
+
+export default function MyObjectPage() {
+    return (
+        <DataView
+            model={myobjectModel}
+            sourceUrl="/api/v1/myobject"
+            name="myobject"
+            
+            // Customization
+            defaultView="list"           // 'list' | 'grid' | 'raw' | 'map'
+            hideAdd={false}
+            hideSearch={false}
+            hideFilters={true}
+            hidePagination={false}
+            
+            // Callbacks
+            onEdit={(data) => data}
+            onDelete={(data) => data}
+            onAdd={(data) => data}
+            
+            // Custom fields
+            extraFields={{
+                customField: {
+                    component: (item) => <MyCustomComponent data={item} />
+                }
+            }}
+        />
+    )
+}
+```
+
+**DataView Features:**
+- **Auto-refresh**: Subscribes to MQTT notifications and updates in real-time
+- **Multiple Views**: List, Grid, Raw JSON, Map (for geo data)
+- **Pagination**: Built-in with page navigation
+- **Search**: Full-text and AI-powered search
+- **Filters**: Custom filter components
+- **CRUD Dialogs**: Add/Edit forms generated from schema
+- **Selection**: Multi-select for bulk operations
+
+### Real-Time Updates (useRemoteStateList)
+
+DataView uses `useRemoteStateList` hook for real-time updates:
+
+```typescript
+import { useRemoteStateList } from 'protolib/lib/useRemoteState'
+
+const [items, setItems] = useRemoteStateList(
+    initialItems,                    // Initial data
+    fetchFn,                         // Fetch function
+    'notifications/mymodel/#',       // MQTT topic pattern
+    myobjectModel,                   // Model class
+    quickRefresh,                    // Quick refresh mode
+    disableNotifications,            // Disable real-time
+    debounceMs                       // Debounce interval
+)
+```
+
+### Object Boards
+
+When you create an object with AutoAPI enabled, Vento automatically creates:
+1. A board named `{objectname}_object`
+2. Cards for CRUD operations (list, create, read, update, delete)
+3. Proper parameter configurations
+
+This allows AI agents to interact with your objects via natural language.
+
+### ProtoModel Methods
+
+```typescript
+// Static methods
+myobjectModel.load(data)              // Create instance from data
+myobjectModel.unserialize(json)       // Parse from JSON string
+myobjectModel.getIdField()            // Get primary key field name
+myobjectModel.getApiEndPoint()        // Get API URL
+myobjectModel.getNotificationsTopic() // Get MQTT topic
+myobjectModel.linkTo(displayKey)      // Create linkable schema
+
+// Instance methods
+instance.getId()                       // Get primary key value
+instance.getData()                     // Get all data
+instance.get(key, defaultValue)        // Get field value
+instance.create()                      // Validate and prepare for creation
+instance.update(newModel)              // Merge with new data
+instance.validate()                    // Validate against schema
+instance.serialize()                   // Convert to JSON string
+instance.read()                        // Get data for reading
+instance.list(search, session, ...)   // Filter for listing
+```
+
+### Example: Creating Object via UI
+
+1. Go to `/workspace/objects`
+2. Click **"+ Add"**
+3. Enter name: `products`
+4. Add fields:
+   - `sku` (string, modifiers: `id`, `search`)
+   - `name` (string, modifiers: `search`)
+   - `price` (number)
+   - `category` (string, modifiers: `search`)
+   - `stock` (number)
+5. Click **"Create Object"**
+
+**Result:**
+- Schema created at `data/objects/products.ts`
+- API created at `data/automations/products.ts`
+- Board created at `data/boards/products_object/`
+- Admin UI at `/workspace/objects/view?object=productsModel`
+- REST API at `/api/v1/products`
+- Real-time MQTT notifications on changes
+- AI agents can manage products via natural language
+
+### Example: Manual Object Creation (Advanced)
+
+For custom logic, create files manually:
+
+**1. Schema** (`data/objects/products.ts`):
+```typescript
+export const BaseProductsSchema = Schema.object(Protofy("schema", {
+    sku: z.string().id().search(),
+    name: z.string().search(),
+    price: z.number(),
+    category: z.string().search().groupIndex("category"),
+    stock: z.number().indexed(),
+    active: z.boolean().generate(() => true)
+}))
+```
+
+**2. API with custom hooks** (`data/automations/products.ts`):
+```typescript
+import { AutoAPI, AutoActions } from 'protonode'
+import { ProductsModel } from '../objects/products'
+
+const { name, prefix } = ProductsModel.getApiOptions()
+
+export default async (app, context) => {
+    // AutoAPI generates CRUD endpoints
+    AutoAPI({
+        modelName: name,
+        modelType: ProductsModel,
+        prefix: prefix,
+        requiresAdmin: ['delete'],
+        onBeforeCreate: async (data) => ({
+            ...data,
+            created: new Date().toISOString()
+        })
+    })(app, context)
+    
+    // AutoActions generates board cards
+    AutoActions({
+        modelName: name,
+        modelType: ProductsModel,
+        prefix: prefix,
+        object: 'products'
+    })(app, context)
+    
+    // Add custom endpoints
+    app.get('/api/v1/products/low-stock', (req, res) => {
+        // Custom logic here
+    })
+}
+```
+
+### Object Admin Pages
+
+Objects are managed through:
+
+| URL | Purpose |
+|-----|---------|
+| `/workspace/objects` | List all objects, create new ones |
+| `/workspace/objects/view?object={name}Model` | DataView CRUD for specific object |
+
+The pages are defined in:
+- `apps/adminpanel/pages/objects/index.tsx` - Object list
+- `apps/adminpanel/pages/objects/view.tsx` - Object DataView
+- `extensions/objects/adminPages.tsx` - Page logic and configuration
+
+### AutoActions (AI Agent Integration)
+
+When you create an object, `AutoActions` (`packages/protonode/src/lib/generateActions.ts`) automatically generates:
+
+1. **Board Cards** - For the board at `data/boards/{name}_object/`:
+
+| Card | Type | Description |
+|------|------|-------------|
+| `exists` | action | Check if item exists by id |
+| `read` | action | Read item by id |
+| `create` | action | Create new item |
+| `update` | action | Update field of existing item |
+| `delete` | action | Delete item by id |
+| `list` | action | List/search items with pagination |
+| `search` | action | AI-powered natural language search |
+| `table` | value | Displays last entries as a table |
+| `lastCreated` | value | Last created item |
+| `lastUpdated` | value | Last updated item |
+| `totalItems` | value | Total count of items |
+
+2. **Action Endpoints** - Under `/api/v1/actions/{modelName}/`:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/exists` | GET | Check existence |
+| `/read` | GET | Read single item |
+| `/create` | POST | Create item |
+| `/update` | GET | Update item field |
+| `/delete` | GET | Delete item |
+| `/list` | GET | List/search items |
+
+3. **State Tracking** - In `states.storages.{modelName}`:
+
+```javascript
+// Available state values
+states.storages.{modelName}.total        // Total item count
+states.storages.{modelName}.lastEntries  // Recent items
+states.storages.{modelName}.lastCreated  // Last created item
+states.storages.{modelName}.lastUpdated  // Last updated item
+states.storages.{modelName}.lastCreatedId // ID of last created
+states.storages.{modelName}.lastUpdatedId // ID of last updated
+states.storages.{modelName}.lastDeletedId // ID of last deleted
+```
+
+### How AI Agents Interact with Objects
+
+AI agents can manage objects through:
+
+1. **Natural Language** - Via the `list` card with `action` parameter:
+   ```
+   "Create a product named iPhone with price 999"
+   → Executes create action with params {name: "iPhone", price: 999}
+   ```
+
+2. **Direct Action Calls** - Via action endpoints:
+   ```javascript
+   // In card code
+   return execute_action("/api/v1/actions/products/create", {
+       name: "iPhone",
+       price: 999
+   })
+   ```
+
+3. **AI Search** - Via `search` card with `ai_mode: true`:
+   ```
+   "Find all products under $100"
+   → Uses AI to translate to search query
+   ```
+
+### Template Files
+
+When creating an object, Vento uses templates from `extensions/apis/templates/`:
+
+| Template | Use Case |
+|----------|----------|
+| `automatic-crud.tpl` | Default SQLite storage |
+| `automatic-crud-storage.tpl` | Alternative storage backends |
+| `automatic-crud-google-sheet.tpl` | Google Sheets storage |
+
+**Template structure** (`automatic-crud.tpl`):
+```typescript
+import { AutoActions, AutoAPI, getAuth, getServiceToken } from 'protonode'
+import { {{modelName}} } from '../objects/{{object}}'
+
+const {name, prefix} = {{modelName}}.getApiOptions()
+
+// Creates CRUD endpoints at /api/v1/{name}
+const {{codeName}}API = AutoAPI({
+    modelName: name,
+    modelType: {{modelName}},
+    prefix: prefix
+})
+
+// Creates action endpoints and board cards
+const {{codeName}}Actions = AutoActions({
+    modelName: name,
+    modelType: {{modelName}},
+    prefix: prefix,
+    object: '{{object}}'
+})
+
+export default async (app, context) => {
+    {{codeName}}API(app, context)
+    {{codeName}}Actions(app, context)
+}
+```
+
+### Complete Object Creation Flow
+
+When you create an object via the UI, the following happens internally:
+
+```
+User creates object "products" with fields
+          │
+          ▼
+┌─────────────────────────────────────────────┐
+│ 1. Schema Generation                        │
+│    POST /api/core/v1/objects               │
+│    → Creates data/objects/products.ts       │
+│    → Uses extensions/objects/templateSchema.tpl │
+└─────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────┐
+│ 2. API Generation                           │
+│    POST /api/core/v1/apis                   │
+│    → Creates data/automations/products.ts   │
+│    → Uses extensions/apis/templates/*.tpl   │
+└─────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────┐
+│ 3. Board Generation                         │
+│    POST /api/core/v1/import/board          │
+│    → Creates data/boards/products_object/   │
+│    → Uses 'smart ai agent' template        │
+│    → Adds CRUD cards via getObjectCardDefinitions() │
+└─────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────┐
+│ 4. Available Immediately:                   │
+│    • /workspace/objects/view?object=productsModel │
+│    • /api/v1/products (CRUD endpoints)     │
+│    • /api/v1/actions/products/* (action endpoints) │
+│    • products_object board with cards      │
+│    • MQTT notifications on changes         │
+└─────────────────────────────────────────────┘
+```
+
+### Bidirectional Deletion
+
+Objects and their boards are linked:
+
+| Action | Result |
+|--------|--------|
+| Delete object | Also deletes `{name}_object` board |
+| Delete `{name}_object` board | Also deletes the object |
+
+This is handled by:
+- Object deletion: `coreApis.ts` → `db.del()` → calls board delete API
+- Board deletion: Event listener on `boards/delete/#` → deletes object
+
+### Key Files for Object System
+
+| File | Purpose |
+|------|---------|
+| `extensions/objects/coreApis.ts` | Object CRUD API and board auto-creation |
+| `extensions/objects/objectsSchemas.ts` | ObjectModel schema definition |
+| `extensions/objects/adminPages.tsx` | Admin panel pages for objects |
+| `extensions/objects/networkOption.tsx` | "Add Object" wizard |
+| `extensions/objects/templateSchema.tpl` | Template for new object .ts files |
+| `extensions/apis/templates/automatic-crud.tpl` | Template for AutoAPI .ts files |
+| `packages/protonode/src/lib/generateApi.ts` | AutoAPI implementation |
+| `packages/protonode/src/lib/generateActions.ts` | AutoActions implementation |
+| `packages/protolib/components/DataView.tsx` | Frontend CRUD component |
+
+### ObjectModel.getSourceCode()
+
+When saving an object, `ObjectModel.getSourceCode()` converts the visual field definitions to TypeScript:
+
+```javascript
+// Input (from UI):
+{
+  name: "products",
+  keys: {
+    sku: { type: "string", modifiers: [{ name: "id" }, { name: "search" }] },
+    name: { type: "string", modifiers: [{ name: "search" }] },
+    price: { type: "number" }
+  }
+}
+
+// Output (TypeScript):
+{
+    sku: z.string().id().search(),
+    name: z.string().search(),
+    price: z.number()
+}
+```
+
+This is then inserted into the schema template to create the final `.ts` file.
 

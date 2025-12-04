@@ -12,6 +12,7 @@ import type { NetworkOption } from '../network/options'
 
 const sourceUrl = '/api/core/v1/devices'
 const definitionsSourceUrl = '/api/core/v1/deviceDefinitions?all=1'
+const boardsSourceUrl = '/api/core/v1/deviceboards?all=1'
 const wifiPrefix = 'wifi.'
 
 type WifiNetwork = {
@@ -58,6 +59,50 @@ const TemplateSlide = ({ selected, setSelected, definitions }) => {
         </ScrollView>
         <Spacer marginBottom="$8" />
     </YStack>
+}
+
+const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
+    boards: any,
+    selectedBoard: string | null,
+    setSelectedBoard: (value: string) => void,
+    error?: string
+}) => {
+    const templates = (boards?.data?.items || []).map(board => ({
+        id: board.name,
+        name: board.name,
+        description: board.core ? `Core: ${board.core}` : '',
+        icon: 'circuit-board'
+    }))
+
+    return (
+        <YStack gap="$3" mb="$4">
+            {error ? <Text color="$red9" fontSize="$2">{error}</Text> : null}
+            {!boards?.isLoaded ? (
+                <XStack alignItems="center" gap="$2">
+                    <Spinner size="small" /> <Text color="$gray10">Loading boards…</Text>
+                </XStack>
+            ) : (
+                <>
+                    {templates.length === 0 ? (
+                        <Text color="$gray11">No boards found. Please create a board first.</Text>
+                    ) : (
+                        <ScrollView maxHeight={"500px"}>
+                            <SelectGrid>
+                                {templates.map((board) => (
+                                    <TemplateCard
+                                        key={board.id}
+                                        template={board}
+                                        isSelected={selectedBoard === board.id}
+                                        onPress={() => setSelectedBoard(board.id)}
+                                    />
+                                ))}
+                            </SelectGrid>
+                        </ScrollView>
+                    )}
+                </>
+            )}
+        </YStack>
+    )
 }
 
 const isNameValid = (text) => {
@@ -406,13 +451,18 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
     const [error, setError] = useState('')
     const [wifiError, setWifiError] = useState('')
     const [definitions, setDefinitions] = useState(getPendingResult('pending'))
+    const [boards, setBoards] = useState(getPendingResult('pending'))
     const [step, setStep] = useState(0)
+    const [selectedBoard, setSelectedBoard] = useState<string | null>(null)
+    const [boardError, setBoardError] = useState('')
     const wifiStepRef = useRef<WifiStepHandle>(null)
 
+    const needsBoardStep = data.template === '__none__'
     const slides = [
-        { name: "Select Template", title: "Select a Template (optional)" },
-        { name: "Configure", title: "Configure your Device" },
-        { name: "Wi-Fi", title: "Wi-Fi Setup" }
+        { id: 'template', name: "Select Template", title: "Select a Template (optional)" },
+        { id: 'configure', name: "Configure", title: "Configure your Device" },
+        ...(needsBoardStep ? [{ id: 'board', name: "Board", title: "Select the board for your device" }] : []),
+        { id: 'wifi', name: "Wi-Fi", title: "Wi-Fi Setup" }
     ]
 
     const totalSlides = slides.length
@@ -424,6 +474,27 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
         .join(" / ")
 
     usePendingEffect((s) => { API.get({ url: definitionsSourceUrl }, s) }, setDefinitions, undefined)
+    usePendingEffect((s) => { API.get({ url: boardsSourceUrl }, s) }, setBoards, undefined)
+
+    useEffect(() => {
+        if (!needsBoardStep) {
+            setSelectedBoard(null)
+            setBoardError('')
+            return
+        }
+        if (boards?.isLoaded) {
+            const items = boards?.data?.items ?? []
+            if (!selectedBoard && items.length) {
+                setSelectedBoard(items[0].name)
+            }
+        }
+    }, [needsBoardStep, boards?.isLoaded])
+
+    useEffect(() => {
+        if (step > slides.length - 1) {
+            setStep(slides.length - 1)
+        }
+    }, [slides.length])
 
     const handleBack = () => {
         if (step === 0 && onBack) {
@@ -435,9 +506,12 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
 
     const handleNext = async () => {
         if (step < totalSlides - 1) {
-            // Prevent moving forward from Configure without a valid name
-            if (step === 1 && !isNameValid(data.name)) {
+            if (currentSlide.id === 'configure' && !isNameValid(data.name)) {
                 setError('Name is required and must use only lowercase letters, numbers or underscores')
+                return
+            }
+            if (currentSlide.id === 'board' && needsBoardStep && !selectedBoard) {
+                setBoardError('Please select a board')
                 return
             }
             setStep(step + 1)
@@ -472,9 +546,56 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                     }
                 }
 
+                let templateName: string | null = null
                 const hasTemplate = data.template !== '__none__'
                 if (hasTemplate) {
                     deviceData.deviceDefinition = data.template
+                } else {
+                    if (!selectedBoard) {
+                        setBoardError('Please select a board')
+                        return
+                    }
+                    templateName = `${data.name}_template`
+
+                    // Load the board details because the API validator needs the full board object
+                    const boardResp = await API.get(`/api/core/v1/deviceboards/${encodeURIComponent(selectedBoard)}`)
+                    if (boardResp?.isError || !boardResp?.data) {
+                        setBoardError('Unable to load selected board')
+                        return
+                    }
+
+                    const generateComponents = () => {
+                        // Mirrors generateBoardJs from deviceDefinitionsPage.tsx
+                        const components = ['mydevice', selectedBoard]
+                        const totalPorts = (boardResp.data?.ports || []).length
+                        for (let i = 0; i < totalPorts; i++) {
+                            components.push(null)
+                        }
+                        components.push(null) // trailing null as in existing implementation
+                        return JSON.stringify(components, null, 2) + ';'
+                    }
+
+                    const definitionPayload: any = {
+                        name: templateName,
+                        sdk: 'esphome-idf',
+                        board: boardResp.data,
+                        description: `Blank ESPHome template for ${data.name}`,
+                        config: {
+                            components: generateComponents(),
+                            sdkConfig: boardResp.data?.config?.['esphome-idf'] ?? {}
+                        }
+                    }
+                    let definitionResult = await API.post('/api/core/v1/devicedefinitions', definitionPayload)
+                    if (definitionResult?.isError) {
+                        // Fallback to update if it already exists
+                        definitionResult = await API.post(`/api/core/v1/devicedefinitions/${encodeURIComponent(templateName)}`, definitionPayload)
+                    }
+                    if (definitionResult?.isError) {
+                        const apiError = definitionResult?.error?.message || definitionResult?.error || 'Error creating template'
+                        setError(typeof apiError === 'string' ? apiError : 'Error creating template')
+                        return
+                    }
+                    deviceData.deviceDefinition = templateName
                 }
 
                 const obj = DevicesModel.load(deviceData)
@@ -487,7 +608,8 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                     message: data.name
                 })
                 onCreated({ name: data.name, wifi: selectedWifi })
-                router.push(`/devices?created=${data.name}`)
+                const templateQuery = templateName ? `&editTemplate=${encodeURIComponent(templateName)}` : ''
+                router.push(`/devices?created=${data.name}${templateQuery}`)
             } catch (e: any) {
                 setError(e?.message || 'Error creating device')
             }
@@ -512,9 +634,10 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
             </Tinted>
 
             <Stack flex={1} marginTop={"$2"}>
-                {step === 0 && <TemplateSlide selected={data.template} setSelected={(tpl) => setData({ ...data, template: tpl })} definitions={definitions} />}
-                {step === 1 && <ConfigureSlide data={data} setData={setData} errorMessage={error} />}
-                {step === 2 && <WifiStep ref={wifiStepRef} active={step === 2} wifiError={wifiError} onClearError={() => setWifiError('')} />}
+                {currentSlide.id === 'template' && <TemplateSlide selected={data.template} setSelected={(tpl) => setData({ ...data, template: tpl })} definitions={definitions} />}
+                {currentSlide.id === 'configure' && <ConfigureSlide data={data} setData={setData} errorMessage={error} />}
+                {currentSlide.id === 'board' && <BoardSlide boards={boards} selectedBoard={selectedBoard} setSelectedBoard={(board) => { setSelectedBoard(board); setBoardError('') }} error={boardError} />}
+                {currentSlide.id === 'wifi' && <WifiStep ref={wifiStepRef} active={currentSlide.id === 'wifi'} wifiError={wifiError} onClearError={() => setWifiError('')} />}
             </Stack>
 
             <XStack gap={40} justifyContent='center' marginBottom={"$1"} alignItems="flex-end">
@@ -526,7 +649,7 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                         id={"admin-devices-add-btn"}
                         width={250}
                         onPress={handleNext}
-                        disabled={step === 1 && !isNameValid(data.name)}
+                        disabled={currentSlide.id === 'configure' && !isNameValid(data.name)}
                     >
                         {step === totalSlides - 1 ? "Create" : "Next"}
                     </Button>

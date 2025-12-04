@@ -23,7 +23,7 @@
 
 ## What is Vento?
 
-Vento is an open-source platform for creating **AI control networks** that automate physical devices and machines. It connects Large Language Models (LLMs) to sensors and actuators, enabling AI agents to observe the world, make decisions, and take action.
+Vento is a platform for creating **AI control networks** that automate physical devices and machines. It connects Large Language Models (LLMs) to sensors and actuators, enabling AI agents to observe the world, make decisions, and take action.
 
 At its core, Vento provides:
 

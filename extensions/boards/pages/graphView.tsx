@@ -13,7 +13,8 @@ import {
     applyNodeChanges,
     getBezierPath,
     MiniMap,
-    NodeResizer
+    NodeResizer,
+    MarkerType
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -35,7 +36,13 @@ const GROUP_PAD_TOP = CFG.GROUP_PADDING + CFG.GROUP_HEADER_HEIGHT;
 
 type Link = { name: string; type?: 'pre' | 'post' | 'code' };
 type Card = { name: string; layer?: string; links?: Link[]; rulesCode?: string; content?: ReactNode };
-type Ports = { inputs: string[]; outputs: string[] };
+// 4 fixed handles: pre and post, each with input and output
+type Ports = { 
+    hasPreOut: boolean;   // Left - Pre output (I have dependencies)
+    hasPostIn: boolean;   // Left - Post input (someone triggers me)
+    hasPreIn: boolean;    // Right - Pre input (I am a dependency of someone)
+    hasPostOut: boolean;  // Right - Post output (I trigger someone)
+};
 type RFNode = any;
 type RFEdge = any;
 type GraphLayout = Record<string, { x: number; y: number; width?: number; height?: number; layer?: string; parent?: string; type?: 'group' | 'node' }>;
@@ -105,6 +112,8 @@ body.rf-noselect, body.rf-noselect * { user-select: none !important; }
 .react-flow__node.selected { z-index: 1000 !important; }
 `;
 
+const LINK_PRE_COLOR = "purple"
+const LINK_POST_COLOR = "color"
 
 const getNodeSize = (n: RFNode) => ({
     // v12: measured contains actual dimensions after resize
@@ -122,16 +131,18 @@ const groupByLayer = (cards: Card[]): Map<string, Card[]> => {
 };
 
 const buildPortsFor = (cardName: string, edges: RFEdge[]): Ports => ({
-    inputs: edges.filter(e => e.target === cardName).map(e => e.source),
-    outputs: edges.filter(e => e.source === cardName).map(e => e.target),
+    // Pre: source has preOut (left), target has preIn (right)
+    hasPreOut: edges.filter(e => e.source === cardName && e.data?.linkType === 'pre').length > 0,
+    hasPreIn: edges.filter(e => e.target === cardName && e.data?.linkType === 'pre').length > 0,
+    // Post/Code: source has postOut (right), target has postIn (left)
+    hasPostOut: edges.filter(e => e.source === cardName && (e.data?.linkType === 'post' || e.data?.linkType === 'code')).length > 0,
+    hasPostIn: edges.filter(e => e.target === cardName && (e.data?.linkType === 'post' || e.data?.linkType === 'code')).length > 0,
 });
 
 const buildEdgesFromCards = (cards: Card[]): RFEdge[] => {
     const nodeIds = new Set(cards.map(c => c.name));
     const edges: RFEdge[] = [];
     const dupCounter = new Map<string, number>();
-    const outIdx = new Map<string, number>();
-    const inIdx = new Map<string, number>();
 
     for (const card of cards) {
         const links = [...(card.links || [])];
@@ -147,24 +158,40 @@ const buildEdgesFromCards = (cards: Card[]): RFEdge[] => {
             const key = `${card.name}->${link.name}`;
             const dup = dupCounter.get(key) ?? 0;
             dupCounter.set(key, dup + 1);
-            const oIdx = outIdx.get(card.name) ?? 0;
-            const iIdx = inIdx.get(link.name) ?? 0;
-            outIdx.set(card.name, oIdx + 1);
-            inIdx.set(link.name, iIdx + 1);
+
+            const isPre = link.type === 'pre';
+            const strokeColor = isPre ? `var(--${LINK_PRE_COLOR}9)` : `var(--${LINK_POST_COLOR}9)`;
+
+            // Pre: exits from left of source (pre-out), enters right of target (pre-in)
+            // Post/Code: exits from right of source (post-out), enters left of target (post-in)
+            // All edges of the same type use the same handle
+            const sourceHandle = isPre ? 'pre-out' : 'post-out';
+            const targetHandle = isPre ? 'pre-in' : 'post-in';
 
             edges.push({
                 id: dup ? `${key}#${dup}` : key,
                 source: card.name,
                 target: link.name,
-                sourceHandle: `output-${oIdx}`,
-                targetHandle: `input-${iIdx}`,
+                sourceHandle,
+                targetHandle,
                 type: 'curvy',
                 data: { linkType: link.type || 'pre' },
+                // Pre: arrow at end pointing backward (custom marker)
+                // Post: arrow at end pointing forward (default marker)
+                ...(isPre ? {
+                    markerEnd: 'arrow-pre-backward',
+                } : {
+                    markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                        width: 12,
+                        height: 12,
+                        color: strokeColor,
+                    },
+                }),
                 style: {
-                    stroke: link.type === 'pre' ? 'var(--edgePre, var(--color9))'
-                        : link.type === 'post' ? 'var(--edgePost, var(--color9))'
-                            : 'var(--edgeDefault, var(--color5))',
+                    stroke: strokeColor,
                     strokeWidth: 2,
+                    strokeDasharray: isPre ? '6 3' : undefined,
                 },
             });
         }
@@ -202,9 +229,30 @@ const layoutsEqual = (a?: GraphLayout, b?: GraphLayout): boolean => {
     });
 };
 
+// Handle styles: square=output, circle=input
+const handleStyle = (color: string, isOutput: boolean): CSSProperties => ({
+    width: 10,
+    height: 10,
+    backgroundColor: `var(--${color}${isOutput ? 7 : 4})`,
+    border: `2px solid var(--${color}${isOutput ? 9 : 7})`,
+    borderRadius: isOutput ? 2 : '50%',
+});
+
+const HANDLE_PRE_OUT_STYLE = handleStyle(LINK_PRE_COLOR, true);
+const HANDLE_PRE_IN_STYLE = handleStyle(LINK_PRE_COLOR, false);
+const HANDLE_POST_OUT_STYLE = handleStyle(LINK_POST_COLOR, true);
+const HANDLE_POST_IN_STYLE = handleStyle(LINK_POST_COLOR, false);
+
 const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean }) => {
-    const inCount = data?.ports?.inputs?.length ?? 0;
-    const outCount = data?.ports?.outputs?.length ?? 0;
+    const ports = data?.ports as Ports | undefined;
+    const hasPreOut = ports?.hasPreOut ?? false;
+    const hasPostIn = ports?.hasPostIn ?? false;
+    const hasPreIn = ports?.hasPreIn ?? false;
+    const hasPostOut = ports?.hasPostOut ?? false;
+
+    // Calculate positions based on how many handles are on each side
+    const leftCount = (hasPreOut ? 1 : 0) + (hasPostIn ? 1 : 0);
+    const rightCount = (hasPreIn ? 1 : 0) + (hasPostOut ? 1 : 0);
 
     return (
         <>
@@ -223,14 +271,58 @@ const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean })
             />
             <div style={selected ? NODE_STYLE_SELECTED : NODE_STYLE_DEFAULT}>
                 {data.content}
-                {data?.ports?.inputs?.map((_: string, i: number) => (
-                    <Handle key={`in-${i}`} id={`input-${i}`} type="target" position={Position.Left}
-                        style={{ top: `${((i + 1) * 100) / (inCount + 1)}%` }} />
-                ))}
-                {data?.ports?.outputs?.map((_: string, i: number) => (
-                    <Handle key={`out-${i}`} id={`output-${i}`} type="source" position={Position.Right}
-                        style={{ top: `${((i + 1) * 100) / (outCount + 1)}%` }} />
-                ))}
+                
+                {/* Left side - Pre Out */}
+                {hasPreOut && (
+                    <Handle 
+                        id="pre-out"
+                        type="source" 
+                        position={Position.Left}
+                        style={{ 
+                            ...HANDLE_PRE_OUT_STYLE, 
+                            top: leftCount === 2 ? '30%' : '50%'
+                        }} 
+                    />
+                )}
+                
+                {/* Left side - Post In */}
+                {hasPostIn && (
+                    <Handle 
+                        id="post-in"
+                        type="target" 
+                        position={Position.Left}
+                        style={{ 
+                            ...HANDLE_POST_IN_STYLE, 
+                            top: leftCount === 2 ? '70%' : '50%'
+                        }} 
+                    />
+                )}
+                
+                {/* Right side - Pre In */}
+                {hasPreIn && (
+                    <Handle 
+                        id="pre-in"
+                        type="target" 
+                        position={Position.Right}
+                        style={{ 
+                            ...HANDLE_PRE_IN_STYLE, 
+                            top: rightCount === 2 ? '30%' : '50%'
+                        }} 
+                    />
+                )}
+                
+                {/* Right side - Post Out */}
+                {hasPostOut && (
+                    <Handle 
+                        id="post-out"
+                        type="source" 
+                        position={Position.Right}
+                        style={{ 
+                            ...HANDLE_POST_OUT_STYLE, 
+                            top: rightCount === 2 ? '70%' : '50%'
+                        }} 
+                    />
+                )}
             </div>
         </>
     );
@@ -253,8 +345,20 @@ const LayerGroupNode = memo(({ data }: { data: any }) => {
 const CurvyEdge = memo((props: any) => {
     const [edgePath] = getBezierPath({ ...props, curvature: 0.4 });
     return (
-        <path id={props.id} className="react-flow__edge-path" d={edgePath} markerEnd={props.markerEnd}
-            style={{ stroke: props.style?.stroke || 'var(--edgeDefault, var(--color5))', strokeWidth: 5, fill: 'none', pointerEvents: 'none' }} />
+        <path 
+            id={props.id} 
+            className="react-flow__edge-path" 
+            d={edgePath} 
+            markerEnd={props.markerEnd}
+            markerStart={props.markerStart}
+            style={{ 
+                stroke: props.style?.stroke || 'var(--edgeDefault, var(--color5))', 
+                strokeWidth: props.style?.strokeWidth || 2, 
+                strokeDasharray: props.style?.strokeDasharray,
+                fill: 'none', 
+                pointerEvents: 'none' 
+            }} 
+        />
     );
 });
 
@@ -638,6 +742,22 @@ const Flow = memo(({
                 style={{ zIndex: 0 }}
                 translateExtent={[[-25000, -25000], [25000, 25000]]}
             >
+                {/* Custom marker for pre links: arrow at end pointing backward */}
+                <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+                    <defs>
+                        <marker
+                            id="arrow-pre-backward"
+                            markerWidth="12"
+                            markerHeight="12"
+                            refX="12"
+                            refY="6"
+                            orient="auto"
+                            markerUnits="userSpaceOnUse"
+                        >
+                            <path d="M 12 0 L 0 6 L 12 12 z" fill={`var(--${LINK_PRE_COLOR}9)`} />
+                        </marker>
+                    </defs>
+                </svg>
                 <style>{FLOW_STYLES}</style>
                 <Background gap={20} />
                 <MiniMap

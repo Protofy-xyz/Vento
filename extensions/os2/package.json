@@ -2,6 +2,7 @@
   "name": "@extensions/os2",
   "version": "1.0.0",
   "dependencies": {
-    "archiver": "7.0.1"
+    "archiver": "7.0.1",
+    "fs-extra": "^11.2.0"
   }
 }

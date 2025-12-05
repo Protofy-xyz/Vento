@@ -34,6 +34,7 @@ files:
   - electron/**
   - node_modules/adm-zip/**
   - node_modules/tar/**
+  - node_modules/uuid/**
   - package.json
   - "!**/*.log"
   - "!.git"

@@ -12,7 +12,7 @@ import { ensureEsphomeYamlConfigFile } from "@extensions/esphome/coreApis";
 import { gridSizes as GRID } from 'protolib/lib/gridConfig';
 import { compileMessagesTopic } from "@extensions/esphome/utils";
 import { connect as mqttConnect, IClientOptions } from 'mqtt';
-import { protoInfraUrls } from "@extensions/protoinfra/utils/protoInfraUrls";
+import protoInfraUrls from "@extensions/protoinfra/utils/protoInfraUrls";
 import { randomUUID } from 'crypto';
 import { getTemplate, TemplatesDir } from "@extensions/boards/system/boards";
 

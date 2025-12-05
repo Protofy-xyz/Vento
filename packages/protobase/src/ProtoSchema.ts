@@ -1,3 +1,5 @@
+import * as Zod from 'zod'
+
 export class ProtoSchema {
     shape: any
 

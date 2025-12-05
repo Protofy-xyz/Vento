@@ -1,0 +1,9 @@
+{
+  "label": "Boards & Cards",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Learn about the board and card system - the core abstraction of Vento agents."
+  }
+}
+

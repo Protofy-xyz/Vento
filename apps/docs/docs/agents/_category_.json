@@ -1,0 +1,9 @@
+{
+  "label": "Device Agents",
+  "position": 7,
+  "link": {
+    "type": "generated-index",
+    "description": "Connect physical devices to Vento - ESP32, Android, Raspberry Pi, and computers."
+  }
+}
+

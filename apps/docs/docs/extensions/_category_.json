@@ -1,0 +1,9 @@
+{
+  "label": "Extensions",
+  "position": 9,
+  "link": {
+    "type": "generated-index",
+    "description": "Extend Vento with custom functionality."
+  }
+}
+

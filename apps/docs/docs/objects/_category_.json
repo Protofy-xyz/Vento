@@ -1,0 +1,9 @@
+{
+  "label": "Data Objects",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "description": "Create data models with automatic CRUD APIs and real-time UI."
+  }
+}
+

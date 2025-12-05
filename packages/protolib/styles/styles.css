@@ -18,3 +18,18 @@ input::placeholder {
 .react-flow__edge-path {
   pointer-events: none;
 }
+
+/* Keep device definition wires above board artwork */
+.device-config-flow .react-flow__edges {
+  z-index: 3 !important;
+  pointer-events: none;
+}
+
+.device-config-flow .react-flow__connection {
+  z-index: 4 !important;
+}
+
+.device-config-flow .react-flow__edge,
+.device-config-flow .react-flow__edge-interaction {
+  pointer-events: none;
+}

@@ -54,7 +54,7 @@ export const ConfigEditor = ({ definition, onSave, onCancel }) => {
         />
       </XStack>
     </Stack>
-    <YStack f={1} minWidth={'100%'}>
+    <YStack f={1} minWidth={'100%'} className="device-config-flow">
       <Flows
         style={{ width: "100%" }}
         disableDots={false}

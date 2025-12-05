@@ -38,10 +38,10 @@ export const ServiceMemoryUsageChart = ({ title, id }) => {
     );
 };
 
-export const CenterCard = forwardRef(({ highlighted = false, status, title, hideTitle, hideFrame, id, children, onPress = () => { }, ...props }: any, ref: any) => {
+export const CenterCard = forwardRef(({ highlighted = false, status, title, hideTitle, hideFrame, id, children, onPress = () => { }, onDoubleClick, ...props }: any, ref: any) => {
     return (
         <DashboardCard ref={ref} highlighted={highlighted} status={status} hideTitle={hideTitle} hideFrame={hideFrame} title={title} id={id} {...props}>
-            <YStack height="100%" onPress={onPress} borderRadius={10} backgroundColor="$bgColor" flex={1}>
+            <YStack height="100%" onPress={onPress} onDoubleClick={onDoubleClick} borderRadius={10} backgroundColor="$bgColor" flex={1}>
                 {children}
             </YStack>
         </DashboardCard>

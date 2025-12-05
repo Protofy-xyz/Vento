@@ -307,25 +307,6 @@ export const DisplayEditor = ({
     return (
         <XStack f={1} gap="$6" style={style}>
             <YStack flexWrap="wrap" py="$6" pl="$5" >
-                <YStack maw={400}>
-                    <SettingsTitle error={error ?? ''}>
-                        Name <Text color={"$color8"}>*</Text>
-                    </SettingsTitle>
-                    <Input
-                        br={"8px"}
-                        value={cardData.name}
-                        bc="$bgPanel"
-                        boc="$gray6"
-                        color={error ? '$red9' : undefined}
-                        onChangeText={(t) => {
-                            const regex = /^[a-zA-Z0-9-_ ]*$/
-                            if (regex.test(t)) setError(null)
-                            // else setError("Invalid input, only letters, numbers, spaces, - and _ are allowed.")
-                            setCardData({ ...cardData, name: t })
-                        }}
-                    />
-                </YStack>
-
                 <YStack w={400} >
                     <SettingsTitle>Icon</SettingsTitle>
                     <IconSelect

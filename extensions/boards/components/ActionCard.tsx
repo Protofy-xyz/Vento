@@ -157,7 +157,7 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
 
       <XStack className='no-drag'>
         {data?.sourceFile && <CardIcon Icon={Cable} onPress={onEditCode} />}
-        <CardIcon display={hasSpace ? 'block' : 'none'} Icon={Settings} onPress={() => onEdit(data?.editorOptions?.defaultTab ?? "params")} />
+        {/* <CardIcon display={hasSpace ? 'block' : 'none'} Icon={Settings} onPress={() => onEdit(data?.editorOptions?.defaultTab ?? "params")} /> */}
 
         <Popover key="card-menu" onOpenChange={(o) => { setMenuOpened(o); if (!o) { setLayersOpen(false); setCreating(false); setNewLayer('') } }} open={menuOpened} allowFlip={true} stayInFrame={true} placement='bottom-end'>
           <Popover.Trigger>
@@ -526,14 +526,22 @@ export const ActionCard = ({
     />
   ), [setData, id, data, displayResponse, name, params, onRun, icon, color, html, value])
 
+  const handleDoubleClick = (e: any) => {
+    e.stopPropagation()
+    onEdit(data?.editorOptions?.defaultTab ?? "params")
+  }
+
   return (
     <CenterCard
       ref={cardRef}
       highlighted={highlighted}
+      onDoubleClick={handleDoubleClick}
       containerProps={{
         onHoverIn: () => setHovered(true),
         onHoverOut: () => setHovered(false),
+        onDoubleClick: handleDoubleClick,
         backgroundColor: data.bgColor,
+        cursor: "pointer",
         ...containerProps,
       }}
       status={status}
@@ -548,7 +556,7 @@ export const ActionCard = ({
               </Paragraph>
             </XStack>
           )}
-          <XStack width="100%" marginTop={"$3"} height={20} alignItems="center" position="absolute" opacity={hovered ? 0.75 : 0} zIndex={999}>
+          <XStack width="100%" marginTop={"$3"} height={20} alignItems="center" position="absolute" opacity={hovered ? 0.75 : 0} zIndex={999} onDoubleClick={handleDoubleClick}>
             <CardActions
               id={id}
               data={data}

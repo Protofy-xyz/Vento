@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, forwardRef, useMemo, useRef, useState, useCallback } from 'react';
+import React, { MouseEventHandler, forwardRef, useMemo, useRef, useState } from 'react';
 import {
   Avatar,
   Box,
@@ -15,8 +15,6 @@ import {
 } from 'folds';
 import { useAtom, useAtomValue } from 'jotai';
 import FocusTrap from 'focus-trap-react';
-import { useNavigate } from 'react-router-dom';
-import { MatrixError, Preset, Visibility, Room, RoomMember } from 'matrix-js-sdk';
 import { factoryRoomIdByActivity, factoryRoomIdByAtoZ } from '../../../utils/sort';
 import {
   NavCategory,
@@ -25,12 +23,15 @@ import {
   NavEmptyLayout,
   NavItem,
   NavItemContent,
+  NavLink,
 } from '../../../components/nav';
 import {
   getHomeRoomPath,
+  getHomeSearchPath,
 } from '../../pathUtils';
-import { getCanonicalAliasOrRoomId, getMxIdLocalPart, addRoomIdToMDirect, guessDmRoomUserId } from '../../../utils/matrix';
+import { getCanonicalAliasOrRoomId, getMxIdLocalPart } from '../../../utils/matrix';
 import { useSelectedRoom } from '../../../hooks/router/useSelectedRoom';
+import { useHomeSearchSelected } from '../../../hooks/router/useHomeSelected';
 import { useHomeRooms } from './useHomeRooms';
 import { useDirectRooms } from '../direct/useDirectRooms';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
@@ -40,7 +41,7 @@ import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
 import { useCategoryHandler } from '../../../hooks/useCategoryHandler';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { PageNav, PageNavHeader, PageNavContent } from '../../../components/page';
-import { useRoomsUnread, useRoomUnread } from '../../../state/hooks/unread';
+import { useRoomsUnread } from '../../../state/hooks/unread';
 import { markAsRead } from '../../../utils/notifications';
 import { useClosedNavCategoriesAtom } from '../../../state/hooks/closedNavCategories';
 import { stopPropagation } from '../../../utils/keyboard';
@@ -56,149 +57,8 @@ import { useRoomMembers } from '../../../hooks/useRoomMembers';
 import { UserAvatar } from '../../../components/user-avatar';
 import { getMemberDisplayName } from '../../../utils/room';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
+import { useOpenUserRoomProfile } from '../../../state/hooks/userRoomProfile';
 import { nameInitials } from '../../../utils/common';
-import { UnreadBadge, UnreadBadgeCenter } from '../../../components/unread-badge';
-import { useAsyncCallback } from '../../../hooks/useAsyncCallback';
-
-// Helper to get last message from a room
-const getLastMessage = (room: Room): { sender: string; body: string } | null => {
-  const timeline = room.getLiveTimeline();
-  const events = timeline.getEvents();
-  
-  // Find last message event (m.room.message)
-  for (let i = events.length - 1; i >= 0; i--) {
-    const event = events[i];
-    if (event.getType() === 'm.room.message') {
-      const content = event.getContent();
-      const sender = event.getSender() ?? '';
-      const body = content.body ?? '';
-      return { sender, body };
-    }
-  }
-  return null;
-};
-
-// Network member item component with chat info
-type NetworkMemberItemProps = {
-  member: RoomMember;
-  ventoRoom: Room;
-  dmRoom: Room | undefined;
-  selected: boolean;
-  onNavigateToChat: (userId: string, roomId?: string) => void;
-};
-
-function NetworkMemberItem({ member, ventoRoom, dmRoom, selected, onNavigateToChat }: NetworkMemberItemProps) {
-  const mx = useMatrixClient();
-  const useAuthentication = useMediaAuthentication();
-  const unread = useRoomUnread(dmRoom?.roomId ?? '', roomToUnreadAtom);
-  
-  const name = getMemberDisplayName(ventoRoom, member.userId) ?? getMxIdLocalPart(member.userId) ?? member.userId;
-  const avatarMxcUrl = member.getMxcAvatarUrl();
-  const avatarUrl = avatarMxcUrl
-    ? mx.mxcUrlToHttp(avatarMxcUrl, 100, 100, 'crop', undefined, false, useAuthentication) ?? undefined
-    : undefined;
-  const presence = mx.getUser(member.userId)?.presence;
-  const isOnline = presence === 'online';
-  const isAway = presence === 'unavailable';
-  
-  // Get last message info
-  const lastMessage = dmRoom ? getLastMessage(dmRoom) : null;
-  const lastMessageSenderName = lastMessage?.sender 
-    ? (dmRoom ? getMemberDisplayName(dmRoom, lastMessage.sender) : null) ?? getMxIdLocalPart(lastMessage.sender) ?? lastMessage.sender
-    : null;
-  
-  const handleClick: MouseEventHandler<HTMLButtonElement> = () => {
-    onNavigateToChat(member.userId, dmRoom?.roomId);
-  };
-  
-  return (
-    <NavItem 
-      variant="Background" 
-      radii="400"
-      as="button"
-      highlight={unread !== undefined}
-      aria-selected={selected}
-      data-user-id={member.userId}
-      onClick={handleClick}
-      style={{ cursor: 'pointer', width: '100%', textAlign: 'left', marginBottom: toRem(4) }}
-    >
-      <NavItemContent>
-        <Box as="span" grow="Yes" alignItems="Center" gap="300">
-          {/* Avatar - always large size */}
-          <Box 
-            as="span" 
-            shrink="No"
-            style={{ 
-              position: 'relative', 
-              display: 'inline-flex',
-            }}
-          >
-            <Avatar size="400" radii="400">
-              <UserAvatar
-                userId={member.userId}
-                src={avatarUrl}
-                alt={name}
-                renderFallback={() => (
-                  <Text as="span" size="H4">
-                    {nameInitials(name)}
-                  </Text>
-                )}
-              />
-            </Avatar>
-            <span
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                right: 0,
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
-                backgroundColor: isOnline ? 'var(--green9)' : isAway ? 'var(--orange9)' : 'var(--color6)',
-                border: '2px solid var(--bgPanel)',
-              }}
-            />
-          </Box>
-          
-          {/* Content area - Name + Message preview */}
-          <Box as="span" grow="Yes" direction="Column" style={{ minWidth: 0, gap: toRem(2) }}>
-            {/* Name */}
-            <Text priority={unread ? '500' : '300'} as="span" size="Inherit" truncate>
-              {name}
-            </Text>
-            
-            {/* Last message preview or placeholder */}
-            <Text as="span" size="T200" truncate priority="300">
-              {lastMessage ? (
-                <>
-                  <span style={{ fontWeight: 500, opacity: 0.9 }}>
-                    {lastMessageSenderName}:
-                  </span>
-                  {' '}
-                  <span style={{ opacity: 0.6 }}>
-                    {lastMessage.body}
-                  </span>
-                </>
-              ) : (
-                <span style={{ opacity: 0.4 }}>
-                  No messages
-                </span>
-              )}
-            </Text>
-          </Box>
-          
-          {/* Unread badge */}
-          {unread && (
-            <Box as="span" shrink="No">
-              <UnreadBadgeCenter>
-                <UnreadBadge highlight={unread.highlight > 0} count={unread.total} />
-              </UnreadBadgeCenter>
-            </Box>
-          )}
-        </Box>
-      </NavItemContent>
-    </NavItem>
-  );
-}
 
 type HomeMenuProps = {
   requestClose: () => void;
@@ -329,6 +189,7 @@ function HomeEmpty() {
 }
 
 const DEFAULT_CATEGORY_ID = makeNavCategoryId('home', 'room');
+const DIRECT_CATEGORY_ID = makeNavCategoryId('home', 'direct');
 const NETWORK_CATEGORY_ID = makeNavCategoryId('home', 'network');
 const VENTO_ROOM_ALIAS = '#vento:vento.local';
 
@@ -337,10 +198,14 @@ export function Home() {
   useNavToActivePathMapper('home');
   const scrollRef = useRef<HTMLDivElement>(null);
   const rooms = useHomeRooms();
+  const directs = useDirectRooms();
   const notificationPreferences = useRoomsNotificationPreferencesContext();
   const roomToUnread = useAtomValue(roomToUnreadAtom);
+  const useAuthentication = useMediaAuthentication();
 
   const selectedRoomId = useSelectedRoom();
+  const searchSelected = useHomeSearchSelected();
+  const noRoomToDisplay = rooms.length === 0 && directs.length === 0;
   const [closedCategories, setClosedCategories] = useAtom(useClosedNavCategoriesAtom());
 
   // Get the #vento room for network members
@@ -352,8 +217,6 @@ export function Home() {
   const ventoRoomId = ventoRoom?.roomId ?? '';
   const networkMembers = useRoomMembers(mx, ventoRoomId);
   const myUserId = mx.getUserId();
-  
-  const noRoomToDisplay = rooms.length === 0 && networkMembers.length === 0;
   
   // Filter and sort network members (exclude self and bridge bot, sort by presence)
   const sortedNetworkMembers = useMemo(() => {
@@ -396,70 +259,26 @@ export function Home() {
     return items;
   }, [mx, rooms, closedCategories, roomToUnread, selectedRoomId]);
 
+  const sortedDirects = useMemo(() => {
+    const items = Array.from(directs).sort(factoryRoomIdByActivity(mx));
+    if (closedCategories.has(DIRECT_CATEGORY_ID)) {
+      return items.filter((rId) => roomToUnread.has(rId) || rId === selectedRoomId);
+    }
+    return items;
+  }, [mx, directs, closedCategories, roomToUnread, selectedRoomId]);
+
   const handleCategoryClick = useCategoryHandler(setClosedCategories, (categoryId) =>
     closedCategories.has(categoryId)
   );
 
-  const navigate = useNavigate();
+  const openUserRoomProfile = useOpenUserRoomProfile();
   
-  // Create DM room callback
-  const [, createDM] = useAsyncCallback<string, Error | MatrixError, [string]>(
-    useCallback(
-      async (userId) => {
-        const result = await mx.createRoom({
-          is_direct: true,
-          invite: [userId],
-          visibility: Visibility.Private,
-          preset: Preset.TrustedPrivateChat,
-          initial_state: [],
-        });
-        addRoomIdToMDirect(mx, result.room_id, userId);
-        return result.room_id;
-      },
-      [mx]
-    )
-  );
-  
-  // Navigate to chat or create one
-  const handleNavigateToChat = useCallback(async (userId: string, existingRoomId?: string) => {
-    if (existingRoomId) {
-      // Navigate to existing DM room
-      navigate(getHomeRoomPath(getCanonicalAliasOrRoomId(mx, existingRoomId)));
-    } else {
-      // Create new DM room and navigate to it
-      try {
-        const roomId = await createDM(userId);
-        navigate(getHomeRoomPath(roomId));
-      } catch (error) {
-        console.error('Failed to create DM room:', error);
-      }
-    }
-  }, [mx, navigate, createDM]);
-  
-  // Get all direct rooms to find existing DMs
-  const directRooms = useDirectRooms();
-  
-  // Map network members to their DM rooms
-  const networkMembersWithDM = useMemo(() => {
-    const myUserId = mx.getUserId() ?? '';
-    
-    return sortedNetworkMembers.map(member => {
-      // Find existing DM room for this member
-      const dmRoom = directRooms
-        .map(roomId => mx.getRoom(roomId))
-        .filter((room): room is Room => room !== null)
-        .find(room => {
-          // Check if this DM is with the target user
-          const otherUserId = guessDmRoomUserId(room, myUserId);
-          return otherUserId === member.userId;
-        });
-      
-      return {
-        member,
-        dmRoom,
-      };
-    });
-  }, [sortedNetworkMembers, mx, directRooms]);
+  const handleMemberClick: MouseEventHandler<HTMLButtonElement> = (evt) => {
+    const btn = evt.currentTarget as HTMLButtonElement;
+    const userId = btn.getAttribute('data-user-id');
+    if (!userId || !ventoRoom) return;
+    openUserRoomProfile(ventoRoom.roomId, undefined, userId, btn.getBoundingClientRect(), 'Left');
+  };
 
   // Settings state
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -524,7 +343,40 @@ export function Home() {
                 })}
               </NavCategory>
             )}
-            {networkMembers.length > 0 && ventoRoom && (
+            {directs.length > 0 && (
+              <NavCategory>
+                <NavCategoryHeader>
+                  <RoomNavCategoryButton
+                    closed={closedCategories.has(DIRECT_CATEGORY_ID)}
+                    data-category-id={DIRECT_CATEGORY_ID}
+                    onClick={handleCategoryClick}
+                  >
+                    Conversations
+                  </RoomNavCategoryButton>
+                </NavCategoryHeader>
+                {!closedCategories.has(DIRECT_CATEGORY_ID) && sortedDirects.map((roomId) => {
+                  const room = mx.getRoom(roomId);
+                  if (!room) return null;
+                  const selected = selectedRoomId === roomId;
+
+                  return (
+                    <RoomNavItem
+                      key={roomId}
+                      room={room}
+                      selected={selected}
+                      showAvatar
+                      direct
+                      linkPath={getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
+                      notificationMode={getRoomNotificationMode(
+                        notificationPreferences,
+                        room.roomId
+                      )}
+                    />
+                  );
+                })}
+              </NavCategory>
+            )}
+            {networkMembers.length > 0 && (
               <NavCategory>
                 <NavCategoryHeader>
                   <RoomNavCategoryButton
@@ -535,18 +387,62 @@ export function Home() {
                     Network
                   </RoomNavCategoryButton>
                 </NavCategoryHeader>
-                {!closedCategories.has(NETWORK_CATEGORY_ID) && networkMembersWithDM.map(({ member, dmRoom }) => {
-                  const selected = dmRoom ? selectedRoomId === dmRoom.roomId : false;
+                {!closedCategories.has(NETWORK_CATEGORY_ID) && sortedNetworkMembers.map((member) => {
+                  const name = getMemberDisplayName(ventoRoom!, member.userId) ?? getMxIdLocalPart(member.userId) ?? member.userId;
+                  const avatarMxcUrl = member.getMxcAvatarUrl();
+                  const avatarUrl = avatarMxcUrl
+                    ? mx.mxcUrlToHttp(avatarMxcUrl, 100, 100, 'crop', undefined, false, useAuthentication) ?? undefined
+                    : undefined;
+                  const presence = mx.getUser(member.userId)?.presence;
+                  const isOnline = presence === 'online';
+                  const isAway = presence === 'unavailable';
 
                   return (
-                    <NetworkMemberItem
-                      key={member.userId}
-                      member={member}
-                      ventoRoom={ventoRoom}
-                      dmRoom={dmRoom}
-                      selected={selected}
-                      onNavigateToChat={handleNavigateToChat}
-                    />
+                    <NavItem 
+                      key={member.userId} 
+                      variant="Background" 
+                      radii="400"
+                      as="button"
+                      data-user-id={member.userId}
+                      onClick={handleMemberClick}
+                      style={{ cursor: 'pointer', width: '100%', textAlign: 'left' }}
+                    >
+                      <NavItemContent>
+                        <Box as="span" grow="Yes" alignItems="Center" gap="200">
+                          <Box as="span" style={{ position: 'relative', display: 'inline-flex' }}>
+                            <Avatar size="200" radii="400">
+                              <UserAvatar
+                                userId={member.userId}
+                                src={avatarUrl}
+                                alt={name}
+                                renderFallback={() => (
+                                  <Text as="span" size="H6">
+                                    {nameInitials(name)}
+                                  </Text>
+                                )}
+                              />
+                            </Avatar>
+                            <span
+                              style={{
+                                position: 'absolute',
+                                bottom: -1,
+                                right: -1,
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                backgroundColor: isOnline ? 'var(--green9)' : isAway ? 'var(--orange9)' : 'var(--color6)',
+                                border: '2px solid var(--bgPanel)',
+                              }}
+                            />
+                          </Box>
+                          <Box as="span" grow="Yes">
+                            <Text as="span" size="Inherit" truncate>
+                              {name}
+                            </Text>
+                          </Box>
+                        </Box>
+                      </NavItemContent>
+                    </NavItem>
                   );
                 })}
               </NavCategory>

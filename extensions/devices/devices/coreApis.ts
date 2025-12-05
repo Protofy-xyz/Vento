@@ -14,6 +14,7 @@ import { compileMessagesTopic } from "@extensions/esphome/utils";
 import { connect as mqttConnect, IClientOptions } from 'mqtt';
 import { protoInfraUrls } from "@extensions/protoinfra/utils/protoInfraUrls";
 import { randomUUID } from 'crypto';
+import { getTemplate, TemplatesDir } from "@extensions/boards/system/boards";
 
 const PER_PARAM_ROWS = 1; // tweak as needed (extra grid rows per visible param)
 
@@ -288,14 +289,14 @@ function Widget(card) {
             }
         }
 
-        const aiTemplatePath = fspath.join(process.cwd(), '..', '..', 'data', 'templates', 'boards', 'smart ai agent', 'smart ai agent.json');
-        let aiTemplateJson: any = {};
-        if (fs.existsSync(aiTemplatePath)) {
-            const aiTemplateData = fs.readFileSync(aiTemplatePath, 'utf-8');
-            aiTemplateJson = JSON.parse(aiTemplateData);
+        // Load AI agent template with card code/html using getTemplate
+        try {
+            const aiTemplateJson = await getTemplate('smart ai agent');
             for (const card of aiTemplateJson.cards || []) {
                 cards.push(card);
             }
+        } catch (err) {
+            logger.warn({ err }, 'Failed to load smart ai agent template for device board');
         }
 
         // --- after you've finished filling `buckets` (lg/md/sm/xs) ---
@@ -810,8 +811,32 @@ export const DevicesAutoAPI = AutoAPI({
     getDB: getDB,
     transformers:{
         generateDeviceCredentials: async (field, e, data) => {
-            if(!data.credentials) data.credentials = {}
-            data.credentials.mqtt = {username: data.name, password: getDeviceToken(data.name, false)}
+            if (!data.credentials) data.credentials = {}
+            const mqttCreds: any = { username: data.name, password: getDeviceToken(data.name, false) }
+
+            // Resolve host/port for MQTT from environment or network discovery
+            let mqttHost = process.env.MQTT_HOST
+            let mqttPort = process.env.MQTT_PORT
+
+            // Try to infer host from network info (but never override port unless explicitly provided)
+            if (!mqttHost) {
+                try {
+                    const token = getServiceToken()
+                    const resp = await API.get(`/api/core/v1/netaddr/vento${token ? `?token=${token}` : ''}`)
+                    const baseUrl = resp?.data?.baseUrl
+                    if (baseUrl) {
+                        const parsed = new URL(baseUrl)
+                        mqttHost = parsed.hostname
+                    }
+                } catch (err) {
+                    // fall back to defaults
+                }
+            }
+            mqttCreds.host = mqttHost || 'localhost'
+            // Use explicit MQTT_PORT if set; otherwise default to 1883 (do NOT reuse HTTP port)
+            mqttCreds.port = mqttPort ? (parseInt(mqttPort, 10) || mqttPort) : 1883
+
+            data.credentials.mqtt = mqttCreds
             return data
         }
 

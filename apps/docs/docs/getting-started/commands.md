@@ -10,10 +10,47 @@ Complete reference of Vento commands.
 
 | Command | Description |
 |---------|-------------|
-| `yarn start` | Start Vento (runs prepare first) |
-| `yarn start-fast` | Start without initialization |
-| `yarn dev` | Development mode with hot-reload |
-| `yarn dev-fast` | Dev mode without initialization |
+| `yarn start` | Start Vento (runs `prepare-dev` first) |
+| `yarn start-fast` | Start without running `prepare-dev` |
+| `yarn dev` | Development mode with hot-reload (runs `prepare-dev` first) |
+| `yarn dev-fast` | Dev mode without running `prepare-dev` |
+
+### The `prepare-dev` Phase
+
+When you run `yarn start` or `yarn dev` (without `-fast`), Vento executes a **prepare-dev** phase before starting services. Each service can define a `prepare-dev` script in its `package.json`.
+
+**What happens during `prepare-dev`:**
+1. Runs the root `prepare.js` (downloads static pages, clients, etc.)
+2. Builds all packages (`yarn build`)
+3. Runs `yarn prepare-dev` in each workspace that defines it
+
+**What services typically do in `prepare-dev`:**
+- Initialize required directories
+- Generate configuration files (e.g., `TOKEN_SECRET` in `.env`)
+- Download dependencies or compile assets if needed
+- Perform any one-time setup required before the service runs
+
+**When to use `-fast` variants:**
+- After your first successful start (environment is already configured)
+- During rapid development when you don't need re-initialization
+- The Electron launcher uses `-fast` because it handles setup separately
+
+**Example: Defining `prepare-dev` in a service:**
+
+In `apps/myservice/package.json`:
+```json
+{
+  "scripts": {
+    "prepare-dev": "node prepare.js"
+  }
+}
+```
+
+Services that define `prepare-dev`:
+- `apps/core` - Generates JWT secret
+- `apps/adminpanel` - Compiles Next.js to static HTML if needed
+- `apps/dendrite` - Initializes Matrix server config
+- `apps/chat` - Setup chat service
 
 ## Process Management
 

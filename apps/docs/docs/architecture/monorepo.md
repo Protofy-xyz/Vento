@@ -87,6 +87,20 @@ module.exports = {
 }
 ```
 
+**`prepare-dev` script** (optional) in `package.json` runs during initialization:
+
+```json
+{
+  "scripts": {
+    "prepare-dev": "node prepare.js"
+  }
+}
+```
+
+The script can do anything needed for initialization - create directories, generate config, download files, etc.
+
+The `prepare-dev` phase runs automatically with `yarn start` or `yarn dev`. Use `yarn start-fast` or `yarn dev-fast` to skip this phase when initialization is not needed.
+
 ## Packages
 
 Shared code organized as internal packages:

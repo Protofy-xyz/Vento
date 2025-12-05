@@ -189,10 +189,12 @@ Internal packages that provide shared functionality across the monorepo.
 
 | Command | Description |
 |---------|-------------|
-| `yarn start` | Start Vento. After boot, it listens on `localhost:8000`. Runs prepare first. |
-| `yarn start-fast` | Skip initialization and go straight to boot. Used by developers and the Electron launcher. |
-| `yarn dev` | Start Vento in development mode (hot-reload for `apps/core`). |
-| `yarn dev-fast` | Dev mode but skipping initialization. |
+| `yarn start` | Start Vento. After boot, it listens on `localhost:8000`.  `yarn prepare-dev` is executed automatically for all services first. |
+| `yarn start-fast` | Skip `prepare-dev` and go straight to boot. Used by developers and the Electron launcher when no initialization is needed. |
+| `yarn dev` | Start Vento in development mode (hot-reload for `apps/core`). `yarn prepare-dev` is executed automatically for all services first. |
+| `yarn dev-fast` | Dev mode but skipping `prepare-dev`. |
+
+**Note:** The `-fast` variants skip the `prepare-dev` phase, which is useful to speed up boot when you know the environment is already configured.
 
 ### Process Management
 
@@ -284,6 +286,81 @@ module.exports = {
     }]
 };
 ```
+
+### The `prepare-dev` Script
+
+Services can define a `prepare-dev` script in their `package.json` that runs during initialization. This script executes automatically when running `yarn start` or `yarn dev` (but NOT with `yarn start-fast` or `yarn dev-fast`).
+
+**How it works:**
+
+The root `package.json` defines:
+```json
+"prepare-dev": "node prepare.js && yarn build && yarn workspaces foreach --all run prepare-dev"
+```
+
+This means:
+1. Runs the root `prepare.js` (downloads pages, clients, etc.)
+2. Builds all packages
+3. Executes `yarn prepare-dev` in each workspace that defines it
+
+**Defining `prepare-dev` in a service:**
+
+Add the script to your service's `package.json`:
+```json
+{
+  "scripts": {
+    "prepare-dev": "node prepare.js"
+  }
+}
+```
+
+The script can do anything - run a Node script, shell commands, etc.
+
+**Example: `apps/core/package.json`:**
+```json
+{
+  "scripts": {
+    "prepare-dev": "node prepare.js"
+  }
+}
+```
+
+Where `apps/core/prepare.js` does:
+```javascript
+const fs = require('fs')
+
+// Generate TOKEN_SECRET if not present
+const content = 'TOKEN_SECRET=' + require('crypto').randomBytes(64).toString('hex') + "\n"
+if (!fs.existsSync('./../../.env')) {
+    fs.writeFileSync('./../../.env', content)
+} else {
+    const fileContent = fs.readFileSync('./../../.env').toString()
+    if (!fileContent.includes('TOKEN_SECRET')) {
+        fs.appendFileSync('./../../.env', content)
+    }
+}
+```
+
+**Purpose of `prepare-dev`:**
+- Initialize required directories
+- Generate configuration files (e.g., `.env`, secrets)
+- Download dependencies or binaries
+- Compile static assets if needed
+- Any one-time setup that must happen before the service runs
+
+**Services that define `prepare-dev`:**
+
+| Service | Purpose |
+|---------|---------|
+| `apps/core` | Generate `TOKEN_SECRET` in `.env` if missing |
+| `apps/adminpanel` | Compile Next.js to static HTML if `data/pages/` is empty |
+| `apps/dendrite` | Initialize Matrix server configuration |
+| `apps/chat` | Setup chat service dependencies |
+
+**When to use `-fast` variants:**
+- After first successful start (environment already configured)
+- During rapid development iteration
+- When launched from the Electron launcher (which handles setup)
 
 ### Process Manager
 

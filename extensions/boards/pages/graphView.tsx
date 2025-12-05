@@ -160,6 +160,7 @@ const buildEdgesFromCards = (cards: Card[]): RFEdge[] => {
             dupCounter.set(key, dup + 1);
 
             const isPre = link.type === 'pre';
+            const isCode = link.type === 'code';
             const strokeColor = isPre ? `var(--${LINK_PRE_COLOR}9)` : `var(--${LINK_POST_COLOR}9)`;
 
             // Pre: exits from left of source (pre-out), enters right of target (pre-in)
@@ -192,6 +193,7 @@ const buildEdgesFromCards = (cards: Card[]): RFEdge[] => {
                     stroke: strokeColor,
                     strokeWidth: 2,
                     strokeDasharray: isPre ? '6 3' : undefined,
+                    opacity: isCode ? 0.4 : 1,
                 },
             });
         }
@@ -355,6 +357,7 @@ const CurvyEdge = memo((props: any) => {
                 stroke: props.style?.stroke || 'var(--edgeDefault, var(--color5))', 
                 strokeWidth: props.style?.strokeWidth || 2, 
                 strokeDasharray: props.style?.strokeDasharray,
+                opacity: props.style?.opacity ?? 1,
                 fill: 'none', 
                 pointerEvents: 'none' 
             }} 

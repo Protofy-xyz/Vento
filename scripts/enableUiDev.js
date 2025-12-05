@@ -18,6 +18,10 @@ if (fs.existsSync(packagePath)) {
         packageJson.workspaces.push('apps/chat');
     }
 
+    if(!packageJson.workspaces.includes('apps/docs')) {
+        packageJson.workspaces.push('apps/docs');
+    }
+
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
     console.log('package.json workspaces have been updated');
 } else {

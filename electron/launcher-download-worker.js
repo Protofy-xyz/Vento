@@ -77,7 +77,8 @@ async function main() {
     const downloadAgentScript = path.join(projectFolderPath, 'scripts', 'download-agent.js');
     console.log('[worker] Running download-agent script');
     currentStep = 'download-agent';
-    await require(downloadAgentScript)(AdmZip, require('tar'));
+    const { downloadAgent } = require(downloadAgentScript);
+    await downloadAgent({ force: true });
 
     const downloadDendriteScript = path.join(projectFolderPath, 'scripts', 'download-dendrite.js');
     console.log('[worker] Running download-dendrite script');

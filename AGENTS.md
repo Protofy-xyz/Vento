@@ -882,6 +882,219 @@ Cards may specify a **layer**, defining visibility in the UI:
 - Default layer shows in main view
 - Other layers can be hidden/shown by user preference
 
+---
+
+## Board UI Architecture
+
+The board view UI is composed of several key components that work together.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `extensions/boards/pages/view.tsx` | Main board view component (Board, BoardViewAdmin) |
+| `extensions/boards/pages/graphView.tsx` | Graph/flow view with ReactFlow |
+| `extensions/boards/ActionBar.tsx` | Action bar buttons and controls |
+| `extensions/boards/BoardControlsContext.tsx` | Shared state between components |
+| `extensions/boards/utils/graph.ts` | Graph layout algorithm (Sugiyama) |
+
+### Action Bar
+
+The action bar shows buttons for board operations. It's defined in `ActionBar.tsx` and receives events via `generateEvent()`.
+
+**Adding a new button:**
+
+```typescript
+// In extensions/boards/ActionBar.tsx
+import { MyIcon } from 'lucide-react';
+
+// In the 'BoardView' array (around line 228):
+const bars = {
+  'BoardView': [
+    // ... existing buttons
+    <ActionBarButton 
+      tooltipText="My Action" 
+      Icon={MyIcon} 
+      onPress={() => generateEvent({ type: "my-action" })} 
+    />,
+    // ...
+  ]
+};
+```
+
+**Handling the event:**
+
+Events are handled in `BoardViewAdmin.onFloatingBarEvent()` in `view.tsx`:
+
+```typescript
+const onFloatingBarEvent = (event) => {
+  if (event.type === 'my-action') {
+    // Handle the action
+  }
+  // ... other handlers
+};
+```
+
+### Window Events for Cross-Component Communication
+
+When action bar events need to communicate with the `Board` component (which has different state), use window CustomEvents:
+
+```typescript
+// In BoardViewAdmin (view.tsx) - dispatch the event
+if (event.type === 'my-action') {
+  window.dispatchEvent(new CustomEvent('board:my-action'));
+}
+
+// In Board component (view.tsx) - listen for the event
+useEffect(() => {
+  const handleMyAction = () => {
+    // Access Board's state (setGraphLayout, etc.)
+  };
+  window.addEventListener('board:my-action', handleMyAction);
+  return () => window.removeEventListener('board:my-action', handleMyAction);
+}, []);
+```
+
+### Graph View Layout System
+
+The graph view uses ReactFlow with automatic layout via `computeDirectedLayout()`.
+
+**Key concepts:**
+
+| Concept | Description |
+|---------|-------------|
+| `graphLayout` | Saved positions: `{ cardName: { x, y, width?, height?, layer? } }` |
+| `computeDirectedLayout` | Sugiyama algorithm that auto-positions nodes |
+| `materializeNodes` | Creates ReactFlow nodes, uses saved positions if available |
+| `persistGraphLayout` | Saves layout to board via API |
+
+**Layout Flow:**
+
+1. `GraphView` receives `cards` and `layout` props
+2. If `layout` has positions for a card, uses those
+3. If `layout` is empty/missing positions, `computeDirectedLayout` calculates them
+4. When user drags nodes, `onLayoutChange` persists new positions
+5. An effect auto-persists layout for new nodes without saved positions
+
+**Triggering Relayout:**
+
+To recalculate all positions, clear the layout:
+
+```typescript
+setGraphLayout({});
+graphLayoutRef.current = {};
+boardRef.current.graphLayout = {};
+API.post(`/api/core/v1/boards/${board.name}/graphlayout`, { graphLayout: {} });
+```
+
+The `GraphView` will then use `computeDirectedLayout` for all nodes.
+
+**Graph Layout API:**
+
+```bash
+POST /api/core/v1/boards/{name}/graphlayout
+{ "graphLayout": { "cardName": { "x": 100, "y": 200 } } }
+```
+
+---
+
+## Common UI Components
+
+### AlertDialog
+
+Confirmation dialogs use `AlertDialog` from `packages/protolib/components/AlertDialog.tsx`.
+
+**Basic usage:**
+
+```tsx
+import { AlertDialog } from 'protolib/components/AlertDialog'
+
+<AlertDialog
+  open={isOpen}
+  setOpen={setIsOpen}
+  showCancel                          // Show Cancel button
+  acceptCaption="Confirm"             // Accept button text
+  cancelCaption="Cancel"              // Cancel button text (default: "Cancel")
+  title="Confirm Action"
+  description="Are you sure?"
+  onAccept={() => { /* handle accept */ }}
+  onCancel={() => { /* handle cancel */ }}  // Optional
+/>
+```
+
+**Key props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `open` | boolean | Dialog visibility |
+| `setOpen` | function | Control visibility |
+| `showCancel` | boolean | Show Cancel button alongside Accept |
+| `hideAccept` | boolean | Hide the Accept button |
+| `acceptCaption` | string | Accept button text |
+| `cancelCaption` | string | Cancel button text |
+| `acceptTint` | string | Tint color for accept button |
+| `cancelTint` | string | Tint color for cancel button (default: "gray") |
+| `title` | string | Dialog title |
+| `description` | ReactNode | Dialog description/content |
+| `onAccept` | function | Called when Accept is clicked |
+| `onCancel` | function | Called when Cancel is clicked |
+
+**Example with confirmation:**
+
+```tsx
+const [showConfirm, setShowConfirm] = useState(false);
+
+<AlertDialog
+  open={showConfirm}
+  setOpen={setShowConfirm}
+  showCancel
+  acceptCaption="Delete"
+  acceptTint="red"
+  title="Delete Item"
+  description="This action cannot be undone."
+  onAccept={() => {
+    deleteItem();
+    // Dialog closes automatically after onAccept
+  }}
+/>
+```
+
+### ActionBarButton
+
+Button component for the action bar:
+
+```tsx
+import { ActionBarButton } from 'protolib/components/ActionBarWidget'
+
+<ActionBarButton
+  tooltipText="Button tooltip"
+  Icon={MyIcon}                    // Lucide icon component
+  onPress={() => { }}              // Click handler
+  selected={isSelected}            // Highlight as selected
+  disabled={isDisabled}            // Disable the button
+  iconProps={{ color: 'red' }}     // Props passed to icon
+/>
+```
+
+### ActionBarSelector
+
+Dropdown selector for the action bar:
+
+```tsx
+import { ActionBarSelector } from 'protolib/components/ActionBarWidget'
+
+<ActionBarSelector
+  options={[
+    { key: 'option1', label: 'Option 1', icon: Icon1 },
+    { key: 'option2', label: 'Option 2', icon: Icon2 },
+  ]}
+  value={selectedValue}
+  onValueChange={(value) => setSelectedValue(value)}
+  tooltipText="Select option"
+  Icon={DefaultIcon}
+/>
+```
+
 ### Special Cards
 
 | Card Name | Purpose |

@@ -109,3 +109,57 @@ await board.execute_action({
 })
 ```
 
+## Board UI
+
+### View Modes
+
+Boards can be viewed in three modes:
+
+| Mode | Description |
+|------|-------------|
+| **Graph** | Flow diagram showing card connections (default) |
+| **Dashboard** | Grid layout with draggable cards |
+| **Presentation** | Custom HTML view defined in `{board}_ui.js` |
+
+### Action Bar
+
+The action bar provides quick access to board operations:
+
+| Button | Action |
+|--------|--------|
+| Add (+) | Add new card to board |
+| Undo/Redo | Version history navigation |
+| History | View version timeline |
+| Automations | Edit board automation rules |
+| Relayout | Reset graph positions (recalculate layout) |
+| Play/Pause | Toggle autopilot |
+| States | View board state values |
+| Logs | View real-time logs |
+| Settings | Board configuration |
+
+### Graph Layout
+
+The graph view uses automatic layout algorithms to position cards. Card positions can be:
+- **Automatic**: Calculated using Sugiyama algorithm based on card connections
+- **Manual**: Drag cards to custom positions (saved automatically)
+
+Use the **Relayout** button to reset all positions and recalculate the automatic layout.
+
+### Board Controls Context
+
+Board UI state is managed via `BoardControlsContext`:
+
+```typescript
+import { useBoardControls } from '@extensions/boards/BoardControlsContext'
+
+function MyComponent() {
+  const {
+    viewMode,      // 'ui' | 'board' | 'graph'
+    setViewMode,
+    autopilot,     // boolean
+    tabVisible,    // Currently open panel
+    setTabVisible,
+  } = useBoardControls();
+}
+```
+

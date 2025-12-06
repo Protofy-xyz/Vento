@@ -42,7 +42,7 @@ if (provider === 'llama') {
     model: model || defaultLocalModel
   });
 
-  const content = context.ai.cleanCode(reply[0])
+  const content = context.ai.cleanCode(reply[0] ?? '')
   let raw = reply
 
   reply = {

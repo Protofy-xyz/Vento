@@ -112,19 +112,29 @@
             "displayResponse": false,
             "displayIcon": false,
             "params": {
-                "response": "response to send"
+                "response": "response to send",
+                "reset": "reset board"
             },
             "configParams": {
                 "response": {
                     "visible": false,
                     "defaultValue": "board.agent_core",
                     "type": "any"
+                },
+                "reset": {
+                    "visible": true,
+                    "defaultValue": "true",
+                    "type": "boolean"
                 }
             },
             "description": "Default description, edit this description to improve usability of this action",
             "autoResponsive": false,
             "displayTitle": true,
-            "layer": "agent"
+            "layer": "agent",
+            "color": "var(--color7)",
+            "theme": "light",
+            "domId": "fb608fae-fc8e-4ea2-abf8-c8164cdeacea",
+            "cardState": {}
         },
         {
             "key": "action_1761067229271",
@@ -146,7 +156,7 @@
                 },
                 "excluded": {
                     "visible": false,
-                    "defaultValue": "[\"agent_input\", \"agent_core\", \"user_request\", \"agent_call\"]",
+                    "defaultValue": "[\"agent_input\", \"user_request\"]",
                     "type": "array"
                 }
             },
@@ -155,7 +165,8 @@
             "displayIcon": false,
             "autoResponsive": false,
             "displayTitle": false,
-            "layer": "agent"
+            "layer": "agent",
+            "links": []
         },
         {
             "key": "action_1761187544907",
@@ -726,7 +737,7 @@
         "autoplay": false
     },
     "icon": "bot-message-square",
-    "autopilot": true,
+    "autopilot": false,
     "inputs": {
         "default": "/api/agents/v1/[object Object]/agent_input"
     },
@@ -734,7 +745,7 @@
         "group-agent": {
             "x": 0,
             "y": 0,
-            "width": 4060,
+            "width": 4580,
             "height": 1280,
             "layer": "agent",
             "type": "group"
@@ -776,8 +787,8 @@
             "type": "node"
         },
         "agent_prepare": {
-            "x": 1613.575546674187,
-            "y": 169.07086328202232,
+            "x": 1540,
+            "y": 160,
             "width": 600,
             "height": 900,
             "layer": "agent",
@@ -785,8 +796,8 @@
             "type": "node"
         },
         "agent_core": {
-            "x": 2284.925170068027,
-            "y": 166.8027210884354,
+            "x": 2260,
+            "y": 160,
             "width": 600,
             "height": 900,
             "layer": "agent",

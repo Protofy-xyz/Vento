@@ -197,9 +197,9 @@ export const processAgentResponse = async (options: {
     }
 };
 
-function objectToXML(obj, rootName = 'root', options = {}) {
+function objectToXML(obj, rootName = 'root', options: any = {}) {
     const {
-        indent = '\t',
+        indent = '  ',  // 2 spaces by default for better compatibility
         arrayItemNameOverrides = {
             board_actions: 'board_action',
             history: 'message', // ex. <history><message>...</message></history>
@@ -241,7 +241,6 @@ function objectToXML(obj, rootName = 'root', options = {}) {
         value = maybeParseJson(value);
 
         const pad = indent.repeat(level);
-        const padInner = indent.repeat(level + 1);
 
         if (value === null || value === undefined) {
             return `${pad}<${key}></${key}>\n`;
@@ -266,6 +265,119 @@ function objectToXML(obj, rootName = 'root', options = {}) {
     return rootWrapped.trim();
 }
 
+/**
+ * Convert an object to semantic HTML - great for LLMs and visual debugging
+ * Uses dark-first colors that work in both themes
+ */
+function objectToHTML(obj, rootName = 'root', options: any = {}) {
+    const {
+        parseJsonStrings = true,
+        styles = true  // include inline styles for visual debugging
+    } = options;
+
+    // Dark-first color palette (works in dark mode, acceptable in light)
+    const colors = {
+        bg: '#1c1c1e',
+        bgAlt: '#2c2c2e',
+        text: '#e5e5e7',
+        textMuted: '#98989d',
+        textBold: '#ffffff',
+        border: '#3a3a3c',
+        accent: '#0a84ff',
+        accentBg: '#1a3a5c'
+    };
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function maybeParseJson(value) {
+        if (!parseJsonStrings || typeof value !== 'string') return value;
+        const s = value.trim();
+        if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
+            try { return JSON.parse(s); } catch { }
+        }
+        return value;
+    }
+
+    function formatKey(key) {
+        // Convert snake_case to Title Case
+        return String(key).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function convert(value, key = null, isArrayItem = false) {
+        value = maybeParseJson(value);
+
+        if (value === null || value === undefined) {
+            return key ? `<div><strong>${formatKey(key)}:</strong> <em style="color:${colors.textMuted};">empty</em></div>` : `<em style="color:${colors.textMuted};">empty</em>`;
+        }
+
+        if (Array.isArray(value)) {
+            if (value.length === 0) {
+                return key ? `<div><strong>${formatKey(key)}:</strong> <em style="color:${colors.textMuted};">empty list</em></div>` : `<em style="color:${colors.textMuted};">empty list</em>`;
+            }
+            const items = value.map((item, i) => `<li style="margin:4px 0;">${convert(item, null, true)}</li>`).join('\n');
+            const list = `<ul style="margin:4px 0;padding-left:20px;list-style:disc;">\n${items}\n</ul>`;
+            return key ? `<details open style="margin:8px 0;"><summary style="cursor:pointer;font-weight:600;color:${colors.textBold};">${formatKey(key)} <span style="color:${colors.textMuted};font-weight:normal;">(${value.length})</span></summary>${list}</details>` : list;
+        }
+
+        if (typeof value === 'object') {
+            const entries = Object.entries(value);
+            if (entries.length === 0) {
+                return key ? `<div><strong>${formatKey(key)}:</strong> <em style="color:${colors.textMuted};">empty</em></div>` : `<em style="color:${colors.textMuted};">empty</em>`;
+            }
+            
+            const dlItems = entries.map(([k, v]) => {
+                const rendered = convert(v, null, false);
+                // If it's a simple value, use inline style
+                if (typeof v !== 'object' || v === null) {
+                    return `<div style="margin:4px 0;padding:2px 0;"><strong style="color:${colors.text};">${formatKey(k)}:</strong> ${rendered}</div>`;
+                }
+                // For nested objects/arrays, use details
+                return convert(v, k, false);
+            }).join('\n');
+            
+            if (key) {
+                return `<details open style="margin:8px 0;border-left:2px solid ${colors.border};padding-left:12px;"><summary style="cursor:pointer;font-weight:600;color:${colors.textBold};">${formatKey(key)}</summary>\n${dlItems}\n</details>`;
+            }
+            return dlItems;
+        }
+
+        // Primitive value
+        const strVal = escapeHtml(String(value));
+        // Truncate very long strings for display
+        const displayVal = strVal.length > 300 ? strVal.slice(0, 300) + '...' : strVal;
+        return `<span style="color:${colors.accent};">${displayVal}</span>`;
+    }
+
+    const content = convert(obj);
+    const containerStyle = styles ? ` style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.6;padding:16px;background:${colors.bg};color:${colors.text};border-radius:12px;border:1px solid ${colors.border};overflow:auto;"` : '';
+    
+    return `<section${containerStyle}>\n<h3 style="margin:0 0 12px 0;color:${colors.textBold};border-bottom:1px solid ${colors.border};padding-bottom:8px;font-size:15px;">${formatKey(rootName)}</h3>\n${content}\n</section>`;
+}
+
+/**
+ * Create a simple HTML box with dark-first styling
+ */
+function htmlBox(content, title = null, options: any = {}) {
+    const { accent = false } = options;
+    
+    const colors = {
+        bg: accent ? '#1a3a5c' : '#1c1c1e',
+        text: '#e5e5e7',
+        textBold: '#ffffff',
+        border: accent ? '#0a84ff' : '#3a3a3c'
+    };
+    
+    const titleHtml = title ? `<h3 style="margin:0 0 12px 0;color:${colors.textBold};border-bottom:1px solid ${colors.border};padding-bottom:8px;font-size:15px;">${title}</h3>\n` : '';
+    
+    return `<section style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.6;padding:16px;background:${colors.bg};color:${colors.text};border-radius:12px;border:1px solid ${colors.border};overflow:auto;margin:8px 0;">\n${titleHtml}${content}\n</section>`;
+}
+
 // Backwards-compatible alias
 export const processResponse = processAgentResponse;
 
@@ -276,5 +388,7 @@ export default {
     cleanCode,
     processAgentResponse,
     processResponse,
-    objectToXML
+    objectToXML,
+    objectToHTML,
+    htmlBox
 };

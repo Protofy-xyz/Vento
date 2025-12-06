@@ -352,50 +352,116 @@ const extraCards = [
       displayResponse: true,
       editRulesInLowCode: false,
       editRulesInNaturalLanguage: false,
-      rulesCode: "let visibleActions = params.full_board_view ? ['*'] : params.actions\nlet invisibleActions = [name]\nlet visibleStates = params.full_board_view ? ['*'] : params.values\nlet invisibleStates = [name]\n\n\nconst filteredActions = boardActions.filter(action => {\n  const name = action.name\n  if (visibleActions.includes('*')) {\n    return !invisibleActions.includes(name)\n  }\n  return visibleActions.includes(name) && !invisibleActions.includes(name)\n}).map(action => {\n  let {html, description, ...rest} = action\n  if(description.startsWith('Actions can perform tasks, automate processes, and enhance user interactions')) {\n    description = 'generic action with no description'\n  }\n  return {\n    description,\n    ...rest\n  }\n})\n\nconst filteredStates = Object.fromEntries(\n  Object.entries(board).filter(([key, value]) => {\n    if (visibleStates.includes('*')) {\n      return !invisibleStates.includes(key)\n    }\n    return visibleStates.includes(key) && !invisibleStates.includes(key)\n  })\n)\n\nconst boardActionsXml = context.ai.objectToXML(\n  filteredActions,\n  'board_actions',\n  {\n    indent: '\\t',\n    arrayItemNameOverrides: { board_actions: 'board_action', history: 'message' },\n    parseJsonStrings: true\n  }\n)\n\nconst boardStatesXml = context.ai.objectToXML(\n  filteredStates,\n  'board_states',\n  {\n    indent: '\\t',\n    arrayItemNameOverrides: { history: 'message' },\n    parseJsonStrings: true\n  }\n)\n\nconst promptXml = context.ai.objectToXML(\n  params.prompt,\n  'prompt',\n  {\n    indent: '\\t',\n    parseJsonStrings: true\n  }\n)\nconst message_prompt = params.allow_execution ? `\n<instructions>You are an AI agent inside an AI agent platform called Vento.\nThe agent is managed through a board and the board is composed of states and actions.\nYou will receive a user message and your mission is to generate a json response.\nOnly respond with a JSON in the following format:\n\n{\n    \"response\": \"whatever you want to say in markdown format. images should be like  ![alt](url). Link should be like [alt](url). When sharing images include both.\",\n    \"actions\": [\n        {\n            \"name\": \"action_1\",\n            \"params\": {\n                \"example_param\": \"example_value\"\n            } \n        }\n    ]\n}\n\nThe key response will be shown to the user as a response to the user prompt.\nThe actions array can be empty if the user prompt requires no actions to be executed.\nIf the user request an action or an information not available, tell the user there is no card available to perform this action / get this information and suggest the user to extend the board with more cards.\nWhen executing an action, always use the action name. Never use the action id to execute actions, just the name. \nWhen answering questions or providing information, you need to use the board_states to get the relevant information.\nif the user asks what do you see, you can tell the user what board_states do you see and what board_actions do you see. make sure to use the ocrrect names for states and actions.\neach <board_states> entry is a key -> value entry, so: <x>y</x> inside <board_states> means \"the state named x has the value y\"\n\n</instructions>\n\n${boardActionsXml}\n${boardStatesXml}\n\n<prompt>\n${JSON.stringify(params.prompt)}\n</prompt>\n` : `\n<instructions>You are an assistant providing answers related to the state of an agent. \nThe agent is managed through a board.\nWhen answering questions or providing information, you need to use the board_states to get the relevant information.\nAnswer in plain language, in the same language the <prompt> is written.\nIf the user request an information not available, tell the user there is no card available to this information and suggest the user to extend the board with more cards.\nif the user asks what do you see, you can tell the user what board_states do you see. Make sure to use the correct state names.\neach <board_states> entry is a key -> value entry, so: <x>y</x> inside <board_states> means \"the state named x has the value y\"\n</instructions>\n\n${boardStatesXml}\n\n${promptXml}\n`\n\nif(params.debug) return message_prompt\nconst response = await context.chatgpt.prompt({\n  message: message_prompt,\n  conversation: await context.chatgpt.getSystemPrompt({\n    prompt: `You can analyze images provided in the same user turn. \nDo NOT claim you cannot see images. \nAnswer following the JSON contract only (no code fences).`,\n  }),\n  images: await context.boards.getStatesByType({\n    board: filteredStates,\n    type: \"frame\",\n    key: \"frame\",\n  }),\n  files: await context.boards.getStatesByType({\n    board: filteredStates,\n    type: \"file\",\n    key: \"path\",\n  }),\n});\nif(params.allow_execution) {\n  return context.chatgpt.processResponse({\n    response: response,\n    execute_action: execute_action,\n  });\n} \nreturn response\n",
+      rulesCode: "let visibleActions = params.full_board_view ? ['*'] : params.actions\nlet invisibleActions = [ ...params.invisible_actions, name ]\nlet visibleStates = params.full_board_view ? ['*'] : params.values\nlet invisibleStates = [ ...params.invisible_values, name ]\n\nconst filteredActions = boardActions.filter(action => {\n  const name = action.name\n  if (visibleActions.includes('*')) {\n    return !invisibleActions.includes(name)\n  }\n  return visibleActions.includes(name) && !invisibleActions.includes(name)\n}).map(action => {\n  let {html, description, ...rest} = action\n  if(description.startsWith('Actions can perform tasks, automate processes, and enhance user interactions')) {\n    description = 'generic action with no description'\n  }\n  return {\n    description,\n    ...rest\n  }\n})\n\nconst filteredStates = Object.fromEntries(\n  Object.entries(board).filter(([key, value]) => {\n    if (visibleStates.includes('*')) {\n      return !invisibleStates.includes(key)\n    }\n    return visibleStates.includes(key) && !invisibleStates.includes(key)\n  })\n)\n\nconst boardActionsXml = context.ai.objectToXML(\n  filteredActions,\n  'board_actions',\n  {\n    indent: '\\t',\n    arrayItemNameOverrides: { board_actions: 'board_action', history: 'message' },\n    parseJsonStrings: true\n  }\n)\n\nconst boardStatesXml = context.ai.objectToXML(\n  filteredStates,\n  'board_states',\n  {\n    indent: '\\t',\n    arrayItemNameOverrides: { history: 'message' },\n    parseJsonStrings: true\n  }\n)\n\nconst promptXml = context.ai.objectToXML(\n  params.prompt,\n  'prompt',\n  {\n    indent: '\\t',\n    parseJsonStrings: true\n  }\n)\nconst message_prompt = params.allow_execution ? `\n<instructions>You are an AI agent inside an AI agent platform called Vento.\nThe agent is managed through a board and the board is composed of states and actions.\nYou will receive a user message and your mission is to generate a json response.\nOnly respond with a JSON in the following format:\n\n{\n    \"response\": \"whatever you want to say in markdown format. images should be like  ![alt](url). Link should be like [alt](url). When sharing images include both.\",\n    \"actions\": [\n        {\n            \"name\": \"action_1\",\n            \"params\": {\n                \"example_param\": \"example_value\"\n            } \n        }\n    ]\n}\n\nThe key response will be shown to the user as a response to the user prompt.\nThe actions array can be empty if the user prompt requires no actions to be executed.\nIf the user request an action or an information not available, tell the user there is no card available to perform this action / get this information and suggest the user to extend the board with more cards.\nWhen executing an action, always use the action name. Never use the action id to execute actions, just the name. \nWhen answering questions or providing information, you need to use the board_states to get the relevant information.\nif the user asks what do you see, you can tell the user what board_states do you see and what board_actions do you see. make sure to use the ocrrect names for states and actions.\neach <board_states> entry is a key -> value entry, so: <x>y</x> inside <board_states> means \"the state named x has the value y\"\n\n</instructions>\n\n${boardActionsXml}\n${params.allow_read ? boardStatesXml : ''}\n\n<prompt>\n${JSON.stringify(params.prompt)}\n</prompt>\n` : `\n<instructions>You are an assistant providing answers related to the state of an agent. \nThe agent is managed through a board.\nWhen answering questions or providing information, you need to use the board_states to get the relevant information.\nAnswer in plain language, in the same language the <prompt> is written.\nIf the user request an information not available, tell the user there is no card available to this information and suggest the user to extend the board with more cards.\nif the user asks what do you see, you can tell the user what board_states do you see. Make sure to use the correct state names.\neach <board_states> entry is a key -> value entry, so: <x>y</x> inside <board_states> means \"the state named x has the value y\"\n</instructions>\n\n${boardStatesXml}\n\n${promptXml}\n`\n\nif(params.debug) return message_prompt\nconst response = await context.chatgpt.prompt({\n  message: message_prompt,\n  conversation: await context.chatgpt.getSystemPrompt({\n    prompt: `You can analyze images provided in the same user turn. \nDo NOT claim you cannot see images. \nAnswer following the JSON contract only (no code fences).`,\n  }),\n  images: await context.boards.getStatesByType({\n    board: filteredStates,\n    type: \"frame\",\n    key: \"frame\",\n  }),\n  files: await context.boards.getStatesByType({\n    board: filteredStates,\n    type: \"file\",\n    key: \"path\",\n  }),\n});\nif(params.allow_execution) {\n  return context.chatgpt.processResponse({\n    response: response,\n    execute_action: execute_action,\n  });\n} \nreturn response\n",
       html: "//@card/react\n\nfunction Widget(card) {\n  const value = card.value;\n\n  const content = <YStack f={1}  mt={\"20px\"} ai=\"center\" jc=\"center\" width=\"100%\">\n      {card.icon && card.displayIcon !== false && (\n          <Icon name={card.icon} size={48} color={card.color}/>\n      )}\n      {card.displayResponse !== false && (\n          <CardValue mode={card.markdownDisplay ? 'markdown' : card.htmlDisplay ? 'html' : 'normal'} value={value ?? \"N/A\"} />\n      )}\n  </YStack>\n\n  return (\n      <Tinted>\n        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>\n          <ActionCard data={card}>\n            {card.displayButton !== false ? <ParamsForm data={card}>{content}</ParamsForm> : card.displayResponse !== false && content}\n          </ActionCard>\n        </ProtoThemeProvider>\n      </Tinted>\n  );\n}\n",
       params: {
-        prompt: "",
-        full_board_view: "if enabled, the AI will view all actions and values in the board, not only the ones specified in the actions and values parameters",
-        actions: "actions visible for the AI to run",
-        values: "values for the AI to see",
-        allow_execution: "Allow this AI action to execute other actions",
-        debug: "returns back the prompt for debugging purposes"
+        "prompt": "",
+        "full_board_view": "Allows the AI to see the entire board",
+        "allow_read": "Allows this AI action to read other card values",
+        "values": "name of the cards for the AI to see",
+        "invisible_values": "name of the cards the AI should not see",
+        "allow_execution": "Allow this AI action to execute other actions",
+        "actions": "name of the action cards visible for the AI to run",
+        "invisible_actions": "name of the action cards the AI should not see ",
+        "debug": "instead of running the AI, returns back the prompt for debugging purposes"
       },
       configParams: {
-        prompt: {
-          visible: true,
-          defaultValue: "",
-          type: "any"
+        "prompt": {
+          "visible": true,
+          "defaultValue": "",
+          "type": "any"
         },
         full_board_view: {
-          visible: true,
-          defaultValue: "true",
-          type: "boolean"
+          "visible": true,
+          "defaultValue": "true",
+          "type": "boolean"
         },
-        actions: {
-          visible: true,
-          defaultValue: "[]",
-          type: "array",
-          cardSelector: true,
-          cardSelectorType: "action"
+        allow_read: {
+          "visible": true,
+          "defaultValue": "true",
+          "type": "boolean"
         },
         values: {
-          visible: true,
-          defaultValue: "[]",
-          type: "array",
-          cardSelector: true,
-          cardSelectorType: "value"
+          "visible": true,
+          "defaultValue": "[]",
+          "type": "array",
+          "cardSelector": true,
+          "cardSelectorType": "value",
+          "visibility": {
+            "mode": "all",
+            "fields": [
+              "full_board_view",
+              "allow_read"
+            ],
+            "values": [
+              false,
+              true
+            ]
+          }
+        },
+        invisible_values: {
+          "visible": true,
+          "defaultValue": "[]",
+          "type": "array",
+          "cardSelector": true,
+          "cardSelectorType": "value",
+          "visibility": {
+            "mode": "all",
+            "fields": [
+              "full_board_view",
+              "allow_read"
+            ],
+            "values": [
+              false,
+              true
+            ]
+          }
         },
         allow_execution: {
-          visible: true,
-          defaultValue: "true",
-          type: "boolean"
+          "visible": true,
+          "defaultValue": "true",
+          "type": "boolean"
+        },
+        actions: {
+          "visible": true,
+          "defaultValue": "[]",
+          "type": "array",
+          "cardSelector": true,
+          "cardSelectorType": "action",
+          "visibility": {
+            "mode": "all",
+            "fields": [
+              "full_board_view",
+              "allow_execution"
+            ],
+            "values": [
+              false,
+              true
+            ]
+          }
+        },
+        invisible_actions: {
+          "visible": true,
+          "defaultValue": "[]",
+          "type": "array",
+          "cardSelector": true,
+          "cardSelectorType": "action",
+          "visibility": {
+            "mode": "all",
+            "fields": [
+              "full_board_view",
+              "allow_execution"
+            ],
+            "values": [
+              false,
+              true
+            ]
+          }
         },
         debug: {
-          visible: false,
-          defaultValue: "false",
-          type: "boolean"
+          "visible": true,
+          "defaultValue": "false",
+          "type": "boolean"
         }
       },
       description: `Execute actions and answer questions using AI.
@@ -465,7 +531,7 @@ function flattenTree(obj, currentGroup = null) {
 }
 
 const fetch = async (fn) => {
-  const data = await API.get({ url: '/api/core/v1/cards'})
+  const data = await API.get({ url: '/api/core/v1/cards' })
   fn(data)
 }
 

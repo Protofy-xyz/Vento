@@ -376,6 +376,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
   const [isApiDetails, setIsApiDetails] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [showRelayoutConfirm, setShowRelayoutConfirm] = useState(false);
   const [currentCard, setCurrentCard] = useState(null)
   const [pendingDeleteNames, setPendingDeleteNames] = useState<string[]>([])
   const [editedCard, setEditedCard] = useState(null)
@@ -500,6 +501,24 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     };
 
   }, [])
+
+  // Relayout event listener - opens confirmation dialog
+  useEffect(() => {
+    const handleRelayout = () => {
+      setShowRelayoutConfirm(true);
+    };
+    window.addEventListener('board:relayout', handleRelayout);
+    return () => window.removeEventListener('board:relayout', handleRelayout);
+  }, [])
+
+  const executeRelayout = () => {
+    setGraphLayout({});
+    graphLayoutRef.current = {};
+    boardRef.current.graphLayout = {};
+    API.post(`/api/core/v1/boards/${board.name}/graphlayout`, { graphLayout: {} }).catch((error) => {
+      console.error('Error clearing graph layout:', error);
+    });
+  };
 
   useEffect(() => {
     window['execute_action'] = getExecuteAction(board.name, actions)
@@ -1025,6 +1044,19 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
         title={`Api Details for "${currentCard?.name}"`}
         description={apiInfo}
       />
+
+      <AlertDialog
+        open={showRelayoutConfirm}
+        setOpen={setShowRelayoutConfirm}
+        showCancel
+        acceptCaption="Relayout"
+        cancelCaption="Cancel"
+        title="Relayout Graph"
+        description="Are you sure you want to relayout? All graph positions will be reset and recalculated automatically."
+        onAccept={() => {
+          executeRelayout();
+        }}
+      />
       <Theme reset>
         <Dialog
           modal
@@ -1291,6 +1323,9 @@ export const BoardViewAdmin = ({ params, pageSession, workspace, boardData, icon
     }
     if (event.type === 'board-settings') {
       setTabVisible(tabVisible === 'board-settings' ? "" : 'board-settings');
+    }
+    if (event.type === 'relayout') {
+      window.dispatchEvent(new CustomEvent('board:relayout'));
     }
     if (event.type === 'mode-ui') setModeAndHash('ui');
     if (event.type === 'mode-board') setModeAndHash('board');

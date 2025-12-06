@@ -1,4 +1,4 @@
-import { X, Save, Plus, Pause, Play, Workflow, Settings, Presentation, LayoutDashboard, Book, Code, UserPen, Bot, Undo, Redo, FileClock, Layers, Activity, Diamond, } from 'lucide-react';
+import { X, Save, Plus, Pause, Play, Workflow, Settings, Presentation, LayoutDashboard, Book, Code, UserPen, Bot, Undo, Redo, FileClock, Layers, Activity, Diamond, LayoutGrid } from 'lucide-react';
 import { useBoardControls } from './BoardControlsContext';
 import { ActionBarButton, ActionBarSelector } from 'protolib/components/ActionBarWidget';
 import { Separator } from '@my/ui';
@@ -230,6 +230,7 @@ const getActionBar = (generateEvent) => {
       ...undoRedoButtons,
       ...historyVersion,
       <ActionBarButton tooltipText={tabVisible == "rules" ? "Close Automations" : "Open Automations"} selected={tabVisible == "rules"} Icon={Bot} onPress={() => generateEvent({ type: "toggle-rules" })} />,
+      <ActionBarButton tooltipText="Relayout" Icon={LayoutGrid} onPress={() => generateEvent({ type: "relayout" })} />,
       <AutopilotButton generateEvent={generateEvent} autopilot={autopilot} />,
       <ActionBarButton tooltipText={tabVisible == "states" ? "Close States" : "Open States"} selected={tabVisible == "states"} Icon={Book} onPress={() => generateEvent({ type: "toggle-states" })} />,
       <LogsButton selected={tabVisible == "logs"} showDot={showLogsDot} onPress={() => generateEvent({ type: "toggle-logs" })} />,

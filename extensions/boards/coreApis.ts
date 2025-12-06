@@ -1597,6 +1597,18 @@ export default async (app, context) => {
         res.json(cards.map(c => c.name));
     })
 
+    await addAction({
+        name: 'cardresetgroup',
+        tag: 'system',
+        url: '/api/core/v1/board/cardresetgroup',
+        receiveBoard: true,
+        description: 'Reset the values of a group of cards in the board',
+        params: {
+            included: 'array of cards to include, or * for all',
+            excluded: 'array of cards to exclude'
+        }
+    })
+
     app.get('/api/core/v1/board/cardreset', requireAdmin(), async (req, res) => {
         if (!req.query.name) {
             res.status(400).send('Missing name parameter')

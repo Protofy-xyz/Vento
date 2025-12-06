@@ -187,7 +187,7 @@
             ]
         },
         {
-            "key": "action_1762564203492",
+            "key": "action_1764984478922",
             "width": 3,
             "height": 18,
             "icon": "sparkles",
@@ -198,34 +198,30 @@
             "editRulesInNaturalLanguage": false,
             "params": {
                 "prompt": "",
-                "full_board_view": "if enabled, the AI will view all actions and values in the board, not only the ones specified in the actions and values parameters",
-                "actions": "actions visible for the AI to run",
-                "values": "values for the AI to see",
+                "full_board_view": "Allows the AI to see the entire board",
+                "allow_read": "Allows this AI action to read other card values",
+                "values": "name of the cards for the AI to see",
+                "invisible_values": "name of the cards the AI should not see",
                 "allow_execution": "Allow this AI action to execute other actions",
-                "debug": "returns back the prompt for debugging purposes"
+                "actions": "name of the action cards visible for the AI to run",
+                "invisible_actions": "name of the action cards the AI should not see ",
+                "debug": "instead of running the AI, returns back the prompt for debugging purposes"
             },
             "configParams": {
                 "prompt": {
                     "visible": true,
-                    "defaultValue": "board.user_request",
+                    "defaultValue": "board.user_request.message",
                     "type": "any"
                 },
                 "full_board_view": {
                     "visible": true,
-                    "defaultValue": "true",
+                    "defaultValue": "false",
                     "type": "boolean"
                 },
-                "actions": {
+                "allow_read": {
                     "visible": true,
-                    "defaultValue": "[]",
-                    "type": "array",
-                    "cardSelector": true,
-                    "cardSelectorType": "action",
-                    "visibility": {
-                        "field": "full_board_view",
-                        "mode": "boolean",
-                        "inverted": true
-                    }
+                    "defaultValue": "false",
+                    "type": "boolean"
                 },
                 "values": {
                     "visible": true,
@@ -234,9 +230,33 @@
                     "cardSelector": true,
                     "cardSelectorType": "value",
                     "visibility": {
-                        "field": "full_board_view",
-                        "mode": "boolean",
-                        "inverted": true
+                        "mode": "all",
+                        "fields": [
+                            "full_board_view",
+                            "allow_read"
+                        ],
+                        "values": [
+                            false,
+                            true
+                        ]
+                    }
+                },
+                "invisible_values": {
+                    "visible": true,
+                    "defaultValue": "[]",
+                    "type": "array",
+                    "cardSelector": true,
+                    "cardSelectorType": "value",
+                    "visibility": {
+                        "mode": "all",
+                        "fields": [
+                            "full_board_view",
+                            "allow_read"
+                        ],
+                        "values": [
+                            false,
+                            true
+                        ]
                     }
                 },
                 "allow_execution": {
@@ -244,8 +264,44 @@
                     "defaultValue": "true",
                     "type": "boolean"
                 },
+                "actions": {
+                    "visible": true,
+                    "defaultValue": "[\"*\"]",
+                    "type": "array",
+                    "cardSelector": true,
+                    "cardSelectorType": "action",
+                    "visibility": {
+                        "mode": "all",
+                        "fields": [
+                            "full_board_view",
+                            "allow_execution"
+                        ],
+                        "values": [
+                            false,
+                            true
+                        ]
+                    }
+                },
+                "invisible_actions": {
+                    "visible": true,
+                    "defaultValue": "[\"agent_input\",\"reset\",\"reply\",\"user_request\",\"agent_core\",\"agent_prepare\"]",
+                    "type": "array",
+                    "cardSelector": true,
+                    "cardSelectorType": "action",
+                    "visibility": {
+                        "mode": "all",
+                        "fields": [
+                            "full_board_view",
+                            "allow_execution"
+                        ],
+                        "values": [
+                            false,
+                            true
+                        ]
+                    }
+                },
                 "debug": {
-                    "visible": false,
+                    "visible": true,
                     "defaultValue": "false",
                     "type": "boolean"
                 }
@@ -263,12 +319,12 @@
                 }
             ],
             "color": "var(--color7)",
-            "theme": "dark",
-            "domId": "e9d0d1e8-c328-484e-888d-49f092a7acf2",
+            "theme": "light",
+            "domId": "e5f30b72-8c22-4f5e-8fbc-e598f955d5e9",
             "cardState": {}
         },
         {
-            "key": "action_1762564220800",
+            "key": "action_1764984485075",
             "width": 3,
             "height": 18,
             "icon": "sparkles",
@@ -279,21 +335,70 @@
             "editRulesInNaturalLanguage": false,
             "params": {
                 "prompt": "",
-                "full_board_view": "if enabled, the AI will view all actions and values in the board, not only the ones specified in the actions and values parameters",
-                "actions": "actions visible for the AI to run",
-                "values": "values for the AI to see",
+                "full_board_view": "Allows the AI to see the entire board",
+                "allow_read": "Allows this AI action to read other card values",
+                "values": "name of the cards for the AI to see",
+                "invisible_values": "name of the cards the AI should not see",
                 "allow_execution": "Allow this AI action to execute other actions",
-                "debug": "returns back the prompt for debugging purposes"
+                "actions": "name of the action cards visible for the AI to run",
+                "invisible_actions": "name of the action cards the AI should not see ",
+                "debug": "instead of running the AI, returns back the prompt for debugging purposes"
             },
             "configParams": {
                 "prompt": {
                     "visible": true,
-                    "defaultValue": "board.user_request",
+                    "defaultValue": "board.user_request.message",
                     "type": "any"
                 },
                 "full_board_view": {
                     "visible": true,
+                    "defaultValue": "false",
+                    "type": "boolean"
+                },
+                "allow_read": {
+                    "visible": true,
                     "defaultValue": "true",
+                    "type": "boolean"
+                },
+                "values": {
+                    "visible": true,
+                    "defaultValue": "[\"*\"]",
+                    "type": "array",
+                    "cardSelector": true,
+                    "cardSelectorType": "value",
+                    "visibility": {
+                        "mode": "all",
+                        "fields": [
+                            "full_board_view",
+                            "allow_read"
+                        ],
+                        "values": [
+                            false,
+                            true
+                        ]
+                    }
+                },
+                "invisible_values": {
+                    "visible": true,
+                    "defaultValue": "[\"agent_input\",\"reply\",\"reset\",\"user_request\",\"agent_prepare\",\"agent_core\"]",
+                    "type": "array",
+                    "cardSelector": true,
+                    "cardSelectorType": "value",
+                    "visibility": {
+                        "mode": "all",
+                        "fields": [
+                            "full_board_view",
+                            "allow_read"
+                        ],
+                        "values": [
+                            false,
+                            true
+                        ]
+                    }
+                },
+                "allow_execution": {
+                    "visible": true,
+                    "defaultValue": "false",
                     "type": "boolean"
                 },
                 "actions": {
@@ -303,30 +408,37 @@
                     "cardSelector": true,
                     "cardSelectorType": "action",
                     "visibility": {
-                        "field": "full_board_view",
-                        "mode": "boolean",
-                        "inverted": true
+                        "mode": "all",
+                        "fields": [
+                            "full_board_view",
+                            "allow_execution"
+                        ],
+                        "values": [
+                            false,
+                            true
+                        ]
                     }
                 },
-                "values": {
+                "invisible_actions": {
                     "visible": true,
                     "defaultValue": "[]",
                     "type": "array",
                     "cardSelector": true,
-                    "cardSelectorType": "value",
+                    "cardSelectorType": "action",
                     "visibility": {
-                        "field": "full_board_view",
-                        "mode": "boolean",
-                        "inverted": true
+                        "mode": "all",
+                        "fields": [
+                            "full_board_view",
+                            "allow_execution"
+                        ],
+                        "values": [
+                            false,
+                            true
+                        ]
                     }
                 },
-                "allow_execution": {
-                    "visible": true,
-                    "defaultValue": "false",
-                    "type": "boolean"
-                },
                 "debug": {
-                    "visible": false,
+                    "visible": true,
                     "defaultValue": "false",
                     "type": "boolean"
                 }
@@ -344,8 +456,8 @@
                 }
             ],
             "color": "var(--color7)",
-            "theme": "dark",
-            "domId": "c8cae96a-eb2d-41f9-8aac-e6124eafae7e",
+            "theme": "light",
+            "domId": "863a2e2f-2055-4c7f-9618-d44cd861a5fe",
             "cardState": {}
         }
     ],
@@ -432,44 +544,20 @@
                 ]
             },
             {
-                "w": 20,
-                "h": 20,
+                "i": "action_1764984478922",
                 "x": 18,
-                "y": 7,
-                "i": "action_1762564203492",
-                "moved": false,
-                "static": false,
-                "isResizable": true,
-                "resizeHandles": [
-                    "n",
-                    "s",
-                    "e",
-                    "w",
-                    "ne",
-                    "nw",
-                    "se",
-                    "sw"
-                ]
+                "y": 26,
+                "w": 23,
+                "h": 20,
+                "isResizable": true
             },
             {
-                "w": 22,
-                "h": 24,
-                "x": 38,
-                "y": 3,
-                "i": "action_1762564220800",
-                "moved": false,
-                "static": false,
-                "isResizable": true,
-                "resizeHandles": [
-                    "n",
-                    "s",
-                    "e",
-                    "w",
-                    "ne",
-                    "nw",
-                    "se",
-                    "sw"
-                ]
+                "i": "action_1764984485075",
+                "x": 41,
+                "y": 45,
+                "w": 23,
+                "h": 20,
+                "isResizable": true
             }
         ],
         "md": [
@@ -510,7 +598,7 @@
                 "isResizable": true
             },
             {
-                "i": "action_1762564203492",
+                "i": "action_1764984478922",
                 "x": 0,
                 "y": 35,
                 "w": 23,
@@ -518,7 +606,7 @@
                 "isResizable": true
             },
             {
-                "i": "action_1762564220800",
+                "i": "action_1764984485075",
                 "x": 23,
                 "y": 54,
                 "w": 23,
@@ -564,7 +652,7 @@
                 "isResizable": true
             },
             {
-                "i": "action_1762564203492",
+                "i": "action_1764984478922",
                 "x": 0,
                 "y": 83,
                 "w": 2,
@@ -572,7 +660,7 @@
                 "isResizable": true
             },
             {
-                "i": "action_1762564220800",
+                "i": "action_1764984485075",
                 "x": 0,
                 "y": 103,
                 "w": 2,
@@ -614,7 +702,7 @@
                 "isResizable": true
             },
             {
-                "i": "action_1762564203492",
+                "i": "action_1764984478922",
                 "x": 0,
                 "y": 108,
                 "w": 1,
@@ -622,7 +710,7 @@
                 "isResizable": true
             },
             {
-                "i": "action_1762564220800",
+                "i": "action_1764984485075",
                 "x": 0,
                 "y": 128,
                 "w": 1,
@@ -635,23 +723,27 @@
         ""
     ],
     "settings": {
-        "autoplay": true
+        "autoplay": false
     },
     "icon": "bot-message-square",
-    "autopilot": false,
+    "autopilot": true,
     "inputs": {
-        "default": "/api/agents/v1/{{{name}}}/agent_input"
+        "default": "/api/agents/v1/[object Object]/agent_input"
     },
     "graphLayout": {
         "group-agent": {
             "x": 0,
             "y": 0,
+            "width": 4060,
+            "height": 1280,
             "layer": "agent",
             "type": "group"
         },
         "agent_input": {
             "x": 100,
             "y": 160,
+            "width": 800,
+            "height": 1000,
             "layer": "agent",
             "parent": "group-agent",
             "type": "node"
@@ -659,6 +751,8 @@
         "reply": {
             "x": 2980,
             "y": 160,
+            "width": 400,
+            "height": 350,
             "layer": "agent",
             "parent": "group-agent",
             "type": "node"
@@ -666,6 +760,8 @@
         "reset": {
             "x": 3500,
             "y": 160,
+            "width": 400,
+            "height": 300,
             "layer": "agent",
             "parent": "group-agent",
             "type": "node"
@@ -673,23 +769,31 @@
         "user_request": {
             "x": 1020,
             "y": 160,
+            "width": 400,
+            "height": 350,
             "layer": "agent",
             "parent": "group-agent",
             "type": "node"
         },
         "agent_prepare": {
-            "x": 1540.8999436705235,
-            "y": 160,
+            "x": 1613.575546674187,
+            "y": 169.07086328202232,
+            "width": 600,
+            "height": 900,
             "layer": "agent",
             "parent": "group-agent",
             "type": "node"
         },
         "agent_core": {
-            "x": 2260,
-            "y": 160,
+            "x": 2284.925170068027,
+            "y": 166.8027210884354,
+            "width": 600,
+            "height": 900,
             "layer": "agent",
             "parent": "group-agent",
             "type": "node"
         }
-    }
+    },
+    "displayName": "popo",
+    "tags": []
 }

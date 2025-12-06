@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   XStack, YStack, Text, Input, Button, Checkbox, ScrollView, Dialog,
 } from "@my/ui";
-import { Check, Eye, Plus, Rocket, X as XIcon } from "@tamagui/lucide-icons";
+import { Check, Eye, Plus, Rocket, X as XIcon, Asterisk } from "@tamagui/lucide-icons";
 import { Tinted } from "../Tinted";
 
 type CardPickerProps = {
@@ -51,22 +51,42 @@ export const CardPicker = ({ type, value, onChange, onApply }: CardPickerProps) 
   const toggleModalSelect = (arr: string[], name: string) =>
     arr.includes(name) ? arr.filter((n) => n !== name) : [...arr, name];
 
-  const Chip = ({ name }: { name: string }) => (
-    <XStack key={name} ai="center" br="$10" px="$3" py="$1.5" gap="$2" bg="$bgContent"
-      hoverStyle={{ bg: "$color4" }} mr="$2" mb="$2" maxWidth={220} overflow="hidden">
-      <Text numberOfLines={1} ellipsizeMode="tail">{name}</Text>
-      <Button
-        size="$1"
-        circular
-        bg="$color6"
-        hoverStyle={{ bg: "$color6" }}
-        icon={XIcon}
-        scaleIcon={0.8}
-        onPress={() => toggleDirect(name)}
-        aria-label={`Remove ${name}`}
-      />
-    </XStack>
-  );
+  const Chip = ({ name }: { name: string }) => {
+    const isAll = name === '*';
+    return (
+      <XStack 
+        key={name} 
+        ai="center" 
+        br="$10" 
+        px="$3" 
+        py="$1.5" 
+        gap="$2" 
+        bg={isAll ? "$blue4" : "$bgContent"}
+        borderWidth={isAll ? 1 : 0}
+        borderColor={isAll ? "$blue8" : "transparent"}
+        hoverStyle={{ bg: isAll ? "$blue5" : "$color4" }} 
+        mr="$2" 
+        mb="$2" 
+        maxWidth={220} 
+        overflow="hidden"
+      >
+        {isAll && <Asterisk size={14} color="var(--blue10)" />}
+        <Text numberOfLines={1} ellipsizeMode="tail" color={isAll ? "$blue10" : "$color"} fontWeight={isAll ? "600" : "400"}>
+          {isAll ? "All" : name}
+        </Text>
+        <Button
+          size="$1"
+          circular
+          bg={isAll ? "$blue6" : "$color6"}
+          hoverStyle={{ bg: isAll ? "$blue7" : "$color6" }}
+          icon={XIcon}
+          scaleIcon={0.8}
+          onPress={() => toggleDirect(name)}
+          aria-label={`Remove ${name}`}
+        />
+      </XStack>
+    );
+  };
 
   const chips = selected.map((name) => <Chip key={name} name={name} />);
 
@@ -171,6 +191,21 @@ export const CardPicker = ({ type, value, onChange, onApply }: CardPickerProps) 
               <XStack mt="$4" jc="center" gap="$3">
                 <Button onPress={() => setOpen(false)} bg="$gray3" hoverStyle={{ bg: "$gray4" }}>
                   Cancel
+                </Button>
+                <Button
+                  bg="$blue4"
+                  borderWidth={1}
+                  borderColor="$blue8"
+                  hoverStyle={{ bg: "$blue5" }}
+                  icon={Asterisk}
+                  onPress={() => {
+                    const newArr = selected.includes('*') ? selected : ['*'];
+                    onChange(newArr);
+                    onApply?.(newArr);
+                    setOpen(false);
+                  }}
+                >
+                  <Text color="$blue10" fontWeight="600">All</Text>
                 </Button>
                 <Button
                   bc="$color7"

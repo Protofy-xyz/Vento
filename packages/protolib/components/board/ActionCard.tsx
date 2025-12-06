@@ -140,28 +140,60 @@ export const ParamsForm = ({ data, children }) => {
                     const placeholder = data.params[key] ?? "";
                     const isBoolean = type === "boolean";
 
-                                    if (cfg.visibility !== undefined) {
-                                        let field = cfg.visibility?.field
-                                        let mode = cfg.visibility?.mode
-                                        if (mode == "boolean") {
-                                            let inverted = cfg.visibility?.inverted
-                                            if (inverted) {
-                                                visible = paramsState[field] === "false" || paramsState[field] === false
-                                            } else {
-                                                visible = paramsState[field] === "true" || paramsState[field] === true
-                                            }
-                                        } else if (mode == "equals" || mode == "value") {
-                                            // Show only when field equals a specific value
-                                            const expectedValue = cfg.visibility?.value
-                                            const currentValue = paramsState[field] ?? data.configParams?.[field]?.defaultValue
-                                            visible = currentValue === expectedValue
-                                        } else if (mode == "includes" || mode == "in") {
-                                            // Show when field value is in a list of values
-                                            const expectedValues = cfg.visibility?.values || []
-                                            const currentValue = paramsState[field] ?? data.configParams?.[field]?.defaultValue
-                                            visible = expectedValues.includes(currentValue)
+                                if (cfg.visibility !== undefined) {
+                                    let field = cfg.visibility?.field
+                                    let mode = cfg.visibility?.mode
+                                    if (mode == "boolean") {
+                                        let inverted = cfg.visibility?.inverted
+                                        if (inverted) {
+                                            visible = paramsState[field] === "false" || paramsState[field] === false
+                                        } else {
+                                            visible = paramsState[field] === "true" || paramsState[field] === true
                                         }
+                                    } else if (mode == "equals" || mode == "value") {
+                                        // Show only when field equals a specific value
+                                        const expectedValue = cfg.visibility?.value
+                                        const currentValue = paramsState[field] ?? data.configParams?.[field]?.defaultValue
+                                        visible = currentValue === expectedValue
+                                    } else if (mode == "includes" || mode == "in") {
+                                        // Show when field value is in a list of values
+                                        const expectedValues = cfg.visibility?.values || []
+                                        const currentValue = paramsState[field] ?? data.configParams?.[field]?.defaultValue
+                                        visible = expectedValues.includes(currentValue)
+                                    } else if (mode == "all" || mode == "and") {
+                                        // Show only when ALL conditions match (fields[i] === values[i])
+                                        const fields = cfg.visibility?.fields || []
+                                        const values = cfg.visibility?.values || []
+                                        visible = fields.length > 0 && fields.every((f: string, i: number) => {
+                                            const currentValue = paramsState[f] ?? data.configParams?.[f]?.defaultValue
+                                            const expectedValue = values[i]
+                                            // Handle boolean comparisons (string "true"/"false" vs actual boolean)
+                                            if (expectedValue === true || expectedValue === "true") {
+                                                return currentValue === true || currentValue === "true"
+                                            }
+                                            if (expectedValue === false || expectedValue === "false") {
+                                                return currentValue === false || currentValue === "false"
+                                            }
+                                            return currentValue === expectedValue
+                                        })
+                                    } else if (mode == "any" || mode == "or") {
+                                        // Show when ANY condition matches (at least one fields[i] === values[i])
+                                        const fields = cfg.visibility?.fields || []
+                                        const values = cfg.visibility?.values || []
+                                        visible = fields.length > 0 && fields.some((f: string, i: number) => {
+                                            const currentValue = paramsState[f] ?? data.configParams?.[f]?.defaultValue
+                                            const expectedValue = values[i]
+                                            // Handle boolean comparisons (string "true"/"false" vs actual boolean)
+                                            if (expectedValue === true || expectedValue === "true") {
+                                                return currentValue === true || currentValue === "true"
+                                            }
+                                            if (expectedValue === false || expectedValue === "false") {
+                                                return currentValue === false || currentValue === "false"
+                                            }
+                                            return currentValue === expectedValue
+                                        })
                                     }
+                                }
 
                     if (!visible) {
                         return (

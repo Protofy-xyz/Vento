@@ -87,7 +87,9 @@ board.log('Something happened')
 
 ## Parameters
 
-Action cards can define parameters:
+Action cards can define parameters using two related fields:
+- `params`: Describes what each parameter is for (shown as placeholder/hint)
+- `configParams`: Configures how each parameter behaves in the UI
 
 ```json
 {
@@ -117,9 +119,184 @@ Action cards can define parameters:
 |------|-------------|
 | `string` | Text input |
 | `number` | Numeric input |
-| `boolean` | Checkbox |
-| `json` | JSON editor |
-| `select` | Dropdown (use `data` array) |
+| `boolean` | Toggle switch |
+| `text` | Multi-line text area |
+| `json` | JSON editor with syntax highlighting |
+| `array` | Comma-separated list or card picker |
+| `select` | Dropdown (use `data` or `options` array) |
+| `path` | File picker |
+
+### configParams Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `visible` | boolean | Show in UI (default: `true`) |
+| `defaultValue` | any | Default value |
+| `type` | string | Input type (see above) |
+| `data` / `options` | array | Options for select type |
+| `selector` | string | Special selector: `"agents"` |
+| `cardSelector` | boolean | Use card picker for arrays |
+| `multiple` | boolean | Multiple files for `path` type |
+| `visibility` | object | Conditional visibility |
+
+### Conditional Visibility
+
+Show/hide parameters based on other parameter values using the `visibility` property.
+
+#### Boolean Mode
+
+Show when another boolean parameter is true/false:
+
+```json
+{
+  "configParams": {
+    "enableAdvanced": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "advancedOption": {
+      "type": "string",
+      "visibility": {
+        "field": "enableAdvanced",
+        "mode": "boolean"
+      }
+    }
+  }
+}
+```
+
+Use `"inverted": true` to show when the field is `false` instead.
+
+#### Equals Mode
+
+Show when a field equals a specific value:
+
+```json
+{
+  "configParams": {
+    "provider": {
+      "type": "select",
+      "data": ["openai", "local"]
+    },
+    "apiKey": {
+      "type": "string",
+      "visibility": {
+        "field": "provider",
+        "mode": "equals",
+        "value": "openai"
+      }
+    }
+  }
+}
+```
+
+#### Includes Mode
+
+Show when a field value is in a list:
+
+```json
+{
+  "configParams": {
+    "provider": {
+      "type": "select",
+      "data": ["openai", "anthropic", "local"]
+    },
+    "apiKey": {
+      "type": "string",
+      "visibility": {
+        "field": "provider",
+        "mode": "includes",
+        "values": ["openai", "anthropic"]
+      }
+    }
+  }
+}
+```
+
+#### All Mode (AND condition)
+
+Show when ALL fields match their expected values:
+
+```json
+{
+  "configParams": {
+    "useCloud": {
+      "type": "boolean",
+      "defaultValue": "true"
+    },
+    "enableStreaming": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "streamUrl": {
+      "type": "string",
+      "visibility": {
+        "mode": "all",
+        "fields": ["useCloud", "enableStreaming"],
+        "values": [true, true]
+      }
+    }
+  }
+}
+```
+
+`streamUrl` shows only when `useCloud` is `true` **AND** `enableStreaming` is `true`.
+
+#### Any Mode (OR condition)
+
+Show when AT LEAST ONE field matches:
+
+```json
+{
+  "configParams": {
+    "useOpenAI": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "useAnthropic": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "apiKey": {
+      "type": "string",
+      "visibility": {
+        "mode": "any",
+        "fields": ["useOpenAI", "useAnthropic"],
+        "values": [true, true]
+      }
+    }
+  }
+}
+```
+
+`apiKey` shows when `useOpenAI` is `true` **OR** `useAnthropic` is `true`.
+
+### Dynamic Options
+
+Make dropdown options depend on another field:
+
+```json
+{
+  "configParams": {
+    "provider": {
+      "type": "select",
+      "data": ["openai", "anthropic"]
+    },
+    "model": {
+      "type": "select",
+      "dataFromField": "provider",
+      "dataMap": {
+        "openai": ["gpt-4o", "gpt-4o-mini"],
+        "anthropic": ["claude-3-opus", "claude-3-sonnet"]
+      },
+      "defaultValueMap": {
+        "openai": "gpt-4o-mini",
+        "anthropic": "claude-3-sonnet"
+      }
+    }
+  }
+}
+```
 
 ## Custom Rendering
 

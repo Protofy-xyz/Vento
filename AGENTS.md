@@ -530,7 +530,7 @@ Cards can be defined as JSON templates in `extensions/*/cards/*.json`:
 | `icon` | Lucide icon name |
 | `width`/`height` | Grid units |
 | `params` | Input parameters |
-| `configParams` | Parameter configuration |
+| `configParams` | Parameter configuration (see detailed section below) |
 | `presets` | Named parameter presets |
 | `rulesCode` | JavaScript execution code |
 | `html` | Custom HTML/React rendering |
@@ -539,6 +539,314 @@ Cards can be defined as JSON templates in `extensions/*/cards/*.json`:
 | `displayIcon` | Show icon |
 | `manualAPIResponse` | Control HTTP response manually |
 | `enableAgentInputMode` | Accept agent inputs |
+
+### configParams (Parameter Configuration)
+
+The `configParams` object defines how each parameter in `params` behaves in the UI. Each key matches a parameter name and contains configuration options.
+
+**Basic Structure:**
+
+```json
+{
+  "configParams": {
+    "parameterName": {
+      "visible": true,
+      "defaultValue": "",
+      "type": "string"
+    }
+  }
+}
+```
+
+**configParams Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `visible` | boolean | Whether the parameter is shown in the UI (default: `true`) |
+| `defaultValue` | any | Default value for the parameter |
+| `type` | string | Input type: `string`, `number`, `boolean`, `text`, `json`, `array`, `select`, `path` |
+| `options` | array | Options for select type (alternative to `data`) |
+| `data` | array | Options for select type |
+| `selector` | string | Special selector type: `"agents"` for board/agent selector |
+| `cardSelector` | boolean | Use card picker for array type |
+| `cardSelectorType` | string | Filter for card picker (`"action"`, `"value"`) |
+| `multiple` | boolean | Allow multiple file selection for `path` type |
+| `visibility` | object | Conditional visibility based on other parameters (see below) |
+| `dataFromField` | string | Field to get dynamic options from |
+| `dataMap` | object | Map of field values to option arrays |
+| `defaultValueMap` | object | Map of field values to default values |
+
+### Conditional Visibility (visibility)
+
+The `visibility` property allows showing/hiding parameters based on the value of other parameters. This is useful for creating dynamic forms where certain options only appear when relevant.
+
+**visibility Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `field` | string | The parameter name to check (for single-field modes) |
+| `mode` | string | The comparison mode (see modes below) |
+| `inverted` | boolean | Invert the boolean check (for `boolean` mode) |
+| `value` | any | Expected value (for `equals` mode) |
+| `values` | array | Expected values (for `includes` mode) |
+| `fields` | array | Array of parameter names (for `all`/`any` modes) |
+
+**Visibility Modes:**
+
+#### Mode: `boolean`
+Show/hide based on a boolean parameter value.
+
+```json
+{
+  "configParams": {
+    "enableAdvanced": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "advancedOption": {
+      "type": "string",
+      "visibility": {
+        "field": "enableAdvanced",
+        "mode": "boolean"
+      }
+    }
+  }
+}
+```
+- `advancedOption` shows only when `enableAdvanced` is `true`
+
+**With `inverted: true`:**
+```json
+{
+  "configParams": {
+    "disableFeature": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "featureOption": {
+      "type": "string",
+      "visibility": {
+        "field": "disableFeature",
+        "mode": "boolean",
+        "inverted": true
+      }
+    }
+  }
+}
+```
+- `featureOption` shows only when `disableFeature` is `false`
+
+#### Mode: `equals` (or `value`)
+Show when a parameter equals a specific value.
+
+```json
+{
+  "configParams": {
+    "provider": {
+      "type": "select",
+      "data": ["openai", "anthropic", "local"]
+    },
+    "openaiModel": {
+      "type": "select",
+      "data": ["gpt-4o", "gpt-4o-mini"],
+      "visibility": {
+        "field": "provider",
+        "mode": "equals",
+        "value": "openai"
+      }
+    }
+  }
+}
+```
+- `openaiModel` shows only when `provider` is `"openai"`
+
+#### Mode: `includes` (or `in`)
+Show when a parameter value is in a list of values.
+
+```json
+{
+  "configParams": {
+    "provider": {
+      "type": "select",
+      "data": ["openai", "anthropic", "google", "local"]
+    },
+    "apiKey": {
+      "type": "string",
+      "visibility": {
+        "field": "provider",
+        "mode": "includes",
+        "values": ["openai", "anthropic", "google"]
+      }
+    }
+  }
+}
+```
+- `apiKey` shows when `provider` is any of `"openai"`, `"anthropic"`, or `"google"` (not `"local"`)
+
+#### Mode: `all` (or `and`)
+Show only when ALL specified conditions match. Use this when you need multiple parameters to have specific values.
+
+```json
+{
+  "configParams": {
+    "enableFeatureA": {
+      "type": "boolean",
+      "defaultValue": "true"
+    },
+    "enableFeatureB": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "combinedOption": {
+      "type": "string",
+      "visibility": {
+        "mode": "all",
+        "fields": ["enableFeatureA", "enableFeatureB"],
+        "values": [true, false]
+      }
+    }
+  }
+}
+```
+- `combinedOption` shows only when `enableFeatureA` is `true` **AND** `enableFeatureB` is `false`
+
+**More complex example:**
+```json
+{
+  "configParams": {
+    "provider": {
+      "type": "select",
+      "data": ["openai", "local"],
+      "defaultValue": "openai"
+    },
+    "streaming": {
+      "type": "boolean",
+      "defaultValue": "true"
+    },
+    "streamCallback": {
+      "type": "string",
+      "visibility": {
+        "mode": "all",
+        "fields": ["provider", "streaming"],
+        "values": ["openai", true]
+      }
+    }
+  }
+}
+```
+- `streamCallback` shows only when `provider` is `"openai"` **AND** `streaming` is `true`
+
+#### Mode: `any` (or `or`)
+Show when AT LEAST ONE of the conditions matches.
+
+```json
+{
+  "configParams": {
+    "useOpenAI": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "useAnthropic": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "apiKey": {
+      "type": "string",
+      "visibility": {
+        "mode": "any",
+        "fields": ["useOpenAI", "useAnthropic"],
+        "values": [true, true]
+      }
+    }
+  }
+}
+```
+- `apiKey` shows when `useOpenAI` is `true` **OR** `useAnthropic` is `true`
+
+### Dynamic Options (dataFromField + dataMap)
+
+Create dropdowns where options depend on another field's value:
+
+```json
+{
+  "configParams": {
+    "provider": {
+      "type": "select",
+      "data": ["openai", "anthropic"],
+      "defaultValue": "openai"
+    },
+    "model": {
+      "type": "select",
+      "dataFromField": "provider",
+      "dataMap": {
+        "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+        "anthropic": ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"]
+      },
+      "defaultValueMap": {
+        "openai": "gpt-4o-mini",
+        "anthropic": "claude-3-sonnet"
+      }
+    }
+  }
+}
+```
+- When `provider` is `"openai"`, `model` shows OpenAI models with `gpt-4o-mini` as default
+- When `provider` is `"anthropic"`, `model` shows Anthropic models with `claude-3-sonnet` as default
+
+### Complete configParams Example
+
+```json
+{
+  "params": {
+    "provider": "AI provider to use",
+    "model": "Model name",
+    "enableStreaming": "Enable streaming responses",
+    "streamCallback": "Callback URL for streaming",
+    "apiKey": "API key (for cloud providers)",
+    "maxTokens": "Maximum tokens"
+  },
+  "configParams": {
+    "provider": {
+      "type": "select",
+      "data": ["openai", "anthropic", "local"],
+      "defaultValue": "openai"
+    },
+    "model": {
+      "type": "select",
+      "dataFromField": "provider",
+      "dataMap": {
+        "openai": ["gpt-4o", "gpt-4o-mini"],
+        "anthropic": ["claude-3-opus", "claude-3-sonnet"],
+        "local": ["llama-3", "gemma-3"]
+      }
+    },
+    "enableStreaming": {
+      "type": "boolean",
+      "defaultValue": "false"
+    },
+    "streamCallback": {
+      "type": "string",
+      "visibility": {
+        "mode": "all",
+        "fields": ["provider", "enableStreaming"],
+        "values": ["openai", true]
+      }
+    },
+    "apiKey": {
+      "type": "string",
+      "visibility": {
+        "field": "provider",
+        "mode": "includes",
+        "values": ["openai", "anthropic"]
+      }
+    },
+    "maxTokens": {
+      "type": "number",
+      "defaultValue": "1000"
+    }
+  }
+}
+```
 
 ### Card Code Structure
 

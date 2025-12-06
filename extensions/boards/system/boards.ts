@@ -193,6 +193,7 @@ export const saveTemplate = async (templateId, boardData, options?: { descriptio
     templateData.name = '{{{name}}}';
     delete templateData.version;
     delete templateData.savedAt;
+    delete templateData.displayName;
     
     if (templateData.cards && Array.isArray(templateData.cards)) {
         for (const card of templateData.cards) {

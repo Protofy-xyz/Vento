@@ -1044,9 +1044,136 @@
     "autopilot": true,
     "version": 132,
     "savedAt": 1762907206492,
-    "tags": [ "vento" ],
+    "tags": [
+        "vento"
+    ],
     "visibility": [],
     "inputs": {
         "default": "/api/agents/v1/[object Object]/agent_input"
+    },
+    "graphLayout": {
+        "group-agent": {
+            "x": 0,
+            "y": 0,
+            "width": 4060,
+            "height": 1280,
+            "layer": "agent",
+            "type": "group"
+        },
+        "group-base": {
+            "x": 0,
+            "y": 1480,
+            "width": 2300,
+            "height": 1080,
+            "layer": "base",
+            "type": "group"
+        },
+        "group-infra": {
+            "x": 0,
+            "y": 2760,
+            "width": 1180,
+            "height": 630,
+            "layer": "infra",
+            "type": "group"
+        },
+        "agent_input": {
+            "x": 100,
+            "y": 160,
+            "width": 800,
+            "height": 1000,
+            "layer": "agent",
+            "parent": "group-agent",
+            "type": "node"
+        },
+        "reply": {
+            "x": 3500,
+            "y": 160,
+            "width": 400,
+            "height": 350,
+            "layer": "agent",
+            "parent": "group-agent",
+            "type": "node"
+        },
+        "reset": {
+            "x": 1540,
+            "y": 160,
+            "width": 400,
+            "height": 300,
+            "layer": "agent",
+            "parent": "group-agent",
+            "type": "node"
+        },
+        "user_request": {
+            "x": 1020,
+            "y": 160,
+            "width": 400,
+            "height": 350,
+            "layer": "agent",
+            "parent": "group-agent",
+            "type": "node"
+        },
+        "agent_prepare": {
+            "x": 2060,
+            "y": 160,
+            "width": 600,
+            "height": 900,
+            "layer": "agent",
+            "parent": "group-agent",
+            "type": "node"
+        },
+        "agent_core": {
+            "x": 2780,
+            "y": 160,
+            "width": 600,
+            "height": 900,
+            "layer": "agent",
+            "parent": "group-agent",
+            "type": "node"
+        },
+        "create agent": {
+            "x": 100,
+            "y": 160,
+            "width": 400,
+            "height": 400,
+            "layer": "base",
+            "parent": "group-base",
+            "type": "node"
+        },
+        "read_agent_board": {
+            "x": 620,
+            "y": 160,
+            "width": 600,
+            "height": 400,
+            "layer": "base",
+            "parent": "group-base",
+            "type": "node"
+        },
+        "add_card_to_agent_board": {
+            "x": 1340,
+            "y": 160,
+            "width": 800,
+            "height": 800,
+            "layer": "base",
+            "parent": "group-base",
+            "type": "node"
+        },
+        "available_templates": {
+            "x": 100,
+            "y": 160,
+            "width": 400,
+            "height": 350,
+            "layer": "infra",
+            "parent": "group-infra",
+            "type": "node"
+        },
+        "available_system_cards": {
+            "x": 620,
+            "y": 160,
+            "width": 400,
+            "height": 350,
+            "layer": "infra",
+            "parent": "group-infra",
+            "type": "node"
+        }
     }
 }

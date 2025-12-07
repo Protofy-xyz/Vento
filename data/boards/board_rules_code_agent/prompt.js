@@ -85,5 +85,5 @@ keep it in mind when deciding the order of the instructions.
 Please, generate the code.
 `
 
-await executeAction({ name: "llm_agent_call", params: { prompt: prompt, requestId: params.requestId } })
+
 return prompt

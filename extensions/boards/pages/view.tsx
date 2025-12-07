@@ -44,7 +44,7 @@ import { itemsAtom, automationInfoAtom, uiCodeInfoAtom, reloadBoard } from '../u
 import { ActionCard } from '../components/ActionCard'
 import { VersionTimeline } from '../VersionTimeline'
 import { useBoardVersions, latestVersion } from '../utils/versions'
-import { GraphView } from './graphView'
+import { GraphView, EdgeDeleteInfo } from './graphView'
 import { useEventEffect } from '@extensions/events/hooks'
 import { getUIPreferences, mergeUIPreferences } from '../utils/uiPreferences'
 
@@ -610,8 +610,26 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
   const deleteCardsByName = useCallback(async (targets: string[]) => {
     if (!targets.length) return;
 
-    const newItems = items.filter((item) => !targets.includes(item.name));
-    if (newItems.length === items.length) return;
+    const targetSet = new Set(targets);
+    
+    // Filter out deleted cards AND clean up links pointing to deleted cards
+    const newItems = items
+      .filter((item) => !targetSet.has(item.name))
+      .map((item) => {
+        // Remove links that point to deleted cards
+        if (item.links?.length) {
+          const cleanedLinks = item.links.filter((link: any) => !targetSet.has(link.name));
+          if (cleanedLinks.length !== item.links.length) {
+            return { ...item, links: cleanedLinks };
+          }
+        }
+        return item;
+      });
+    
+    if (newItems.length === items.length && 
+        !items.some(item => item.links?.some((link: any) => targetSet.has(link.name)))) {
+      return;
+    }
 
     setItems(newItems);
     boardRef.current.cards = newItems;
@@ -636,6 +654,36 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     setPendingDeleteNames([]);
     setCurrentCard(null);
 
+    await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
+  }, [items, board.name, setBoardVersion, refresh]);
+
+  // Delete edges (links) between cards
+  const deleteEdges = useCallback(async (edgesToDelete: EdgeDeleteInfo[]) => {
+    if (!edgesToDelete.length) return;
+
+    let changed = false;
+    const newItems = items.map(item => {
+      // Find edges where this card is the source
+      const edgesFromThisCard = edgesToDelete.filter(e => e.source === item.name);
+      if (!edgesFromThisCard.length || !item.links?.length) return item;
+
+      // Remove the matching links
+      const newLinks = item.links.filter((link: any) => {
+        const shouldRemove = edgesFromThisCard.some(
+          edge => edge.target === link.name && edge.linkType === link.type
+        );
+        if (shouldRemove) changed = true;
+        return !shouldRemove;
+      });
+
+      if (newLinks.length === item.links.length) return item;
+      return { ...item, links: newLinks };
+    });
+
+    if (!changed) return;
+
+    setItems(newItems);
+    boardRef.current.cards = newItems;
     await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
   }, [items, board.name, setBoardVersion, refresh]);
 
@@ -1171,7 +1219,12 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
                   onLayoutChange={persistGraphLayout}
                   activeLayer={activeLayer}
                   onSelectLayer={(layer) => setActiveLayer(layer)}
-                  onDeleteNodes={deleteCardsByName}
+                  onDeleteNodes={(names) => {
+                    // Show confirmation dialog instead of deleting directly
+                    setPendingDeleteNames(names);
+                    setIsDeleting(true);
+                  }}
+                  onDeleteEdges={deleteEdges}
                   onSelectionChange={setSelectedNames}
                   selectedIds={selectedNames}
                 />

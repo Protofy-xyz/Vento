@@ -14,7 +14,8 @@ import {
     getBezierPath,
     MiniMap,
     NodeResizer,
-    MarkerType
+    MarkerType,
+    BaseEdge
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -110,6 +111,9 @@ const FLOW_STYLES = `
 .rf-selecting .react-flow__node, .rf-selecting .react-flow__handle, .rf-selecting .layer-group-header { pointer-events: none !important; }
 body.rf-noselect, body.rf-noselect * { user-select: none !important; }
 .react-flow__node.selected { z-index: 1000 !important; }
+.react-flow__edge { cursor: pointer; }
+.react-flow__edge.selected { z-index: 1000 !important; }
+.react-flow__edge-interaction { pointer-events: all; }
 `;
 
 const LINK_PRE_COLOR = "purple"
@@ -177,6 +181,9 @@ const buildEdgesFromCards = (cards: Card[]): RFEdge[] => {
                 targetHandle,
                 type: 'curvy',
                 data: { linkType: link.type || 'pre' },
+                // Code edges cannot be selected/deleted (they come from rulesCode)
+                selectable: !isCode,
+                focusable: !isCode,
                 // Pre: arrow at end pointing backward (custom marker)
                 // Post: arrow at end pointing forward (default marker)
                 ...(isPre ? {
@@ -256,6 +263,39 @@ const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean })
     const leftCount = (hasPreOut ? 1 : 0) + (hasPostIn ? 1 : 0);
     const rightCount = (hasPreIn ? 1 : 0) + (hasPostOut ? 1 : 0);
 
+    // Check if target is an interactive element that should not trigger card selection
+    const isInteractiveElement = useCallback((target: HTMLElement): boolean => {
+        const tagName = target.tagName.toLowerCase();
+        // Direct interactive elements - these always block selection
+        if (tagName === 'input' || tagName === 'button' || tagName === 'select' || 
+            tagName === 'textarea' || tagName === 'a') {
+            return true;
+        }
+        // Check for interactive ancestors - only direct interactive elements
+        const interactive = target.closest('button, a, input, select, textarea, [role="button"], [role="checkbox"], [role="radio"], [role="switch"], [role="slider"], [role="combobox"], [role="menuitem"], [role="tab"]');
+        if (interactive) {
+            return true;
+        }
+        // Check for elements explicitly marked as clickable
+        if (target.hasAttribute('data-clickable') || target.closest('[data-clickable="true"]')) {
+            return true;
+        }
+        // Check for contenteditable
+        if (target.isContentEditable) {
+            return true;
+        }
+        return false;
+    }, []);
+
+    // Stop propagation for all pointer events on interactive elements to prevent card selection
+    const handleInteractiveEvent = useCallback((e: React.MouseEvent | React.PointerEvent) => {
+        const target = e.target as HTMLElement;
+        // If clicking on interactive element, stop propagation to prevent card selection
+        if (isInteractiveElement(target)) {
+            e.stopPropagation();
+        }
+    }, [isInteractiveElement]);
+
     return (
         <>
             <NodeResizer 
@@ -271,7 +311,12 @@ const DefaultNode = memo(({ data, selected }: { data: any; selected?: boolean })
                     opacity: 0,
                 }}
             />
-            <div style={selected ? NODE_STYLE_SELECTED : NODE_STYLE_DEFAULT}>
+            <div 
+                style={selected ? NODE_STYLE_SELECTED : NODE_STYLE_DEFAULT}
+                onMouseDown={handleInteractiveEvent}
+                onPointerDown={handleInteractiveEvent}
+                onClick={handleInteractiveEvent}
+            >
                 {data.content}
                 
                 {/* Left side - Pre Out */}
@@ -346,21 +391,46 @@ const LayerGroupNode = memo(({ data }: { data: any }) => {
 
 const CurvyEdge = memo((props: any) => {
     const [edgePath] = getBezierPath({ ...props, curvature: 0.4 });
+    const isSelected = props.selected;
+    const isCode = props.data?.linkType === 'code';
+    const baseStroke = props.style?.stroke || 'var(--edgeDefault, var(--color5))';
+    const baseWidth = props.style?.strokeWidth || 2;
+    
+    // Code edges are not selectable/deletable
+    if (isCode) {
+        return (
+            <path 
+                id={props.id} 
+                className="react-flow__edge-path" 
+                d={edgePath} 
+                markerEnd={props.markerEnd}
+                markerStart={props.markerStart}
+                style={{ 
+                    stroke: baseStroke, 
+                    strokeWidth: baseWidth, 
+                    strokeDasharray: props.style?.strokeDasharray,
+                    opacity: props.style?.opacity ?? 1,
+                    fill: 'none', 
+                    pointerEvents: 'none',
+                }} 
+            />
+        );
+    }
+    
     return (
-        <path 
-            id={props.id} 
-            className="react-flow__edge-path" 
-            d={edgePath} 
+        <BaseEdge
+            id={props.id}
+            path={edgePath}
             markerEnd={props.markerEnd}
             markerStart={props.markerStart}
+            interactionWidth={20}
             style={{ 
-                stroke: props.style?.stroke || 'var(--edgeDefault, var(--color5))', 
-                strokeWidth: props.style?.strokeWidth || 2, 
-                strokeDasharray: props.style?.strokeDasharray,
+                stroke: baseStroke, 
+                strokeWidth: baseWidth, 
+                strokeDasharray: isSelected ? undefined : '6 4',
                 opacity: props.style?.opacity ?? 1,
-                fill: 'none', 
-                pointerEvents: 'none' 
-            }} 
+                transition: 'stroke-dasharray 0.15s ease',
+            }}
         />
     );
 });
@@ -475,6 +545,12 @@ const materializeLayer = (
     };
 };
 
+export type EdgeDeleteInfo = {
+    source: string;      // Card name that has the link
+    target: string;      // Target card name
+    linkType: 'pre' | 'post' | 'code';
+};
+
 const normalizeGroupNodes = (nodes: RFNode[]): RFNode[] => {
     const next = nodes.map(n => ({ ...n, style: { ...n.style } }));
     const groups = next.filter(n => n.type === 'layerGroup');
@@ -516,6 +592,8 @@ const Flow = memo(({
     onDeleteNodes,
     onSelectionChange,
     selectedIds,
+    onDeleteEdges,
+    linksKey,
 }: {
     initialNodes: RFNode[];
     initialEdges: RFEdge[];
@@ -526,6 +604,8 @@ const Flow = memo(({
     onDeleteNodes?: (ids: string[]) => void;
     onSelectionChange?: (ids: string[]) => void;
     selectedIds?: string[];
+    onDeleteEdges?: (edges: EdgeDeleteInfo[]) => void;
+    linksKey?: string;
 }) => {
     const layoutRef = useRef<GraphLayout | null | undefined>(initialLayout);
     const lastSelectionRef = useRef<string[]>([]);
@@ -642,14 +722,90 @@ const Flow = memo(({
         onSelectionChange?.([]);
     }, [onSelectionChange]);
 
+    // Handle edge deletion via onEdgesChange
+    const handleEdgesChange = useCallback((changes: any[]) => {
+        const removedEdges = changes.filter(c => c.type === 'remove');
+        if (removedEdges.length && onDeleteEdges) {
+            const edgesToDelete: EdgeDeleteInfo[] = [];
+            for (const change of removedEdges) {
+                const edge = edges.find(e => e.id === change.id);
+                if (edge && edge.data?.linkType !== 'code') {
+                    edgesToDelete.push({
+                        source: edge.source,
+                        target: edge.target,
+                        linkType: edge.data?.linkType || 'post',
+                    });
+                }
+            }
+            if (edgesToDelete.length) {
+                onDeleteEdges(edgesToDelete);
+            }
+        }
+        onEdgesChange(changes);
+    }, [edges, onDeleteEdges, onEdgesChange]);
+
+    // Handle keyboard delete for selected nodes and edges
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !e.repeat) {
+                // Ignore if focus is on an input, textarea, or editable element
+                const activeEl = document.activeElement;
+                if (activeEl) {
+                    const tagName = activeEl.tagName.toLowerCase();
+                    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
+                        return;
+                    }
+                    if ((activeEl as HTMLElement).isContentEditable) {
+                        return;
+                    }
+                    // Ignore if focus is inside a dialog, popover, or sidebar panel
+                    if (activeEl.closest('[role="dialog"]') || 
+                        activeEl.closest('[data-radix-popper-content-wrapper]') ||
+                        activeEl.closest('.floating-window')) {
+                        return;
+                    }
+                }
+
+                // Check for selected nodes (cards) first
+                const selectedNodes = nodes.filter(n => n.selected && n.type !== 'layerGroup');
+                if (selectedNodes.length && onDeleteNodes) {
+                    const nodeIds = selectedNodes.map(n => n.id);
+                    onDeleteNodes(nodeIds);
+                    return; // Don't also delete edges when deleting nodes
+                }
+
+                // Check for selected edges
+                const selectedEdges = edges.filter(edge => edge.selected);
+                // Filter out 'code' type edges (they can't be deleted as they come from rulesCode)
+                const deletableEdges = selectedEdges.filter(e => e.data?.linkType !== 'code');
+                if (deletableEdges.length && onDeleteEdges) {
+                    const edgesToDelete: EdgeDeleteInfo[] = deletableEdges.map(edge => ({
+                        source: edge.source,
+                        target: edge.target,
+                        linkType: edge.data?.linkType || 'post',
+                    }));
+                    onDeleteEdges(edgesToDelete);
+                    // Remove edges from local state
+                    setEdges(eds => eds.filter(e => !deletableEdges.find(d => d.id === e.id)));
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [nodes, edges, onDeleteNodes, onDeleteEdges, setEdges]);
+
     // Sync nodes when initial data changes
+    // linksKey dependency ensures ports (handles) update when links change
     useLayoutEffect(() => {
         const structuralKey = processedNodes
             .map(n => `${n.id}:${n.parentId || ''}:${n.data?.layer || ''}:${n.position?.x ?? 0}:${n.position?.y ?? 0}`)
             .sort().join('|');
 
-        if (initialNodesKeyRef.current !== structuralKey) {
-            initialNodesKeyRef.current = structuralKey;
+        // Include linksKey in the comparison to force port updates
+        const fullKey = `${structuralKey}::${linksKey || ''}`;
+
+        if (initialNodesKeyRef.current !== fullKey) {
+            initialNodesKeyRef.current = fullKey;
             setNodes(processedNodes);
         } else {
             // Only update data, preserve positions
@@ -667,10 +823,21 @@ const Flow = memo(({
                 return changed ? updated : current;
             });
         }
-    }, [processedNodes, setNodes]);
+    }, [processedNodes, setNodes, linksKey]);
 
-    // Sync edges
-    useEffect(() => { setEdges(initialEdges); }, [initialEdges, setEdges]);
+    // Sync edges while preserving selection state
+    // linksKey dependency ensures edges update when links change
+    useEffect(() => { 
+        setEdges(currentEdges => {
+            // Create a map of current selection states
+            const selectionMap = new Map(currentEdges.map(e => [e.id, e.selected]));
+            // Apply selection state to new edges
+            return initialEdges.map(edge => ({
+                ...edge,
+                selected: selectionMap.get(edge.id) ?? edge.selected ?? false
+            }));
+        });
+    }, [initialEdges, setEdges, linksKey]);
 
     // Sync layout ref
     useEffect(() => { layoutRef.current = initialLayout; }, [initialLayout]);
@@ -717,7 +884,7 @@ const Flow = memo(({
                 nodes={nodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
+                onEdgesChange={handleEdgesChange}
                 onMoveEnd={handleMoveEnd}
                 fitViewOptions={{ padding: CFG.FITVIEW_PADDING }}
                 defaultViewport={defaultViewport}
@@ -736,14 +903,16 @@ const Flow = memo(({
                 nodesDraggable
                 nodesConnectable
                 elementsSelectable
+                edgesFocusable
                 zoomOnScroll
                 zoomOnPinch
                 panOnDrag
                 proOptions={{ hideAttribution: true }}
-                elevateEdgesOnSelect={false}
+                elevateEdgesOnSelect
                 elevateNodesOnSelect
                 style={{ zIndex: 0 }}
                 translateExtent={[[-25000, -25000], [25000, 25000]]}
+                deleteKeyCode={null}
             >
                 {/* Custom marker for pre links: arrow at end pointing backward */}
                 <svg style={{ position: 'absolute', width: 0, height: 0 }}>
@@ -784,6 +953,7 @@ export const GraphView = memo(({
     onDeleteNodes,
     onSelectionChange,
     selectedIds,
+    onDeleteEdges,
 }: {
     cards: Card[];
     layout?: GraphLayout;
@@ -793,7 +963,15 @@ export const GraphView = memo(({
     onDeleteNodes?: (ids: string[]) => void;
     onSelectionChange?: (ids: string[]) => void;
     selectedIds?: string[];
+    onDeleteEdges?: (edges: EdgeDeleteInfo[]) => void;
 }) => {
+    // Create a stable key for links to detect changes
+    const linksKey = useMemo(() => {
+        return (cards || []).map(c => 
+            `${c.name}:${(c.links || []).map(l => `${l.name}:${l.type}`).join(',')}`
+        ).join('|');
+    }, [cards]);
+
     // Memoize heavy computations
     const { initialNodes, initialEdges } = useMemo(() => {
         const safeCards = cards || [];
@@ -811,7 +989,7 @@ export const GraphView = memo(({
         }
 
         return { initialNodes: [...groupNodes, ...contentNodes], initialEdges: edges };
-    }, [cards, layout]);
+    }, [cards, layout, linksKey]);
 
     return (
         <Flow
@@ -824,6 +1002,8 @@ export const GraphView = memo(({
             onDeleteNodes={onDeleteNodes}
             onSelectionChange={onSelectionChange}
             selectedIds={selectedIds}
+            onDeleteEdges={onDeleteEdges}
+            linksKey={linksKey}
         />
     );
 });

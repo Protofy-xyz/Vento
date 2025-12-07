@@ -691,7 +691,7 @@ export default async (app, context) => {
             res.status(500).send({ error: 'No response from AI model', message: reply?.error })
         } else {
             const jsCode = reply.choices[0].message.content
-            console.log("JS CODE: ", jsCode)
+            console.log("JS CODE 1: ", jsCode)
             res.send({ jsCode: cleanCode(jsCode) })
         }
     }
@@ -954,6 +954,9 @@ export default async (app, context) => {
     app.post('/api/core/v1/autopilot/getBoardCode', requireAdmin(), async (req, res) => {
         //we need to look for configParams in the action. If there is a config for the param, we need to check
         //if the param is visible. If its not visible, we should not include it in the params object
+
+        console.log("REQUEST BODY: ", req.body)
+        
         Object.keys(req.body.actions).map(k => {
             const a = req.body.actions[k]
             if (a.configParams) {
@@ -991,7 +994,7 @@ export default async (app, context) => {
                 return res.status(500).send({ error: 'No response from AI model' });
             }
 
-            console.log("JS CODE: ", jsCode);
+            console.log("JS CODE 2: ", jsCode);
             res.send({ jsCode: cleanCode(jsCode) });
         } catch (e) {
             console.error('Error getting board code: ', e);

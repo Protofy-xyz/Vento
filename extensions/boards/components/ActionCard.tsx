@@ -1,6 +1,6 @@
 import {
   Cable, Copy, Trash2, Settings, MoreVertical, Book, FileJson, ClipboardList,
-  FileCode, FileInput, ExternalLink, Globe, Layers as LayersIcon, Check, Plus, FileOutput
+  FileCode, FileInput, ExternalLink, Globe, Layers as LayersIcon, Check, Plus, FileOutput, Info
 } from '@tamagui/lucide-icons'
 import { YStack, XStack, Popover, Text, TooltipSimple, Paragraph, Button, Input } from '@my/ui'
 import { AlertDialog } from 'protolib/components/AlertDialog'
@@ -99,6 +99,7 @@ const CardActions = ({ id, data, onEdit, onDelete, onEditCode, onCopy, onDetails
   const FlippedFileOutput = (props: any) => <FileOutput {...props} style={{ transform: 'scaleX(-1)' }} />
 
   const menuShortcuts = [
+    { id: 'info', text: 'Edit Description', icon: Info },
     { id: 'config', text: 'Edit Settings', icon: Settings },
     { id: 'rules', text: 'Edit Rules', icon: ClipboardList },
     { id: 'params', text: 'Edit Inputs', icon: FileInput },

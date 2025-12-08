@@ -386,6 +386,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
   const [pendingDeleteNames, setPendingDeleteNames] = useState<string[]>([])
   const [editedCard, setEditedCard] = useState(null)
   const [editCode, setEditCode] = useState('')
+  const [originalCardJson, setOriginalCardJson] = useState<string | null>(null);
 
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -911,6 +912,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
             setIsEditing(true);
             setCurrentCard(item);
             setEditedCard(item);
+            setOriginalCardJson(JSON.stringify(item));
           }}
           onDetails={() => {
             setCurrentCard(item);
@@ -1033,6 +1035,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
       await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
       setCurrentCard(editedCard);
       setEditedCard(editedCard);
+      setOriginalCardJson(JSON.stringify(editedCard));
       setHasChanges(false);
     } catch (e) {
       if (e instanceof ValidationError) {
@@ -1049,6 +1052,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     setIsEditing(false);
     setCurrentCard(null);
     setEditedCard(null);
+    setOriginalCardJson(null);
     setErrors([]);
     setHasChanges(false);
   }
@@ -1144,8 +1148,8 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
           onOpenChange={(open) => {
             if (!open) {
               const hasRealChanges =
-                editedCard && currentCard &&
-                JSON.stringify(editedCard) !== JSON.stringify(currentCard);
+                editedCard && originalCardJson &&
+                JSON.stringify(editedCard) !== originalCardJson;
               if (hasRealChanges) {
                 setShowUnsavedDialog(true);
               } else {

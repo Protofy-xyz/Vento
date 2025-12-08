@@ -44,7 +44,7 @@ import { itemsAtom, automationInfoAtom, uiCodeInfoAtom, reloadBoard } from '../u
 import { ActionCard } from '../components/ActionCard'
 import { VersionTimeline } from '../VersionTimeline'
 import { useBoardVersions, latestVersion } from '../utils/versions'
-import { GraphView, EdgeDeleteInfo } from './graphView'
+import { GraphView, EdgeDeleteInfo, EdgeCreateInfo } from './graphView'
 import { useEventEffect } from '@extensions/events/hooks'
 import { getUIPreferences, mergeUIPreferences } from '../utils/uiPreferences'
 
@@ -139,11 +139,16 @@ const GraphActionCard = memo(ActionCard, (prev, next) => {
 const getExecuteAction = (board, rawActions) => {
   const actions = []
   const flatten = (obj, path) => {
+    if (!obj || typeof obj !== 'object') {
+      return
+    }
     if (obj.url) {
       actions.push({ ...obj, path: path })
     } else {
       for (const key in obj) {
-        flatten(obj[key], path + '/' + key)
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          flatten(obj[key], path + '/' + key)
+        }
       }
     }
   }
@@ -681,6 +686,33 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
     });
 
     if (!changed) return;
+
+    setItems(newItems);
+    boardRef.current.cards = newItems;
+    await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
+  }, [items, board.name, setBoardVersion, refresh]);
+
+  // Create edge (link) between cards
+  const createEdge = useCallback(async (edge: EdgeCreateInfo) => {
+    const { source, target, linkType } = edge;
+    
+    // Find the source card and add the link
+    const newItems = items.map(item => {
+      if (item.name !== source) return item;
+      
+      // Check if link already exists
+      const existingLinks = item.links || [];
+      const linkExists = existingLinks.some(
+        (link: any) => link.name === target && link.type === linkType
+      );
+      if (linkExists) return item;
+      
+      // Add the new link
+      return {
+        ...item,
+        links: [...existingLinks, { name: target, type: linkType }]
+      };
+    });
 
     setItems(newItems);
     boardRef.current.cards = newItems;
@@ -1225,6 +1257,7 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
                     setIsDeleting(true);
                   }}
                   onDeleteEdges={deleteEdges}
+                  onCreateEdge={createEdge}
                   onSelectionChange={setSelectedNames}
                   selectedIds={selectedNames}
                 />

@@ -15,7 +15,9 @@ import {
     MiniMap,
     NodeResizer,
     MarkerType,
-    BaseEdge
+    BaseEdge,
+    addEdge,
+    Connection
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -36,7 +38,7 @@ const CFG = {
 const GROUP_PAD_TOP = CFG.GROUP_PADDING + CFG.GROUP_HEADER_HEIGHT;
 
 type Link = { name: string; type?: 'pre' | 'post' | 'code' };
-type Card = { name: string; layer?: string; links?: Link[]; rulesCode?: string; content?: ReactNode };
+type Card = { name: string; layer?: string; links?: Link[]; rulesCode?: string; content?: ReactNode; type?: 'action' | 'value' };
 // 4 fixed handles: pre and post, each with input and output
 type Ports = { 
     hasPreOut: boolean;   // Left - Pre output (I have dependencies)
@@ -134,14 +136,24 @@ const groupByLayer = (cards: Card[]): Map<string, Card[]> => {
     return grouped;
 };
 
-const buildPortsFor = (cardName: string, edges: RFEdge[]): Ports => ({
+const buildPortsFor = (cardName: string, edges: RFEdge[], cardType?: string): Ports => {
     // Pre: source has preOut (left), target has preIn (right)
-    hasPreOut: edges.filter(e => e.source === cardName && e.data?.linkType === 'pre').length > 0,
-    hasPreIn: edges.filter(e => e.target === cardName && e.data?.linkType === 'pre').length > 0,
+    const hasPreOutFromEdges = edges.filter(e => e.source === cardName && e.data?.linkType === 'pre').length > 0;
+    const hasPreInFromEdges = edges.filter(e => e.target === cardName && e.data?.linkType === 'pre').length > 0;
     // Post/Code: source has postOut (right), target has postIn (left)
-    hasPostOut: edges.filter(e => e.source === cardName && (e.data?.linkType === 'post' || e.data?.linkType === 'code')).length > 0,
-    hasPostIn: edges.filter(e => e.target === cardName && (e.data?.linkType === 'post' || e.data?.linkType === 'code')).length > 0,
-});
+    const hasPostOutFromEdges = edges.filter(e => e.source === cardName && (e.data?.linkType === 'post' || e.data?.linkType === 'code')).length > 0;
+    const hasPostInFromEdges = edges.filter(e => e.target === cardName && (e.data?.linkType === 'post' || e.data?.linkType === 'code')).length > 0;
+    
+    // Action cards always show post-in (execution input) and post-out (execution output) handlers
+    const isActionCard = cardType === 'action';
+    
+    return {
+        hasPreOut: hasPreOutFromEdges,
+        hasPreIn: hasPreInFromEdges,
+        hasPostOut: isActionCard || hasPostOutFromEdges,
+        hasPostIn: isActionCard || hasPostInFromEdges,
+    };
+};
 
 const buildEdgesFromCards = (cards: Card[]): RFEdge[] => {
     const nodeIds = new Set(cards.map(c => c.name));
@@ -500,7 +512,7 @@ const materializeNodes = (
             type: 'default',
             parentId: groupId,  // v12: parentNode renamed to parentId
             position: { x, y },
-            data: { ...c, ports: buildPortsFor(c.name, edges) },
+            data: { ...c, ports: buildPortsFor(c.name, edges, c.type) },
             style: { width: `${width}px`, height: `${height}px`, background: 'transparent' },
         };
     });
@@ -551,6 +563,12 @@ export type EdgeDeleteInfo = {
     linkType: 'pre' | 'post' | 'code';
 };
 
+export type EdgeCreateInfo = {
+    source: string;      // Card name that initiates the connection
+    target: string;      // Target card name
+    linkType: 'pre' | 'post';
+};
+
 const normalizeGroupNodes = (nodes: RFNode[]): RFNode[] => {
     const next = nodes.map(n => ({ ...n, style: { ...n.style } }));
     const groups = next.filter(n => n.type === 'layerGroup');
@@ -593,6 +611,7 @@ const Flow = memo(({
     onSelectionChange,
     selectedIds,
     onDeleteEdges,
+    onCreateEdge,
     linksKey,
 }: {
     initialNodes: RFNode[];
@@ -605,6 +624,7 @@ const Flow = memo(({
     onSelectionChange?: (ids: string[]) => void;
     selectedIds?: string[];
     onDeleteEdges?: (edges: EdgeDeleteInfo[]) => void;
+    onCreateEdge?: (edge: EdgeCreateInfo) => void;
     linksKey?: string;
 }) => {
     const layoutRef = useRef<GraphLayout | null | undefined>(initialLayout);
@@ -721,6 +741,74 @@ const Flow = memo(({
         lastSelectionRef.current = [];
         onSelectionChange?.([]);
     }, [onSelectionChange]);
+
+    // Handle new connection creation
+    const handleConnect = useCallback((connection: Connection) => {
+        if (!connection.source || !connection.target) return;
+        if (connection.source === connection.target) return; // No self-connections
+        
+        // Validate: source must be an output (-out), target must be an input (-in)
+        const isSourceOutput = connection.sourceHandle?.endsWith('-out');
+        const isTargetInput = connection.targetHandle?.endsWith('-in');
+        if (!isSourceOutput || !isTargetInput) return;
+        
+        // Determine link type based on source handle
+        // pre-out = pre link (dependency)
+        // post-out = post link (execution flow)
+        const isPre = connection.sourceHandle === 'pre-out';
+        const linkType: 'pre' | 'post' = isPre ? 'pre' : 'post';
+        
+        // Determine target handle based on link type (enforce matching types for correct semantics)
+        const targetHandle = isPre ? 'pre-in' : 'post-in';
+        
+        // Check if edge already exists
+        const edgeExists = edges.some(e => 
+            e.source === connection.source && 
+            e.target === connection.target &&
+            e.data?.linkType === linkType
+        );
+        if (edgeExists) return;
+        
+        // Create the visual edge
+        const strokeColor = isPre ? `var(--${LINK_PRE_COLOR}9)` : `var(--${LINK_POST_COLOR}9)`;
+        const newEdge: RFEdge = {
+            id: `${connection.source}->${connection.target}`,
+            source: connection.source,
+            target: connection.target,
+            sourceHandle: connection.sourceHandle,
+            targetHandle: targetHandle,
+            type: 'curvy',
+            data: { linkType },
+            selectable: true,
+            focusable: true,
+            ...(isPre ? {
+                markerEnd: 'arrow-pre-backward',
+            } : {
+                markerEnd: {
+                    type: MarkerType.ArrowClosed,
+                    width: 12,
+                    height: 12,
+                    color: strokeColor,
+                },
+            }),
+            style: {
+                stroke: strokeColor,
+                strokeWidth: 2,
+                strokeDasharray: isPre ? '6 3' : undefined,
+            },
+        };
+        
+        setEdges(eds => addEdge(newEdge, eds));
+        
+        // Notify parent to persist the link
+        if (onCreateEdge) {
+            onCreateEdge({
+                source: connection.source,
+                target: connection.target,
+                linkType,
+            });
+        }
+    }, [edges, setEdges, onCreateEdge]);
 
     // Handle edge deletion via onEdgesChange
     const handleEdgesChange = useCallback((changes: any[]) => {
@@ -885,6 +973,7 @@ const Flow = memo(({
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={handleEdgesChange}
+                onConnect={handleConnect}
                 onMoveEnd={handleMoveEnd}
                 fitViewOptions={{ padding: CFG.FITVIEW_PADDING }}
                 defaultViewport={defaultViewport}
@@ -954,6 +1043,7 @@ export const GraphView = memo(({
     onSelectionChange,
     selectedIds,
     onDeleteEdges,
+    onCreateEdge,
 }: {
     cards: Card[];
     layout?: GraphLayout;
@@ -964,6 +1054,7 @@ export const GraphView = memo(({
     onSelectionChange?: (ids: string[]) => void;
     selectedIds?: string[];
     onDeleteEdges?: (edges: EdgeDeleteInfo[]) => void;
+    onCreateEdge?: (edge: EdgeCreateInfo) => void;
 }) => {
     // Create a stable key for links to detect changes
     const linksKey = useMemo(() => {
@@ -1003,6 +1094,7 @@ export const GraphView = memo(({
             onSelectionChange={onSelectionChange}
             selectedIds={selectedIds}
             onDeleteEdges={onDeleteEdges}
+            onCreateEdge={onCreateEdge}
             linksKey={linksKey}
         />
     );

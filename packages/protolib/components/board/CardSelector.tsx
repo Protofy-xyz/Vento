@@ -536,7 +536,7 @@ const fetch = async (fn) => {
 }
 
 const useCards = (extraCards = []) => {
-  const [_items, setItems] = useRemoteStateList(getPendingResult('pending'), fetch, 'notifications/card/#', CardModel);
+  const [_items, setItems] = useRemoteStateList(getPendingResult('pending'), fetch, 'notifications/card/#', CardModel, true);
   return [...extraCards, ...(_items?.data?.items ?? [])]
 }
 

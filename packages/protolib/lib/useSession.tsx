@@ -7,6 +7,9 @@ export const UserSettingsAtom = atomWithStorage("userSettings", {} as any)
 import { API } from 'protobase'
 import { useEffect } from 'react'
 
+let isValidatingSession = false
+let lastValidatedToken: string | null = null
+
 const ABSOLUTE_DAYS = 60 //absolute limit since first login
 const SLIDING_DAYS = 14 //maximum sliding window
 
@@ -114,23 +117,34 @@ export const useSession = (pageSession?) => {
             return
         }
 
+        if (isValidatingSession || lastValidatedToken === session.token) {
+            return
+        }
+
         const validateSession = async () => {
-            const result = await API.get('/api/core/v1/auth/validate')
-            if (!result || result.isError) return
+            isValidatingSession = true
+            try {
+                const result = await API.get('/api/core/v1/auth/validate')
+                if (!result || result.isError) return
 
-            if (result.isLoaded) {
-                const validatedSession = result.data
+                if (result.isLoaded) {
+                    const validatedSession = result.data
+                    lastValidatedToken = session.token
 
-                if (!validatedSession?.loggedIn) {
-                    setSession(createSession())
-                    return
+                    if (!validatedSession?.loggedIn) {
+                        lastValidatedToken = null
+                        setSession(createSession())
+                        return
+                    }
+
+                    if (validatedSession.token && validatedSession.token !== session.token) {
+                        lastValidatedToken = validatedSession.token
+                        setSession(validatedSession)
+                    }
                 }
-
-                if (validatedSession.token && validatedSession.token !== session.token) {
-                    setSession(validatedSession)
-                }
+            } finally {
+                isValidatingSession = false
             }
-
         }
 
         validateSession()

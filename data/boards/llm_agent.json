@@ -465,19 +465,25 @@
         "group-base": {
             "x": 0,
             "y": 0,
+            "width": 2420,
+            "height": 1180,
             "layer": "base",
             "type": "group"
         },
         "agent_input": {
             "x": 100,
             "y": 160,
+            "width": 600,
+            "height": 900,
             "layer": "base",
             "parent": "group-base",
             "type": "node"
         },
         "call_ai_provider": {
-            "x": 1341.6573451990168,
-            "y": 162.62269470116038,
+            "x": 1340,
+            "y": 160,
+            "width": 400,
+            "height": 600,
             "layer": "base",
             "parent": "group-base",
             "type": "node"
@@ -485,6 +491,8 @@
         "current_request": {
             "x": 820,
             "y": 160,
+            "width": 400,
+            "height": 350,
             "layer": "base",
             "parent": "group-base",
             "type": "node"
@@ -492,6 +500,8 @@
         "reply": {
             "x": 1860,
             "y": 160,
+            "width": 400,
+            "height": 350,
             "layer": "base",
             "parent": "group-base",
             "type": "node"

@@ -1,7 +1,9 @@
 {
     "name": "board_rules_code_agent",
     "visibility": [],
-    "tags": [ "vento" ],
+    "tags": [
+        "vento"
+    ],
     "cards": [
         {
             "key": "action_1760800582118",
@@ -262,7 +264,12 @@
             },
             "description": "Actions can perform tasks, automate processes, and enhance user interactions. It can also trigger other action-type cards on the board.\n\n  #### Key Features\n  - Run actions from rules.\n  - Chain/trigger other action cards.\n  - Parameterized execution.\n  - Customize parameters.\n  - Customize the card view (UI/render).",
             "customName": "prompt2",
-            "links": []
+            "links": [
+                {
+                    "name": "llm_agent_call",
+                    "type": "post"
+                }
+            ]
         }
     ],
     "layouts": {
@@ -550,8 +557,66 @@
     "icon": "bot",
     "autopilot": false,
     "version": 1,
-    "savedAt": 1762956614070,
+    "savedAt": 1765138756115,
     "inputs": {
         "default": "/api/agents/v1/[object Object]/agent_input"
+    },
+    "graphLayout": {
+        "group-base": {
+            "x": 0,
+            "y": 0,
+            "width": 3660,
+            "height": 1280,
+            "layer": "base",
+            "type": "group"
+        },
+        "agent_input": {
+            "x": 100,
+            "y": 160,
+            "width": 800,
+            "height": 1000,
+            "parent": "group-base",
+            "type": "node"
+        },
+        "response": {
+            "x": 2780,
+            "y": 160,
+            "width": 400,
+            "height": 350,
+            "parent": "group-base",
+            "type": "node"
+        },
+        "llm_agent_call": {
+            "x": 2060,
+            "y": 160,
+            "width": 600,
+            "height": 600,
+            "parent": "group-base",
+            "type": "node"
+        },
+        "current_request": {
+            "x": 1020,
+            "y": 160,
+            "width": 400,
+            "height": 350,
+            "parent": "group-base",
+            "type": "node"
+        },
+        "prompt parameters": {
+            "x": 3300,
+            "y": 160,
+            "width": 200,
+            "height": 200,
+            "parent": "group-base",
+            "type": "node"
+        },
+        "prompt": {
+            "x": 1540,
+            "y": 160,
+            "width": 400,
+            "height": 350,
+            "parent": "group-base",
+            "type": "node"
+        }
     }
 }

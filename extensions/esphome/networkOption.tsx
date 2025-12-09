@@ -7,7 +7,7 @@ import { usePendingEffect } from 'protolib/lib/usePendingEffect'
 import { Tinted } from 'protolib/components/Tinted'
 import { FormInput } from 'protolib/components/FormInput'
 import { useRouter } from 'solito/navigation'
-import { MoreVertical, Pencil, Trash2 } from '@tamagui/lucide-icons'
+import { MoreVertical, Pencil, Trash2, Search } from '@tamagui/lucide-icons'
 import type { NetworkOption } from '../network/options'
 
 const sourceUrl = '/api/core/v1/devices'
@@ -67,14 +67,24 @@ const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
     setSelectedBoard: (value: string) => void,
     error?: string
 }) => {
-    const boardList = (boards?.data?.items || []).map((board) => ({
-        id: board.name,
-        name: board.name,
-        core: board.core,
-        image: board.image,
-    }))
+    const [search, setSearch] = useState('')
+    const boardList = (boards?.data?.items || [])
+        .map((board) => ({
+            id: board.name,
+            name: board.name,
+            core: board.core,
+            image: board.image,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
 
-    const selected = boardList.find((b) => b.id === selectedBoard) || boardList[0]
+    const normalizedQuery = search.trim().toLowerCase()
+    const filteredBoards = normalizedQuery
+        ? boardList.filter((b) => b.name.toLowerCase().includes(normalizedQuery))
+        : boardList
+
+    const selected =
+        filteredBoards.find((b) => b.id === selectedBoard) ||
+        (filteredBoards.length ? filteredBoards[0] : undefined)
 
     return (
         <YStack gap="$3" mb="$4" width="100%">
@@ -94,83 +104,117 @@ const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
                             alignItems="flex-start"
                             width="100%"
                         >
-                            {/* LEFT: list */}
-                            <ScrollView
-                                style={{
-                                    width: 320,
-                                    flexShrink: 0,
-                                    flexGrow: 0,
-                                }}
-                            >
-                                <YStack gap="$2" padding="$1">
-                                    {boardList.map((board) => {
-                                        const active = selected?.id === board.id
-                                        return (
-                                            <Tinted key={board.id}>
-                                                <XStack
-                                                    onPress={() => setSelectedBoard(board.id)}
-                                                    cursor="pointer"
-                                                    padding="$3"
-                                                    borderRadius="$3"
-                                                    backgroundColor={active ? "$color3" : "transparent"}
-                                                    borderWidth={active ? "$1" : "$0.5"}
-                                                    borderColor={active ? "$color7" : "$gray7"}
-                                                    alignItems="center"
-                                                    gap="$3"
-                                                >
-                                                    <Text fontWeight="600" color="$color11">
-                                                        {board.name}
-                                                    </Text>
-                                                </XStack>
-                                            </Tinted>
-                                        )
-                                    })}
-                                </YStack>
-                            </ScrollView>
+                            {/* LEFT: finder + list */}
+                            <YStack width={380} flexShrink={0} gap="$3">
+                                <XStack position="relative">
+                                    <Search size={18} style={{ position: 'absolute', left: 12, top: 14, opacity: 0.7 }} />
+                                    <Input
+                                        value={search}
+                                        onChangeText={setSearch}
+                                        placeholder="Search boards…"
+                                        size="$4"
+                                        paddingLeft={40}
+                                        backgroundColor="$gray3"
+                                        borderColor="$gray6"
+                                        borderWidth={1}
+                                        outlineColor="$gray8"
+                                    />
+                                </XStack>
+                                <ScrollView
+                                    style={{
+                                        width: '100%',
+                                        flexShrink: 0,
+                                        flexGrow: 0,
+                                        minHeight: 360
+                                    }}
+                                >
+                                    <YStack gap="$2" padding="$1">
+                                        {filteredBoards.length === 0 ? (
+                                            <YStack
+                                                padding="$3"
+                                                borderRadius="$4"
+                                                borderWidth={1}
+                                                borderColor="$gray5"
+                                                backgroundColor="$gray2"
+                                            >
+                                                <Text color="$gray10">No boards match your search.</Text>
+                                            </YStack>
+                                        ) : (
+                                            filteredBoards.map((board) => {
+                                                const active = selected?.id === board.id
+                                                return (
+                                                    <YStack
+                                                        key={board.id}
+                                                        onPress={() => setSelectedBoard(board.id)}
+                                                        cursor="pointer"
+                                                        padding="$3"
+                                                        borderRadius="$4"
+                                                        backgroundColor={active ? "$color3" : "$gray2"}
+                                                        borderWidth={1}
+                                                        borderColor={active ? "$color7" : "$gray5"}
+                                                        alignItems="flex-start"
+                                                        hoverStyle={{ borderColor: '$color7', backgroundColor: '$color2' }}
+                                                        transition="all 120ms ease"
+                                                    >
+                                                        <Text fontWeight="700" color="$color11">
+                                                            {board.name}
+                                                        </Text>
+                                                    </YStack>
+                                                )
+                                            })
+                                        )}
+                                    </YStack>
+                                </ScrollView>
+                            </YStack>
 
                             {/* RIGHT: preview */}
-                            <Tinted
-                                flex={0}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
+                            <YStack
+                                flex={1}
+                                backgroundColor="$gray2"
+                                borderWidth={1}
+                                borderColor="$gray4"
+                                borderRadius="$4"
+                                padding="$4"
+                                gap="$4"
+                                justifyContent="flex-start"
+                                alignItems="flex-start"
                             >
                                 <YStack
-                                    padding="$4"
-                                    gap="$4"
-                                    borderRadius="$3"
-                                    justifyContent="center"
-                                    alignItems="center"
+                                    width="100%"
+                                    gap="$3"
+                                    alignItems="flex-start"
                                 >
-                                    {selected?.image ? (
-                                        <img
-                                            src={selected.image}
-                                            alt={selected.name}
-                                            style={{
-                                                width: 420,
-                                                maxWidth: "100%",
-                                                height: "auto",
-                                                maxHeight: 320,
-                                                objectFit: "contain",
-                                                borderRadius: 12,
-                                                display: "block",
-                                            }}
-                                        />
+                                    {selected ? (
+                                        <>
+                                            <Text fontSize="$7" fontWeight="700" color="$color11">
+                                                {selected.name}
+                                            </Text>
+                                            {selected.image ? (
+                                                <img
+                                                    src={selected.image}
+                                                    alt={selected.name}
+                                                    style={{
+                                                        width: 440,
+                                                        maxWidth: "100%",
+                                                        height: "auto",
+                                                        maxHeight: 320,
+                                                        objectFit: "contain",
+                                                        borderRadius: 10,
+                                                        display: "block"
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Text color="$gray9">No image available</Text>
+                                            )}
+                                            {selected.core ? (
+                                                <Text color="$gray10" fontWeight="500">Core: {selected.core}</Text>
+                                            ) : null}
+                                        </>
                                     ) : (
-                                        <Text color="$gray9">No image available</Text>
+                                        <Text color="$gray9">Select a board to see details</Text>
                                     )}
-                                    <YStack alignItems="center" gap="$1">
-                                        <Text fontSize="$6" fontWeight="700" color="$color11">
-                                            {selected?.name}
-                                        </Text>
-                                        {selected?.core ? (
-                                            <Text color="$gray10">Core: {selected.core}</Text>
-                                        ) : null}
-                                    </YStack>
                                 </YStack>
-                            </Tinted>
+                            </YStack>
                         </XStack>
                     )}
                 </>

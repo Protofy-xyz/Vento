@@ -59,6 +59,7 @@ import GPS from './GPS';
 import TCS34725 from './TCS34725';
 import PIDClimate from './PIDClimate';
 import ProtofyXIAOESP32S3devBoard from './ProtofyXIAOESP32S3devBoard';
+import KodeDot from './KodeDot';
 
 const deviceMasks = [
   Wifi,
@@ -119,7 +120,8 @@ const deviceMasks = [
   WK2168,
   GPS,
   TCS34725,
-  PIDClimate
+  PIDClimate,
+  KodeDot
 ]
 
 const masksLength = deviceMasks.length

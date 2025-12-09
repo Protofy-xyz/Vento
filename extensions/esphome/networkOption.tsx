@@ -446,7 +446,7 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
     const loadNetworks = async () => {
         setLoading(true)
         try {
-            const res = await API.get('/api/core/v1/keys?all=1')
+            const res = await API.get('/api/core/v1/settings?all=1')
             if (!res.isError) {
                 const items = res?.data?.items ?? res?.data ?? []
                 const parsed = items
@@ -499,11 +499,11 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
         }
         setSaving(true)
         const keyName = form.key ?? `${wifiPrefix}${slugify(form.ssid) || form.ssid}`
-        const payloadValue = JSON.stringify({ ssid: form.ssid.trim(), password: form.password })
+        const payloadValue = { ssid: form.ssid.trim(), password: form.password }
         try {
-            let res = await API.post(`/api/core/v1/keys/${keyName}`, { name: keyName, value: payloadValue })
+            let res = await API.post(`/api/core/v1/settings/${keyName}`, { name: keyName, value: payloadValue })
             if (res.isError && !res.data) {
-                res = await API.post('/api/core/v1/keys', { name: keyName, value: payloadValue })
+                res = await API.post('/api/core/v1/settings', { name: keyName, value: payloadValue })
             }
 
             if (res.isError) {
@@ -566,7 +566,7 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
     const handleDelete = async (key: string) => {
         setSaving(true)
         try {
-            const res = await API.get(`/api/core/v1/keys/${encodeURIComponent(key)}/delete`)
+            const res = await API.get(`/api/core/v1/settings/${encodeURIComponent(key)}/delete`)
             if (res?.isError) throw new Error(res?.error || 'Delete failed')
             setNetworks(prev => prev.filter(n => n.key !== key))
             if (selectedKey === key) {

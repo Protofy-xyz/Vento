@@ -6,7 +6,7 @@ const initialData = {
         "id": "1",
         "name": "Protofy ESP32 devBoard",
         "core": "esp32",
-        "icon": "/public/images/device/esp32c4.png",
+        "icon": "/public/images/device/esp32-icon.png",
         "image": "/public/images/device/esp32c4.png",
         "ports": [
             { "number": 1, "side": "left", "name": "3V3", "type": "P", "analog": false, "description": "3V3 Power supply", "maxVoltage": 3.3, "rtc": false },
@@ -87,7 +87,7 @@ const initialData = {
         "id": "2",
         "name": "Seeed Studio XIAO ESP32S3",
         "core": "esp32s3",
-        "icon": "/public/images/device/seeed_xiao_esp32s3.png",
+        "icon": "/public/images/device/xiao-icon.png",
         "image": "/public/images/device/seeed_xiao_esp32s3.png",
         "ports": [
             { "number": 1, "side": "left", "name": "44", "type": "IO", "analog": true, "description": "", "maxVoltage": 3.3, "rtc": false },
@@ -150,7 +150,7 @@ const initialData = {
         "id": "3",
         "name": "ESP32 S3 DevKitC",
         "core": "esp32s3",
-        "icon": "/public/images/device/esp32s3-devkitc.png",
+        "icon": "/public/images/device/esp32s3-icon.png",
         "image": "/public/images/device/esp32s3-devkitc.png",
         "ports": [
             { "number": 1, "side": "left", "name": "3V3", "type": "P", "analog": false, "description": "3.3 V power supply", "maxVoltage": 3.3, "rtc": false },
@@ -323,7 +323,7 @@ const initialData = {
         "id": "4",
         "name": "Protofy ESP32S3 devBoard",
         "core": "esp32s3",
-        "icon": "/public/images/device/ProtofyESP32S3devBoard.png",
+        "icon": "/public/vento-square.png",
         "image": "/public/images/device/ProtofyESP32S3devBoard.png",
         "ports": [
             { "number": 1, "side": "left", "name": "44", "type": "IO", "analog": true, "description": "GPIO44, ADC1_CH0", "maxVoltage": 3.3, "rtc": true, "nodeRendering": {"position": { "x": 10, "y": 195 }, "handleSide": "left"} },
@@ -432,7 +432,7 @@ const initialData = {
         "id": "5",
         "name": "Protofy XIAO ESP32S3 devBoard",
         "core": "esp32s3",
-        "icon": "/public/images/device/ProtofyXIAOdevBoard.png",
+        "icon": "/public/vento-square.png",
         "image": "/public/images/device/ProtofyXIAOdevBoard.png",
         "ports": [
             { "number": 1, "side": "left", "name": "43", "type": "IO", "analog": true, "description": "GPIO43, ADC1_CH1", "maxVoltage": 3.3, "rtc": true, "nodeRendering": {"position": { "x": 10, "y": 498 }, "handleSide": "left"} },

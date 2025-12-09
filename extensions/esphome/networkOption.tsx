@@ -288,9 +288,22 @@ const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
                                                         hoverStyle={{ borderColor: '$color7', backgroundColor: '$color2' }}
                                                         transition="all 120ms ease"
                                                     >
-                                                        <Text fontWeight="700" color="$color11">
-                                                            {board.name}
-                                                        </Text>
+                                                        <XStack gap="$3" alignItems="center">
+                                                            {board.icon ? (
+                                                                board.icon.includes('/') || board.icon.startsWith('http') ? (
+                                                                    <img
+                                                                        src={board.icon}
+                                                                        alt={board.name}
+                                                                        style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }}
+                                                                    />
+                                                                ) : (
+                                                                    <PublicIcon name={board.icon} size={22} color="var(--color10)" />
+                                                                )
+                                                            ) : null}
+                                                            <Text fontWeight="700" color="$color11">
+                                                                {board.name}
+                                                            </Text>
+                                                        </XStack>
                                                     </YStack>
                                                 )
                                             })

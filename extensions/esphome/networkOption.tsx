@@ -9,6 +9,7 @@ import { FormInput } from 'protolib/components/FormInput'
 import { useRouter } from 'solito/navigation'
 import { MoreVertical, Pencil, Trash2, Search } from '@tamagui/lucide-icons'
 import type { NetworkOption } from '../network/options'
+import { PublicIcon } from 'protolib/components/IconSelect'
 
 const sourceUrl = '/api/core/v1/devices'
 const definitionsSourceUrl = '/api/core/v1/deviceDefinitions?all=1'
@@ -28,10 +29,13 @@ const SelectGrid = ({ children }) => {
 }
 
 const TemplateSlide = ({ selected, setSelected, definitions }) => {
+    const [search, setSearch] = useState('')
     const templates = [
-        { id: '__none__', name: 'Blank Device', description: 'Create a device without a template', icon: 'cpu' },
+        { id: '__none__', name: 'Blank Device', description: 'Create a device from scratch!', boardIcon: 'cpu', boardImage: undefined },
         ...(definitions?.data?.items || []).map(def => {
             const boardName = typeof def.board === 'string' ? def.board : def.board?.name
+            const boardIcon = typeof def.board === 'object' ? def.board?.icon : undefined
+            const boardImage = typeof def.board === 'object' ? def.board?.image : undefined
             const description = (typeof def.description === 'string' && def.description.trim().length)
                 ? def.description
                 : `Board: ${boardName || 'Unknown'}`
@@ -39,26 +43,153 @@ const TemplateSlide = ({ selected, setSelected, definitions }) => {
                 id: def.name,
                 name: def.name,
                 description,
-                icon: 'circuit-board'
+                boardIcon,
+                boardImage
             }
         })
     ]
 
-    return <YStack>
-        <ScrollView maxHeight={"500px"}>
-            <SelectGrid>
-                {templates.map((template) => (
-                    <TemplateCard
-                        key={template.id}
-                        template={template}
-                        isSelected={selected === template.id}
-                        onPress={() => setSelected(template.id)}
-                    />
-                ))}
-            </SelectGrid>
-        </ScrollView>
-        <Spacer marginBottom="$8" />
-    </YStack>
+    const normalizedQuery = search.trim().toLowerCase()
+    const filteredTemplates = normalizedQuery
+        ? templates.filter((tpl) => {
+            const haystack = `${tpl.name ?? ''} ${tpl.description ?? ''}`.toLowerCase()
+            return haystack.includes(normalizedQuery)
+        })
+        : templates
+    const selectedTemplate =
+        filteredTemplates.find((tpl) => tpl.id === selected) ||
+        (filteredTemplates.length ? filteredTemplates[0] : undefined)
+
+    return (
+        <YStack gap="$3" width="100%">
+            <XStack position="relative">
+                <Search size={18} style={{ position: 'absolute', left: 12, top: 14, opacity: 0.7 }} />
+                <Input
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder="Search templates…"
+                    size="$4"
+                    paddingLeft={40}
+                    backgroundColor="$gray3"
+                    borderColor="$gray6"
+                    borderWidth={1}
+                    outlineColor="$gray8"
+                />
+            </XStack>
+
+            <XStack gap="$4" alignItems="flex-start" width="100%" height={520}>
+                {/* LEFT: list */}
+                <YStack width={380} flexShrink={0} gap="$3" height="100%">
+                    <ScrollView
+                        style={{
+                            width: '100%',
+                            flexShrink: 0,
+                            flexGrow: 0,
+                            minHeight: 360
+                        }}
+                    >
+                        <YStack gap="$2" padding="$1">
+                            {filteredTemplates.length === 0 ? (
+                                <YStack
+                                    padding="$3"
+                                    borderRadius="$4"
+                                    borderWidth={1}
+                                    borderColor="$gray5"
+                                    backgroundColor="$gray2"
+                                >
+                                    <Text color="$gray10">No templates match your search.</Text>
+                                </YStack>
+                            ) : (
+                                filteredTemplates.map((template) => {
+                                    const active = selectedTemplate?.id === template.id
+                                    return (
+                                        <YStack
+                                            key={template.id}
+                                            onPress={() => setSelected(template.id)}
+                                            cursor="pointer"
+                                            padding="$3"
+                                            borderRadius="$4"
+                                            backgroundColor={active ? "$color3" : "$gray2"}
+                                            borderWidth={1}
+                                            borderColor={active ? "$color7" : "$gray5"}
+                                            alignItems="flex-start"
+                                            hoverStyle={{ borderColor: '$color7', backgroundColor: '$color2' }}
+                                            transition="all 120ms ease"
+                                        >
+                                            <XStack gap="$3" alignItems="center">
+                                                {template.boardIcon ? (
+                                                    template.boardIcon.includes('/') || template.boardIcon.startsWith('http') ? (
+                                                        <img
+                                                            src={template.boardIcon}
+                                                            alt={template.name}
+                                                            style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }}
+                                                        />
+                                                    ) : (
+                                                        <PublicIcon name={template.boardIcon} size={22} color="var(--color10)" />
+                                                    )
+                                                ) : null}
+                                                <Text fontWeight="700" color="$color11">
+                                                    {template.name}
+                                                </Text>
+                                            </XStack>
+                                        </YStack>
+                                    )
+                                })
+                            )}
+                        </YStack>
+                    </ScrollView>
+                </YStack>
+
+                {/* RIGHT: preview */}
+                <YStack
+                    flex={1}
+                    height="100%"
+                    backgroundColor="$gray2"
+                    borderWidth={1}
+                    borderColor="$gray4"
+                    borderRadius="$4"
+                    padding="$4"
+                >
+                    <ScrollView style={{ width: '100%' }}>
+                        <YStack gap="$3" alignItems="flex-start" paddingBottom="$2">
+                            {selectedTemplate ? (
+                                <>
+                                    <Text fontSize="$7" fontWeight="700" color="$color11">
+                                        {selectedTemplate.name}
+                                    </Text>
+                                    {(selectedTemplate as any)?.boardImage || (selectedTemplate as any)?.image ? (
+                                        <img
+                                            src={(selectedTemplate as any).boardImage || (selectedTemplate as any).image}
+                                            alt={selectedTemplate.name}
+                                            style={{
+                                                width: 440,
+                                                maxWidth: "100%",
+                                                height: "auto",
+                                                maxHeight: 320,
+                                                objectFit: "contain",
+                                                borderRadius: 10,
+                                                display: "block"
+                                            }}
+                                        />
+                                    ) : null}
+                                    {selectedTemplate.description ? (
+                                        <Text color="$gray10" fontSize="$4">
+                                            {selectedTemplate.description}
+                                        </Text>
+                                    ) : (
+                                        <Text color="$gray9">No description available.</Text>
+                                    )}
+                                </>
+                            ) : (
+                                <Text color="$gray9">Select a template to see details</Text>
+                            )}
+                        </YStack>
+                    </ScrollView>
+                </YStack>
+            </XStack>
+            <Spacer marginBottom="$8" />
+        </YStack>
+    )
 }
 
 const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
@@ -74,6 +205,7 @@ const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
             name: board.name,
             core: board.core,
             image: board.image,
+            icon: board.icon
         }))
         .sort((a, b) => a.name.localeCompare(b.name))
 

@@ -14,6 +14,7 @@ const Seeed_xiao_esp32s3 = ({ node = {}, nodeData = {}, topics = {}, color }: an
     const edges = useEdges();
     const metadata = useFlowsStore(state => state.metadata)
     const ports = metadata.board.ports
+    const boardImage = metadata?.board?.image ?? '/public/vento-logo.png';
     const portsDescriptions = ports.map(port => {
         return {
             name: port.name,
@@ -35,7 +36,7 @@ const Seeed_xiao_esp32s3 = ({ node = {}, nodeData = {}, topics = {}, color }: an
     return (
         <Node output={false} skipCustom={true} node={node} color={color} isPreview={!id} title='XIAO ESP32S3' id={id} margin='200px' >
             <div style={{ marginTop: '20px', marginBottom: '20px' }}>
-                <img src={"/public/images/device/seeed_xiao_esp32s3.png"} style={{ width: "222px" }} />
+                <img src={boardImage} style={{ width: "222px" }} />
             </div>
             {/* //TODO Get ports from device definition */}
             {Array(ports.length).fill(1).map((x, i) => {

@@ -155,6 +155,7 @@ const ProtofyXIAOESP32S3devBoard = ({ node = {}, nodeData = {}, topics = {}, col
   const edges = useEdges();
   const metadata = useFlowsStore((state: any) => state.metadata);
   const ports: Port[] = metadata.board.ports;
+  const boardImage = metadata?.board?.image ?? '/public/vento-logo.png';
 
   // Theme colors
   const plusColor = useTheme("plusColor");
@@ -209,7 +210,7 @@ const ProtofyXIAOESP32S3devBoard = ({ node = {}, nodeData = {}, topics = {}, col
     >
       <div style={{ marginTop: "20px", marginBottom: "80px" }}>
         <img
-          src={"/public/images/device/ProtofyXIAOdevBoard.png"}
+          src={boardImage}
           style={{ width: "800px" }}
         />
         <div

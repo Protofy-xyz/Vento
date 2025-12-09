@@ -14,6 +14,7 @@ const Esp32s3devkitc1 = ({ node = {}, nodeData = {}, topics = {}, color }: any) 
     const edges = useEdges();
     const metadata = useFlowsStore(state => state.metadata)
     const ports = metadata.board.ports
+    const boardImage = metadata?.board?.image ?? '/public/vento-logo.png';
     const portsDescriptions = ports.map(port => {
         return {
             name: port.name,
@@ -35,7 +36,7 @@ const Esp32s3devkitc1 = ({ node = {}, nodeData = {}, topics = {}, color }: any) 
     return (
         <Node output={false} skipCustom={true} node={node} color={color} isPreview={!id} title='ESP32' id={id} margin='200px' >
             <div style={{ marginTop: '20px', marginBottom: '20px' }}>
-                <img src={'/public/images/device/esp32s3-devkitc.png'} style={{ width: "268px" }} />
+                <img src={boardImage} style={{ width: "268px" }} />
             </div>
             {Array(ports.length).fill(1).map((x, i) => {
                 if (["I", "O", "IO"].includes(ports[i].type)) {                    

@@ -3,6 +3,8 @@ import { AutoModel, ProtoModel, Schema, SessionDataType, z } from 'protobase'
 export const DeviceBoardSchema = Schema.object({
   name: z.string().hint("ESP32S3, CHUWI, Arduino UNO...").static().id().search(),
   core: z.string().hidden().search(),
+  icon: z.string().optional(),
+  image: z.string().optional(),
   ports: z.array(z.record(z.string(), z.any())),
   config: z.record(z.string(), z.any()),
 })

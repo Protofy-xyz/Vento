@@ -531,6 +531,11 @@ export const ActionCard = ({
   ), [setData, id, data, displayResponse, name, params, onRun, icon, color, html, value])
 
   const handleDoubleClick = (e: any) => {
+    // Don't open settings if double-clicking on interactive elements
+    const tagName = e.target?.tagName?.toLowerCase()
+    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || tagName === 'button') {
+      return // Let the default behavior happen
+    }
     e.stopPropagation()
     onEdit(data?.editorOptions?.defaultTab ?? "params")
   }

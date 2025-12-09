@@ -13,7 +13,6 @@ import { useThemeName } from '@my/ui'
 const Home = () => {
   const initParticles = useSetAtom(initParticlesAtom)
   const themeName = useThemeName()
-  const isDark = typeof themeName === 'string' && themeName.toLowerCase().includes('dark')
 
   useEffect(() => {
     initParticles()
@@ -68,7 +67,7 @@ const Home = () => {
               alt="Vento logo"
               style={{
                 width: '240px',
-                filter: isDark ? 'invert(1)' : 'invert(0)',
+                filter:  themeName?.startsWith("dark") ? "invert(90%)" : "invert(5%)",
                 animation: 'float 5s ease-in-out infinite',
                 marginBottom: '2.5rem',
               }}

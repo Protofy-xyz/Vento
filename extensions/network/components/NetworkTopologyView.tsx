@@ -16,6 +16,7 @@ import '@xyflow/react/dist/style.css'
 import { YStack, Text, XStack, Spinner, Image, useThemeName } from '@my/ui'
 import { shouldShowInArea } from 'protolib/helpers/Visibility'
 import { NetworkCard, getIconForPlatform } from './NetworkCard'
+import { Plus } from '@tamagui/lucide-icons'
 
 const CFG = {
   VENTO_NODE_SIZE: { width: 100, height: 100 },
@@ -39,7 +40,7 @@ function getEdgeParams(sourceNode: any, targetNode: any, sourceSize: { width: nu
   const dx = targetCenterX - sourceCenterX
   const dy = targetCenterY - sourceCenterY
   const angle = Math.atan2(dy, dx)
-  
+
   let sx: number, sy: number, sourcePosition: Position
   let tx: number, ty: number, targetPosition: Position
 
@@ -48,7 +49,7 @@ function getEdgeParams(sourceNode: any, targetNode: any, sourceSize: { width: nu
     const radius = sourceSize.width / 2
     sx = sourceCenterX + Math.cos(angle) * radius
     sy = sourceCenterY + Math.sin(angle) * radius
-    
+
     // Determine position for bezier curve direction
     const angleDeg = (angle * 180) / Math.PI
     if (angleDeg >= -45 && angleDeg < 45) sourcePosition = Position.Right
@@ -81,14 +82,14 @@ function getRectIntersectionPoint(
   const cy = ry + rh / 2
   const dx = px - cx
   const dy = py - cy
-  
+
   const angle = Math.atan2(dy, dx)
   const absCos = Math.abs(Math.cos(angle))
   const absSin = Math.abs(Math.sin(angle))
-  
+
   let x: number, y: number
   let position: Position
-  
+
   if (rw / 2 * absSin <= rh / 2 * absCos) {
     // Intersects left or right side
     x = dx > 0 ? rx + rw : rx
@@ -100,7 +101,7 @@ function getRectIntersectionPoint(
     y = dy > 0 ? ry + rh : ry
     position = dy > 0 ? Position.Bottom : Position.Top
   }
-  
+
   return { x, y, position }
 }
 
@@ -118,9 +119,9 @@ const hashString = (str: string) => {
 const FloatingEdge = memo(({ id, source, target, data, style }: any) => {
   const sourceNode = useInternalNode(source)
   const targetNode = useInternalNode(target)
-  
+
   const isConnected = data?.connected === true
-  const strokeColor = isConnected ? 'var(--green9)' : 'var(--gray7)'
+  const strokeColor = isConnected ? 'var(--green9)' : 'var(--gray9)'
 
   // Using negative begin makes the animation start as if it's already been running
   const offset = useMemo(() => {
@@ -156,21 +157,20 @@ const FloatingEdge = memo(({ id, source, target, data, style }: any) => {
         id={id}
         d={edgePath}
         stroke={strokeColor}
-        strokeWidth={1}
+        strokeWidth={2}
         strokeDasharray={'6 4'}
         fill="none"
-        style={{ 
-          opacity: isConnected ? 1 : 0.5,
+        style={{
           filter: isConnected ? 'drop-shadow(0 0 3px var(--green9))' : undefined,
           ...style
         }}
       />
       {isConnected && (
         <circle r="3" fill="var(--green9)">
-          <animateMotion 
+          <animateMotion
             dur="3s"
             begin={`${offset}s`}
-            repeatCount="indefinite" 
+            repeatCount="indefinite"
             path={edgePath}
             keyPoints="0;1;0"
             keyTimes="0;0.5;1"
@@ -186,7 +186,7 @@ const FloatingEdge = memo(({ id, source, target, data, style }: any) => {
 const VentoNode = memo(({ data }: { data: any }) => {
   const themeName = useThemeName()
   const isDark = themeName?.startsWith('dark')
-  
+
   return (
     <YStack
       width={CFG.VENTO_NODE_SIZE.width}
@@ -212,25 +212,25 @@ const VentoNode = memo(({ data }: { data: any }) => {
       >
         <Text fontSize={9} fontWeight="700" color="white">ONLINE</Text>
       </YStack>
-      
+
       {/* Vento Logo */}
       <Image
         src="/public/vento-square.png"
         alt="Vento"
         width={"$5"}
         height={"$5"}
-        style={{ 
+        style={{
           filter: isDark ? 'invert(70%) brightness(10)' : 'invert(5%)',
           objectFit: 'contain'
         }}
       />
-      
+
       {/* Invisible handle for floating edges (required by ReactFlow) */}
-      <Handle 
-        type="source" 
-        position={Position.Right} 
+      <Handle
+        type="source"
+        position={Position.Right}
         id="source"
-        style={{ opacity: 0, pointerEvents: 'none' }} 
+        style={{ opacity: 0, pointerEvents: 'none' }}
       />
     </YStack>
   )
@@ -240,7 +240,7 @@ const VentoNode = memo(({ data }: { data: any }) => {
 const DeviceNode = memo(({ data, selected }: { data: any; selected?: boolean }) => {
   // Ensure connected is explicitly boolean to match edge state
   const isConnected = data.connected === true
-  
+
   return (
     <NetworkCard
       board={data.originalData}
@@ -254,7 +254,46 @@ const DeviceNode = memo(({ data, selected }: { data: any; selected?: boolean }) 
   )
 })
 
-const nodeTypes = { vento: VentoNode, device: DeviceNode }
+// Add node - shown when network is empty or only has computer
+const AddNode = memo(({ data }: { data: any }) => {
+  return (
+    <YStack
+      width={CFG.DEVICE_NODE_SIZE.width}
+      padding="$3"
+      height={CFG.DEVICE_NODE_SIZE.height}
+      br="$4"
+      cursor="pointer"
+      ai="center"
+      jc="center"
+      gap="$2"
+      // @ts-ignore
+      style={{
+        backgroundColor: 'var(--bgContent)',
+        border: '2px dashed var(--gray9)',
+      }}
+      hoverStyle={{
+        scale: 1.01,
+        boxShadow: '0 0 20px var(--gray5)',
+      }}
+      pressStyle={{
+        scale: 0.98,
+      }}
+    >
+      <Plus size={30} color="$color11" strokeWidth={2} />
+      <Text fontSize="$4" color="$color11">
+        Add Element to Network
+      </Text>
+      <Handle
+        type="target"
+        position={data.handlePosition || Position.Left}
+        id="target"
+        style={{ opacity: 0, pointerEvents: 'none' }}
+      />
+    </YStack>
+  )
+})
+
+const nodeTypes = { vento: VentoNode, device: DeviceNode, add: AddNode }
 const edgeTypes = { floating: FloatingEdge }
 
 // Get handle position based on angle (for device nodes - still needed for the card's handle)
@@ -267,10 +306,11 @@ const getHandlePosition = (angle: number): Position => {
 
 type NetworkTopologyViewProps = {
   onNodeClick?: (node: any) => void
+  onAddClick?: () => void
   showAll?: boolean
 }
 
-export const NetworkTopologyView = memo(({ onNodeClick, showAll = false }: NetworkTopologyViewProps) => {
+export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, showAll = false }: NetworkTopologyViewProps) => {
   const [boards, setBoards] = useState<any[]>([])
   const [devices, setDevices] = useState<any[]>([])
   const [deviceStates, setDeviceStates] = useState<Record<string, any>>({})
@@ -286,14 +326,14 @@ export const NetworkTopologyView = memo(({ onNodeClick, showAll = false }: Netwo
           API.get('/api/core/v1/boards?all=true'),
           API.get('/api/core/v1/devices?all=true'),
         ])
-        
+
         if (!boardsRes.isError && boardsRes.data?.items) {
           setBoards(boardsRes.data.items)
         }
-        
+
         if (!devicesRes.isError && devicesRes.data?.items) {
           setDevices(devicesRes.data.items)
-          
+
           // Fetch connection states for each device
           const states: Record<string, any> = {}
           for (const device of devicesRes.data.items) {
@@ -314,9 +354,9 @@ export const NetworkTopologyView = memo(({ onNodeClick, showAll = false }: Netwo
         setLoading(false)
       }
     }
-    
+
     fetchData()
-    
+
     // Refresh every 10 seconds
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
@@ -332,7 +372,7 @@ export const NetworkTopologyView = memo(({ onNodeClick, showAll = false }: Netwo
   const { nodes, edges } = useMemo(() => {
     const allNodes: any[] = []
     const allEdges: any[] = []
-    
+
     // Central Vento node
     allNodes.push({
       id: 'vento-hub',
@@ -345,13 +385,13 @@ export const NetworkTopologyView = memo(({ onNodeClick, showAll = false }: Netwo
     // Separate boards into visible and hidden
     const visibleBoards: any[] = []
     const hiddenBoards: any[] = []
-    
+
     boards.forEach(b => {
       // Skip device boards
       if (devices.some(d => d.name === b.name || `${d.name}_device` === b.name)) return
-      
+
       const isVisibleInAgents = shouldShowInArea(b, 'agents')
-      
+
       if (isVisibleInAgents) {
         visibleBoards.push(b)
       } else if (showAll) {
@@ -396,6 +436,23 @@ export const NetworkTopologyView = memo(({ onNodeClick, showAll = false }: Netwo
       })),
     ]
 
+    const isOnlyComputer = networkElements.length === 1 &&
+      devices.length === 1 &&
+      (devices[0].platform === 'desktop' || devices[0].name === 'computer')
+    const shouldShowAddNode = networkElements.length === 0 || isOnlyComputer
+
+    if (shouldShowAddNode) {
+      networkElements.unshift({
+        id: 'add-node',
+        name: 'add',
+        type: 'add',
+        platform: 'add',
+        connected: false, 
+        isHidden: false,
+        originalData: null,
+      })
+    }
+
     // Position elements in a circle around Vento
     const count = networkElements.length
     if (count === 0) return { nodes: allNodes, edges: allEdges }
@@ -406,16 +463,19 @@ export const NetworkTopologyView = memo(({ onNodeClick, showAll = false }: Netwo
     networkElements.forEach((element, index) => {
       const angle = startAngle + index * angleStep
       const angleDeg = (angle * 180) / Math.PI
-      
+
       // All nodes use the same radius and size now
       const x = Math.cos(angle) * CFG.RADIUS - CFG.DEVICE_NODE_SIZE.width / 2
       const y = Math.sin(angle) * CFG.RADIUS - CFG.DEVICE_NODE_SIZE.height / 2
 
       const handlePosition = getHandlePosition(angleDeg)
 
+      // Use 'add' type for the add node, 'device' for everything else
+      const nodeType = element.type === 'add' ? 'add' : 'device'
+
       allNodes.push({
         id: element.id,
-        type: 'device',
+        type: nodeType,
         position: { x, y },
         data: {
           label: element.name,
@@ -453,10 +513,12 @@ export const NetworkTopologyView = memo(({ onNodeClick, showAll = false }: Netwo
   }, [edges, setEdgesState])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
-    if (node.id !== 'vento-hub' && onNodeClick) {
+    if (node.id === 'add-node' && onAddClick) {
+      onAddClick()
+    } else if (node.id !== 'vento-hub' && onNodeClick) {
       onNodeClick(node.data)
     }
-  }, [onNodeClick])
+  }, [onNodeClick, onAddClick])
 
   // Calculate viewport to center the graph
   const defaultViewport = useMemo(() => {

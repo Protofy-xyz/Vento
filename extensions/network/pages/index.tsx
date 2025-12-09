@@ -130,15 +130,21 @@ export default {
         }
       }, [router])
 
+      // Handler for Add node click
+      const handleAddClick = useCallback(() => {
+        setAddOpen(true)
+      }, [])
+
       // Memoize extraViews to prevent re-renders of NetworkTopologyView
       const extraViews = useMemo(() => [{
         name: 'topology',
         icon: Network,
         component: () => <NetworkTopologyView 
           showAll={query.all === 'true'}
-          onNodeClick={handleNodeClick} 
+          onNodeClick={handleNodeClick}
+          onAddClick={handleAddClick}
         />,
-      }], [query.all, handleNodeClick])
+      }], [query.all, handleNodeClick, handleAddClick])
 
       // Memoize extraActions
       const extraActions = useMemo(() => [

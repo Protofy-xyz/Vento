@@ -10,9 +10,7 @@ const sourceUrl = '/api/core/v1/keys'
 export default {
   'keys': {
     component: ({ pageState, initialItems, pageSession, extraData }: any) => {
-      usePrompt(() => ``+ (
-          initialItems?.isLoaded ? 'Currently the system returned the following information: ' + JSON.stringify(initialItems.data) : ''
-        ))
+      usePrompt(() => ``)
 
       return (<AdminPage title="Keys" pageSession={pageSession}>
         <DataView

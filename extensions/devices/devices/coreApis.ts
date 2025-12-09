@@ -408,7 +408,8 @@ function Widget(card) {
             tags: ["network"],
             autopilot: false,
             icon: 'router',
-            savedAt: Date.now()
+            savedAt: Date.now(),
+            ...(deviceName ? { associated_device: deviceName } : {})
         };
 
         await API.post(`/api/core/v1/boards?token=${token}`, payload);
@@ -984,27 +985,49 @@ export default (app, context) => {
 
     registerActions()
 
+    const resolveAssociatedDevice = async (boardName: string, message: any) => {
+        // Try payload first (if deletion event sends board data)
+        try {
+            const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+            if (parsed && typeof parsed === 'object' && parsed.associated_device) {
+                return String(parsed.associated_device);
+            }
+        } catch {
+            // ignore parse errors
+        }
+
+        // Try reading the board file (if still on disk)
+        const boardFile = fspath.join(process.cwd(), 'data', 'boards', `${boardName}.json`);
+        if (fs.existsSync(boardFile)) {
+            try {
+                const content = JSON.parse(fs.readFileSync(boardFile, 'utf8'));
+                if (content?.associated_device) {
+                    return String(content.associated_device);
+                }
+            } catch {
+                // ignore
+            }
+        }
+
+        // Fallback: legacy behavior (board name equals device name)
+        return boardName || null;
+    };
+
     // When a board is deleted, also delete the associated device
     // This is safe now because boards are NOT regenerated automatically anymore
-    topicSub(mqtt, 'boards/delete/#', async (message, topic) => {
+    topicSub(mqtt, 'notifications/board/delete/#', async (message, topic) => {
         try {
-            const boardName = topic.replace('boards/delete/', '')
+            const boardName = topic.replace('notifications/board/delete/', '')
             if (!boardName) return
-            
-            const db = getDB('devices')
-            // Check if there's a device with this name
+            const associatedDevice = await resolveAssociatedDevice(boardName, message);
+            if (!associatedDevice) return;
+
+            const token = getServiceToken();
             try {
-                const deviceData = await db.get(boardName)
-                if (deviceData) {
-                    const deviceInfo = DevicesModel.load(JSON.parse(deviceData))
-                    // Delete actions and cards
-                    await deleteDeviceActions(deviceInfo.data.name)
-                    // Delete the device file
-                    await db.del(boardName, deviceData)
-                    logger.info({ deviceName: boardName }, 'Deleted device because its board was deleted')
-                }
+                await API.get(`/api/core/v1/devices/${encodeURIComponent(associatedDevice)}/delete?token=${token}`);
+                logger.info({ boardName, deviceName: associatedDevice }, 'Deleted device via API because its board was deleted');
             } catch (err) {
-                // Device doesn't exist, that's fine
+                logger.error({ boardName, deviceName: associatedDevice, err }, 'Failed to delete device via API after board deletion');
             }
         } catch (err) {
             logger.error({ err, topic }, 'Error handling board delete')

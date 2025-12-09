@@ -1,11 +1,147 @@
 import React, { useState, useEffect } from 'react'
 import { YStack, XStack, Button, Text, Stack, useToastController, Spinner } from "@my/ui"
 import { Tinted } from 'protolib/components/Tinted'
-import { Copy, Check, Smartphone, Download, QrCode } from '@tamagui/lucide-icons'
+import { Copy, Check, Smartphone, Download, QrCode, Wifi, AlertCircle, CheckCircle } from '@tamagui/lucide-icons'
 import { API } from 'protobase'
 import { useSession } from 'protolib/lib/useSession'
 import QRCode from 'react-qr-code'
 import type { NetworkOption } from '../network/options'
+
+// Slide 0: Network Verification
+const NetworkVerificationSlide = ({ networkInfo, loading }) => {
+    if (loading) {
+        return (
+            <YStack flex={1} alignItems="center" justifyContent="center" gap="$4">
+                <Tinted>
+                    <Spinner size="large" color="$color9" />
+                </Tinted>
+                <Text color="$gray11">Detecting network...</Text>
+            </YStack>
+        )
+    }
+
+    return (
+        <YStack alignItems="center" gap="$6" paddingVertical="$4">
+            {/* WiFi Icon */}
+            <Tinted>
+                <YStack 
+                    backgroundColor="$color3" 
+                    padding="$6" 
+                    borderRadius={100}
+                    alignItems="center"
+                    justifyContent="center"
+                    borderWidth={2}
+                    borderColor="$color6"
+                >
+                    <Wifi size={64} color="var(--color9)" />
+                </YStack>
+            </Tinted>
+
+            {/* Instructions */}
+            <YStack alignItems="center" gap="$2" maxWidth={500}>
+                <Tinted>
+                    <XStack alignItems="center" gap="$2">
+                        <Wifi size={20} color="var(--color9)" />
+                        <Text fontSize="$5" fontWeight="600" textAlign="center" color="$color11">
+                            Verify WiFi Connection
+                        </Text>
+                    </XStack>
+                </Tinted>
+                <Text fontSize="$3" color="$gray11" textAlign="center">
+                    Make sure your Android device is connected to the same WiFi network as Vento.
+                </Text>
+            </YStack>
+
+            {/* Network Info Box */}
+            <Tinted>
+                <YStack 
+                    backgroundColor="$color3" 
+                    padding="$4" 
+                    borderRadius="$4" 
+                    width="100%"
+                    maxWidth={500}
+                    gap="$3"
+                    borderWidth={1}
+                    borderColor="$color6"
+                >
+                    <XStack alignItems="center" gap="$2">
+                        <CheckCircle size={18} color="var(--color9)" />
+                        <Text fontSize="$4" fontWeight="600" color="$color11">
+                            Vento Network Information
+                        </Text>
+                    </XStack>
+                    
+                    <YStack gap="$2" paddingLeft="$6">
+                        {networkInfo?.interface && (
+                            <XStack gap="$2">
+                                <Text fontSize="$3" color="$color10" width={100}>Interface:</Text>
+                                <Text fontSize="$3" color="$color12" fontFamily="$mono">{networkInfo.interface}</Text>
+                            </XStack>
+                        )}
+                        {networkInfo?.ip && (
+                            <XStack gap="$2">
+                                <Text fontSize="$3" color="$color10" width={100}>IP Address:</Text>
+                                <Text fontSize="$3" color="$color12" fontFamily="$mono">{networkInfo.ip}</Text>
+                            </XStack>
+                        )}
+                        {networkInfo?.baseUrl && (
+                            <XStack gap="$2">
+                                <Text fontSize="$3" color="$color10" width={100}>Server URL:</Text>
+                                <Text fontSize="$3" color="$color12" fontFamily="$mono" numberOfLines={1}>{networkInfo.baseUrl}</Text>
+                            </XStack>
+                        )}
+                    </YStack>
+                </YStack>
+            </Tinted>
+
+            {/* Remote control info note */}
+            <YStack 
+                backgroundColor="$gray3" 
+                padding="$3" 
+                borderRadius="$3" 
+                width="100%"
+                maxWidth={500}
+                borderWidth={1}
+                borderColor="$gray6"
+            >
+                <XStack alignItems="flex-start" gap="$2">
+                    <Smartphone size={16} color="var(--gray11)" marginTop={2} />
+                    <YStack flex={1} gap="$1">
+                        <Text fontSize="$2" fontWeight="600" color="$gray11">
+                            Remote Control Capabilities
+                        </Text>
+                        <Text fontSize="$2" color="$gray11">
+                            The Vento client app enables remote control features such as camera access, 
+                            screenshots, location tracking, and shell commands. These capabilities are 
+                            essential for Vento to work as intended, but please be aware that your device 
+                            can be controlled remotely once connected. You can always deny permissions when 
+                            prompted or revoke them later in your device settings if you no longer wish to use them.
+                        </Text>
+                    </YStack>
+                </XStack>
+            </YStack>
+
+            {/* Warning box */}
+            <YStack 
+                backgroundColor="$yellow3" 
+                padding="$3" 
+                borderRadius="$3" 
+                width="100%"
+                maxWidth={500}
+                borderWidth={1}
+                borderColor="$yellow6"
+            >
+                <XStack alignItems="flex-start" gap="$2">
+                    <AlertCircle size={16} color="var(--yellow11)" marginTop={2} />
+                    <Text fontSize="$2" color="$yellow11" flex={1}>
+                        Your phone must be on the same WiFi network to scan the QR codes and connect. 
+                        Check your phone's WiFi settings before continuing.
+                    </Text>
+                </XStack>
+            </YStack>
+        </YStack>
+    )
+}
 
 // Slide 1: Download APK
 const DownloadSlide = ({ apkUrl, networkInfo, loading, onCopy, copied }) => {
@@ -42,7 +178,7 @@ const DownloadSlide = ({ apkUrl, networkInfo, loading, onCopy, copied }) => {
                 <XStack alignItems="center" gap="$2">
                     <Download size={20} color="var(--color9)" />
                     <Text fontSize="$5" fontWeight="600" textAlign="center">
-                        Step 1: Download Vento Client
+                        Step 2: Download Vento Client
                     </Text>
                 </XStack>
                 <Text fontSize="$3" color="$gray11" textAlign="center">
@@ -121,7 +257,7 @@ const ConnectSlide = ({ connectUrl, loading, onCopy, copied }) => {
                 <XStack alignItems="center" gap="$2">
                     <QrCode size={20} color="var(--color9)" />
                     <Text fontSize="$5" fontWeight="600" textAlign="center">
-                        Step 2: Connect to Vento
+                        Step 3: Connect to Vento
                     </Text>
                 </XStack>
                 <Text fontSize="$3" color="$gray11" textAlign="center">
@@ -150,6 +286,7 @@ const ConnectSlide = ({ connectUrl, loading, onCopy, copied }) => {
 }
 
 const slides = [
+    { name: "Network Check", title: "Verify WiFi Connection" },
     { name: "Download App", title: "Download Vento Client" },
     { name: "Connect", title: "Connect Your Device" }
 ]
@@ -230,12 +367,12 @@ const AndroidWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
     }, [session])
 
     const handleCopy = async () => {
-        const urlToCopy = step === 0 ? apkUrl : connectUrl
+        const urlToCopy = step === 1 ? apkUrl : connectUrl
         try {
             await navigator.clipboard.writeText(urlToCopy)
             setCopied(true)
             toast.show('Copied!', {
-                message: step === 0 ? 'Download link copied' : 'Connection URL copied'
+                message: step === 1 ? 'Download link copied' : 'Connection URL copied'
             })
             setTimeout(() => setCopied(false), 2000)
         } catch (err) {
@@ -282,6 +419,12 @@ const AndroidWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
 
             <Stack flex={1} marginTop={"$4"}>
                 {step === 0 && (
+                    <NetworkVerificationSlide 
+                        networkInfo={networkInfo} 
+                        loading={loading}
+                    />
+                )}
+                {step === 1 && (
                     <DownloadSlide 
                         apkUrl={apkUrl} 
                         networkInfo={networkInfo} 
@@ -290,7 +433,7 @@ const AndroidWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                         copied={copied}
                     />
                 )}
-                {step === 1 && (
+                {step === 2 && (
                     <ConnectSlide 
                         connectUrl={connectUrl} 
                         loading={loading || !connectUrl}

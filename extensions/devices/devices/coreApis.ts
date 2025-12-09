@@ -15,6 +15,7 @@ import { connect as mqttConnect, IClientOptions } from 'mqtt';
 import protoInfraUrls from "@extensions/protoinfra/utils/protoInfraUrls";
 import { randomUUID } from 'crypto';
 import { getTemplate, TemplatesDir } from "@extensions/boards/system/boards";
+import { buildCardLabel } from "./cardLabeling";
 
 const PER_PARAM_ROWS = 1; // tweak as needed (extra grid rows per visible param)
 
@@ -662,7 +663,14 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                     templateName: deviceInfo.data.name + ' ' + subsystem.name + ' device value',
                     name: subsystem.name,
                     defaults: {
-                        label: monitor.label,
+                        label: buildCardLabel({
+                            platform: deviceInfo.data.platform,
+                            deviceName: deviceInfo.data.name,
+                            subsystemName: subsystem.name,
+                            monitorName: monitor.name,
+                            baseLabel: monitor.label,
+                            type: 'monitor',
+                        }),
                         name: deviceInfo.data.name + ' ' + subsystem.name,
                         description: monitor.description ?? "",
                         rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
@@ -684,7 +692,14 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                     templateName: deviceInfo.data.name + ' ' + monitor.name + ' device value',
                     name: monitor.name,
                     defaults: {
-                        label: monitor.label,
+                        label: buildCardLabel({
+                            platform: deviceInfo.data.platform,
+                            deviceName: deviceInfo.data.name,
+                            subsystemName: subsystem.name,
+                            monitorName: monitor.name,
+                            baseLabel: monitor.label,
+                            type: 'monitor',
+                        }),
                         name: deviceInfo.data.name + ' ' + monitor.name,
                         description: monitor.description ?? "",
                         rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
@@ -769,7 +784,14 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                     const paramsForDefaults = action.payload?.value ? {} : getParams(params);
 
                     return {
-                        label: action.label,
+                        label: buildCardLabel({
+                            platform: deviceInfo.data.platform,
+                            deviceName: deviceInfo.data.name,
+                            subsystemName: subsystem.name,
+                            actionName: action.name,
+                            baseLabel: action.label,
+                            type: 'action',
+                        }),
                         width: cardWidth,
                         height: cardHeight + (action.mode === 'request-reply' ? 2 : 0),
                         icon: iconFromAction,

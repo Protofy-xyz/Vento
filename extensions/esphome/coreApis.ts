@@ -1,8 +1,15 @@
 import { API, getLogger } from 'protobase';
 import { getDeviceToken, getServiceToken } from 'protonode';
 import { DevicesModel } from '@extensions/devices/devices/devicesSchemas';
+import { registerCardLabelFormatter } from '@extensions/devices/devices/cardLabeling';
 
 const logger = getLogger();
+
+registerCardLabelFormatter('esphome', ({ subsystemName, baseLabel, actionName, monitorName }) => {
+  const base = baseLabel || actionName || monitorName;
+  if (!base) return undefined;
+  return subsystemName ? `${subsystemName} - ${base}` : base;
+});
 
 const slugify = (value?: string) =>
   (value || '')

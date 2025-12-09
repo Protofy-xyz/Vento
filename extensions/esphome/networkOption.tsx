@@ -67,15 +67,17 @@ const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
     setSelectedBoard: (value: string) => void,
     error?: string
 }) => {
-    const templates = (boards?.data?.items || []).map(board => ({
+    const boardList = (boards?.data?.items || []).map((board) => ({
         id: board.name,
         name: board.name,
-        description: board.core ? `Core: ${board.core}` : '',
-        icon: 'circuit-board'
+        core: board.core,
+        image: board.image,
     }))
 
+    const selected = boardList.find((b) => b.id === selectedBoard) || boardList[0]
+
     return (
-        <YStack gap="$3" mb="$4">
+        <YStack gap="$3" mb="$4" width="100%">
             {error ? <Text color="$red9" fontSize="$2">{error}</Text> : null}
             {!boards?.isLoaded ? (
                 <XStack alignItems="center" gap="$2">
@@ -83,21 +85,93 @@ const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
                 </XStack>
             ) : (
                 <>
-                    {templates.length === 0 ? (
+                    {boardList.length === 0 ? (
                         <Text color="$gray11">No boards found. Please create a board first.</Text>
                     ) : (
-                        <ScrollView maxHeight={"500px"}>
-                            <SelectGrid>
-                                {templates.map((board) => (
-                                    <TemplateCard
-                                        key={board.id}
-                                        template={board}
-                                        isSelected={selectedBoard === board.id}
-                                        onPress={() => setSelectedBoard(board.id)}
-                                    />
-                                ))}
-                            </SelectGrid>
-                        </ScrollView>
+                        <XStack
+                            gap="$4"
+                            maxHeight={500}
+                            alignItems="flex-start"
+                            width="100%"
+                        >
+                            {/* LEFT: list */}
+                            <ScrollView
+                                style={{
+                                    width: 320,
+                                    flexShrink: 0,
+                                    flexGrow: 0,
+                                }}
+                            >
+                                <YStack gap="$2" padding="$1">
+                                    {boardList.map((board) => {
+                                        const active = selected?.id === board.id
+                                        return (
+                                            <Tinted key={board.id}>
+                                                <XStack
+                                                    onPress={() => setSelectedBoard(board.id)}
+                                                    cursor="pointer"
+                                                    padding="$3"
+                                                    borderRadius="$3"
+                                                    backgroundColor={active ? "$color3" : "transparent"}
+                                                    borderWidth={active ? "$1" : "$0.5"}
+                                                    borderColor={active ? "$color7" : "$gray7"}
+                                                    alignItems="center"
+                                                    gap="$3"
+                                                >
+                                                    <Text fontWeight="600" color="$color11">
+                                                        {board.name}
+                                                    </Text>
+                                                </XStack>
+                                            </Tinted>
+                                        )
+                                    })}
+                                </YStack>
+                            </ScrollView>
+
+                            {/* RIGHT: preview */}
+                            <Tinted
+                                flex={0}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                }}
+                            >
+                                <YStack
+                                    padding="$4"
+                                    gap="$4"
+                                    borderRadius="$3"
+                                    justifyContent="center"
+                                    alignItems="center"
+                                >
+                                    {selected?.image ? (
+                                        <img
+                                            src={selected.image}
+                                            alt={selected.name}
+                                            style={{
+                                                width: 420,
+                                                maxWidth: "100%",
+                                                height: "auto",
+                                                maxHeight: 320,
+                                                objectFit: "contain",
+                                                borderRadius: 12,
+                                                display: "block",
+                                            }}
+                                        />
+                                    ) : (
+                                        <Text color="$gray9">No image available</Text>
+                                    )}
+                                    <YStack alignItems="center" gap="$1">
+                                        <Text fontSize="$6" fontWeight="700" color="$color11">
+                                            {selected?.name}
+                                        </Text>
+                                        {selected?.core ? (
+                                            <Text color="$gray10">Core: {selected.core}</Text>
+                                        ) : null}
+                                    </YStack>
+                                </YStack>
+                            </Tinted>
+                        </XStack>
                     )}
                 </>
             )}

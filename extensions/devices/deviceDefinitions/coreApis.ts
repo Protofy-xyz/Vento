@@ -96,7 +96,13 @@ const getDB = (path, req, session) => {
             // console.log("Creating device definition: ", JSON.stringify({key,value}))
             const filePath = deviceDefinitionsDir(getRoot(req)) + key + ".json"
             try{
-                await fs.writeFile(filePath, value)
+                let content = value
+                try {
+                    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+                    content = JSON.stringify(parsed, null, 2)
+                } catch (parseErr) {
+                }
+                await fs.writeFile(filePath, content)
             }catch(error){
                 console.error("Error creating file: " + filePath, error)
             }

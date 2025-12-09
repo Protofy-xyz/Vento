@@ -1090,10 +1090,10 @@ function initEsphomeMonacoValidation(monaco: any) {
 
                 const msg = JSON.parse(raw.data);
 
-                if (msg.type === "version") {
-                    setSchemaVersion(msg.value);
-                    return;
-                }
+                // if (msg.type === "version") {
+                //     setSchemaVersion(msg.value);
+                //     return;
+                // }
 
                 if (msg.type !== "result") {
                     return;

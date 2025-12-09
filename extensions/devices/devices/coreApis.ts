@@ -154,6 +154,11 @@ const generateDeviceBoard = async (
     const DEFAULT_HTML_VALUE = `//@card/react
 function Widget(card) {
   const value = card.value;
+  const displayValue = (() => {
+    const hasUnits = card.units && (typeof value === 'number' || typeof value === 'string');
+    if (hasUnits) return value + " " + card.units;
+    return value ?? "N/A";
+  })();
   return (
     <Tinted>
       <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
@@ -162,7 +167,7 @@ function Widget(card) {
             <Icon name={card.icon} size={48} color={card.color}/>
           )}
           {card.displayResponse !== false && (
-            <CardValue mode={card.markdownDisplay ? 'markdown' : card.htmlDisplay ? 'html' : 'normal'} value={value ?? "N/A"} />
+            <CardValue mode={card.markdownDisplay ? 'markdown' : card.htmlDisplay ? 'html' : 'normal'} value={displayValue} />
           )}
         </YStack>
       </ProtoThemeProvider>
@@ -269,6 +274,7 @@ function Widget(card) {
                 if ('displayResponse' in d) card.displayResponse = d.displayResponse;
                 if ('html' in d && d.html) card.html = d.html;
                 if ('color' in d) card.color = d.color;
+                if ('units' in d) card.units = d.units;
 
                 if (!card.html) {
                     card.html = (type === 'action') ? DEFAULT_HTML_ACTION : DEFAULT_HTML_VALUE;
@@ -655,6 +661,14 @@ const regenerateBoardForDevice = async (deviceName: string) => {
             const { width, height } = computeCardSize({});
             const cardWidth = monitor.cardProps?.width || width;
             const cardHeight = monitor.cardProps?.height || height;
+            const monitorLabel = buildCardLabel({
+                platform: deviceInfo.data.platform,
+                deviceName: deviceInfo.data.name,
+                subsystemName: subsystem.name,
+                monitorName: monitor.name,
+                baseLabel: monitor.label,
+                type: 'monitor',
+            });
 
             if (subsystem.monitors.length == 1) {
                 addCard({
@@ -664,14 +678,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                     templateName: deviceInfo.data.name + ' ' + subsystem.name + ' device value',
                     name: subsystem.name,
                     defaults: {
-                        label: buildCardLabel({
-                            platform: deviceInfo.data.platform,
-                            deviceName: deviceInfo.data.name,
-                            subsystemName: subsystem.name,
-                            monitorName: monitor.name,
-                            baseLabel: monitor.label,
-                            type: 'monitor',
-                        }),
+                        label: monitorLabel,
                         name: deviceInfo.data.name + ' ' + subsystem.name,
                         description: monitor.description ?? "",
                         rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
@@ -680,6 +687,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                         ...(colorFromValue ? { color: colorFromValue } : {}),
                         ...(htmlFromValue ? { html: htmlFromValue } : {}),
                         ...(orderFromValue !== undefined ? { order: orderFromValue } : {}),
+                        ...(monitor.units ? { units: monitor.units } : {}),
                         width: cardWidth,
                         height: cardHeight
                     },
@@ -693,14 +701,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                     templateName: deviceInfo.data.name + ' ' + monitor.name + ' device value',
                     name: monitor.name,
                     defaults: {
-                        label: buildCardLabel({
-                            platform: deviceInfo.data.platform,
-                            deviceName: deviceInfo.data.name,
-                            subsystemName: subsystem.name,
-                            monitorName: monitor.name,
-                            baseLabel: monitor.label,
-                            type: 'monitor',
-                        }),
+                        label: monitorLabel,
                         name: deviceInfo.data.name + ' ' + monitor.name,
                         description: monitor.description ?? "",
                         rulesCode: `return states['devices']['${deviceInfo.data.name}']['${stateName}']`,
@@ -709,6 +710,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                         ...(colorFromValue ? { color: colorFromValue } : {}),
                         ...(htmlFromValue ? { html: htmlFromValue } : {}),
                         ...(orderFromValue !== undefined ? { order: orderFromValue } : {}),
+                        ...(monitor.units ? { units: monitor.units } : {}),
                         width: width,
                         height: height
                     },

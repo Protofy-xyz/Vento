@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo, useCallback } from 'react'
 import { BoardModel } from '../../boards/boardsSchemas'
 import { API } from 'protobase'
 import { DataTable2 } from "protolib/components/DataTable2"
@@ -110,18 +110,77 @@ export default {
       const [selectedOption, setSelectedOption] = useState<NetworkOption | null>(networkOptions[0] || null)
       const [step, setStep] = useState<'select' | 'configure'>('select')
 
-      const handleCreated = (data?: any) => {
+      const handleCreated = useCallback((data?: any) => {
         setAddOpen(false)
         setStep('select')
         // Navigation is handled by each option's Component
-      }
+      }, [])
 
-      const handleDialogClose = (open: boolean) => {
+      const handleDialogClose = useCallback((open: boolean) => {
         setAddOpen(open)
         if (!open) {
           setStep('select')
         }
-      }
+      }, [])
+
+      // Memoize the node click handler
+      const handleNodeClick = useCallback((nodeData: any) => {
+        if (nodeData?.originalData?.name) {
+          router.push(`/boards/view?board=${nodeData.originalData.name}`)
+        }
+      }, [router])
+
+      // Memoize extraViews to prevent re-renders of NetworkTopologyView
+      const extraViews = useMemo(() => [{
+        name: 'topology',
+        icon: Network,
+        component: () => <NetworkTopologyView 
+          showAll={query.all === 'true'}
+          onNodeClick={handleNodeClick} 
+        />,
+      }], [query.all, handleNodeClick])
+
+      // Memoize extraActions
+      const extraActions = useMemo(() => [
+        <Tinted key="toggle-visibility-scope">
+          <DataViewActionButton
+            id="admin-dataview-add-btn"
+            icon={query.all === 'true' ? EyeOff : Eye}
+            description={
+              query.all === 'true'
+                ? 'Show only boards visible in this view'
+                : 'Show boards from all views'
+            }
+            onPress={() => {
+              push('all', query.all === 'true' ? 'false' : 'true')
+            }}
+          />
+        </Tinted>
+      ], [query.all, push])
+
+      // Memoize dataTableGridProps
+      const dataTableGridProps = useMemo(() => ({
+        emptyMessage: <EmptyAgentsState onCreateClick={() => setAddOpen(true)} />,
+        itemsTransform: (items: any[]) => {
+          const list = Array.isArray(items) ? [...items] : [];
+          if (query.all !== 'true') {
+            return list.filter((item) => shouldShowInArea(item, 'agents'));
+          }
+          return list;
+        },
+        getCard: (element: any, width: number) => (
+          <NetworkCard
+            board={element}
+            platform={element.platform || 'virtual'}
+            mode="card"
+            width={width}
+            onPress={() => router.push(`/boards/view?board=${element.name}`)}
+            onDelete={async () => {
+              await API.get(`/api/core/v1/boards/${element.name}/delete`);
+            }}
+          />
+        ),
+      }), [query.all, router])
 
       return (<AdminPage title="Network" workspace={workspace} pageSession={pageSession}>
 
@@ -136,7 +195,8 @@ export default {
         >
           <YStack f={1} jc="center" ai="center">
             <XStack mr="$5">
-              {step === 'select' ? (
+              {/* Keep both components mounted but hidden to avoid re-render of underlying graph */}
+              <YStack display={step === 'select' ? 'flex' : 'none'}>
                 <Slides
                   lastButtonCaption="Next"
                   id='network-categories'
@@ -151,9 +211,10 @@ export default {
                     }
                   ]}
                 />
-              ) : (
-                selectedOption && <selectedOption.Component onCreated={handleCreated} onBack={() => setStep('select')} />
-              )}
+              </YStack>
+              <YStack display={step === 'configure' ? 'flex' : 'none'}>
+                {selectedOption && <selectedOption.Component onCreated={handleCreated} onBack={() => setStep('select')} />}
+              </YStack>
             </XStack>
           </YStack>
         </AlertDialog>
@@ -163,34 +224,8 @@ export default {
             sourceUrl={sourceUrl}
             sourceUrlParams={query}
             hideDeleteAll={true}
-            extraViews={[{
-              name: 'topology',
-              icon: Network,
-              component: ()=> <NetworkTopologyView 
-                showAll={query.all === 'true'}
-                onNodeClick={(nodeData) => {
-                  if (nodeData?.originalData?.name) {
-                    router.push(`/boards/view?board=${nodeData.originalData.name}`)
-                  }
-                }} 
-              />,
-            }]}
-            extraActions={[
-              <Tinted key="toggle-visibility-scope">
-                <DataViewActionButton
-                  id="admin-dataview-add-btn"
-                  icon={query.all === 'true' ? EyeOff : Eye}
-                  description={
-                    query.all === 'true'
-                      ? 'Show only boards visible in this view'
-                      : 'Show boards from all views'
-                  }
-                  onPress={() => {
-                    push('all', query.all === 'true' ? 'false' : 'true')
-                  }}
-                />
-              </Tinted>
-            ]}
+            extraViews={extraViews}
+            extraActions={extraActions}
             extraFilters={[{ queryParam: "all" }]}
             
             initialItems={initialItems}
@@ -206,28 +241,7 @@ export default {
             onAddButton={() => setAddOpen(true)}
             model={BoardModel}
             pageState={pageState}
-            dataTableGridProps={{
-              emptyMessage: <EmptyAgentsState onCreateClick={() => setAddOpen(true)} />,
-              itemsTransform: (items) => {
-                const list = Array.isArray(items) ? [...items] : [];
-                if (query.all !== 'true') {
-                  return list.filter((item) => shouldShowInArea(item, 'agents'));
-                }
-                return list;
-              },
-              getCard: (element, width) => (
-                <NetworkCard
-                  board={element}
-                  platform={element.platform || 'virtual'}
-                  mode="card"
-                  width={width}
-                  onPress={() => router.push(`/boards/view?board=${element.name}`)}
-                  onDelete={async () => {
-                    await API.get(`/api/core/v1/boards/${element.name}/delete`);
-                  }}
-                />
-              ),
-            }}
+            dataTableGridProps={dataTableGridProps}
             defaultView={"topology"}
           />
         

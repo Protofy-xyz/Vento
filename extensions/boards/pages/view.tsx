@@ -1,9 +1,9 @@
-import { Copy, Plus, Settings, X, Book, Activity, Bot, Presentation, FileClock } from '@tamagui/lucide-icons'
+import { Copy, Plus, Settings, X, Book, Activity, Bot, Presentation, FileClock, Router } from '@tamagui/lucide-icons'
 import { API, getPendingResult, set } from 'protobase'
 import { AdminPage } from "protolib/components/AdminPage"
 import { useIsAdmin } from "protolib/lib/useIsAdmin"
 import ErrorMessage from "protolib/components/ErrorMessage"
-import { YStack, XStack, Paragraph, Button as TamaButton, Dialog, Theme, Spinner, Stack, H1, H3, Button } from '@my/ui'
+import { YStack, XStack, Paragraph, Text, Button as TamaButton, Dialog, Theme, Spinner, Stack, H1, H3, Button } from '@my/ui'
 import { computeLayout } from '@extensions/autopilot/layout';
 import { DashboardGrid, gridSizes, getCurrentBreakPoint } from 'protolib/components/DashboardGrid';
 import { LogPanel } from 'protolib/components/LogPanel';
@@ -208,6 +208,29 @@ const BoardStateView = ({ board }) => {
   </XStack>
 }
 
+const DevicesTab = ({ devices }: { devices: string[] }) => {
+  const list = Array.isArray(devices) ? devices.filter(Boolean) : [];
+  return (
+    <YStack f={1} padding="$4" gap="$3">
+      <Paragraph size="$5" fow="600">Linked devices</Paragraph>
+      {list.length === 0 ? (
+        <Paragraph color="$gray9">No devices linked to this board yet.</Paragraph>
+      ) : (
+        <YStack gap="$2">
+          {list.map((dev) => (
+            <Tinted key={dev}>
+              <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5">
+                <Router size={16} />
+                <Text>{dev}</Text>
+              </XStack>
+            </Tinted>
+          ))}
+        </YStack>
+      )}
+    </YStack>
+  );
+};
+
 const MAX_BUFFER_MSG = 1000
 const FloatingArea = ({ tabVisible, setTabVisible, board, automationInfo, boardRef, actions, states, uicodeInfo, setUICodeInfo, onEditBoard }) => {
   const { panelSide, setPanelSide } = useBoardControls() || {};
@@ -270,6 +293,11 @@ const FloatingArea = ({ tabVisible, setTabVisible, board, automationInfo, boardR
         content: <VersionTimeline boardId={board.name} />
       }
     }),
+    "devices": {
+      "label": "Devices",
+      "icon": Router,
+      "content": <DevicesTab devices={board.devices ?? []} />
+    },
     "board-settings": {
       "label": "Settings",
       "icon": Settings,

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { AlertDialog } from 'protolib/components/AlertDialog'
 import { Tinted } from 'protolib/components/Tinted'
 import { Switch, useThemeName } from '@my/ui'
-import { Maximize, Minimize, Upload, X, SearchCode, RefreshCcw, Download } from '@tamagui/lucide-icons'
+import { Maximize, Minimize, Upload, X, SearchCode, RefreshCcw, Download, LayoutDashboard } from '@tamagui/lucide-icons'
 import { Button, YStack, Text, XStack, TextArea } from "@my/ui"
 import { EspWebInstall } from "./EspWebInstall"
 import { EspConsole } from "./espConsole";
@@ -70,7 +70,7 @@ const DeviceModal = ({
         'upload': 'Connect your device and click select to chose the port.',
         'write': 'Writting firmware to device. Please do not unplug your device.',
         "confirm-erase": 'Do you want to erase the device before installing the firmware?',
-        'idle': 'Device configured successfully.\n You can unplug your device.'
+        'idle': 'Device configured successfully.\nYou can unplug your device.'
     }
 
     const images = {
@@ -123,6 +123,10 @@ const DeviceModal = ({
         // Reset autoscroll when re-entering compile or toggling fullscreen
         stickToBottomRef.current = true;
     }, [stage, fullscreen]);
+
+    const boardHref = selectedDevice?.data?.name
+        ? `/workspace/boards/view?board=${encodeURIComponent(selectedDevice.data.name)}#dashboard`
+        : null;
 
     return <AlertDialog open={showModal} hideAccept={true}>
         <YStack
@@ -223,6 +227,21 @@ const DeviceModal = ({
                                         stickToBottomRef.current = distanceFromBottom < 20;
                                     }}
                                 />
+                            )}
+                            {stage === 'idle' && boardHref && (
+                                <XStack jc="center" gap="$2" pt="$2">
+                                    <Button
+                                        icon={LayoutDashboard}
+                                        onPress={() => {
+                                            onCancel();
+                                            if (typeof window !== 'undefined') {
+                                                window.open(boardHref, '_blank', 'noreferrer');
+                                            }
+                                        }}
+                                    >
+                                        Open device board
+                                    </Button>
+                                </XStack>
                             )}
                             {
                                 !(stage === 'compile' && fullscreen) && !isError && images[themeName] && images[themeName][isLoading ? 'loading' : stage] && (

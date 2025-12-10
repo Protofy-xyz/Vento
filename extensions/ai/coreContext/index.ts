@@ -305,8 +305,7 @@ function objectToHTML(obj, rootName = 'root', options: any = {}) {
     }
 
     function formatKey(key) {
-        // Convert snake_case to Title Case
-        return String(key).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return key;
     }
 
     function convert(value, key = null, isArrayItem = false) {

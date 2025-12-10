@@ -35,6 +35,7 @@ import { StorageView } from 'protolib/components/StorageView';
 import { useEventEffect } from '@extensions/events/hooks';
 import { useKeyState } from 'protolib/components/KeySetter';
 import { InteractiveGrid } from 'protolib/components/InteractiveGrid';
+import { Subsystems } from 'protodevice/src/Subsystem';
 
 
 const layoutMetadata = {
@@ -128,7 +129,7 @@ export const transferExtensionComponents = () => {
     TransferComponent(useEventEffect, 'useEventEffect');
     TransferComponent(MqttWrapper, 'MqttWrapper');
     TransferComponent(useKeyState, 'useKeyState');
+    TransferComponent(Subsystems, 'Subsystems');
 }
-
 
 

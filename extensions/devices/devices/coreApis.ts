@@ -128,6 +128,68 @@ const SIZE = {
     },
 };
 
+const buildSubsystemsCardHtml = (device: string) => `//@card/react
+function Widget(card) {
+  const [subsystems, setSubsystems] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    let active = true;
+    const loadSubsystems = async () => {
+      setLoading(true);
+      try {
+        const resp = await fetch('/api/core/v1/devices/${device}');
+        if (!resp.ok) throw new Error('Request failed (' + resp.status + ')');
+        const data = await resp.json().catch(() => ({}));
+        if (!active) return;
+        setSubsystems(data?.subsystem || []);
+        setError(null);
+      } catch (err) {
+        if (!active) return;
+        setError(err?.message || 'Failed to load subsystems');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadSubsystems();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); }}
+      onMouseDown={(e) => { e.stopPropagation(); }}
+      onPointerDown={(e) => { e.stopPropagation(); }}
+      style={{ height: '100%' }}
+    >
+      <Tinted>
+        <ProtoThemeProvider forcedTheme={window.TamaguiTheme}>
+          <YStack f={1} width="100%" height="100%" gap="$3" padding="$3" overflow="auto">
+            <XStack ai="center" gap="$2">
+              {card.icon && <Icon name={card.icon} size={24} color={card.color} />}
+              <Text fontWeight="700">{card.label || card.name || 'Subsystems'}</Text>
+            </XStack>
+            {loading ? (
+              <YStack f={1} ai="center" jc="center">
+                <Spinner size="large" />
+              </YStack>
+            ) : error ? (
+              <Text color="$red10" size="$2">Failed to load subsystems: {error}</Text>
+            ) : (
+              <Subsystems subsystems={subsystems} deviceName="${device}" />
+            )}
+          </YStack>
+        </ProtoThemeProvider>
+      </Tinted>
+    </div>
+  );
+}
+`;
+
 // --- Smarter board generator: groups by subsystem, uses gridSizes totals ---
 const generateDeviceBoard = async (
   boardName: string = 'devices_all',
@@ -238,7 +300,11 @@ function Widget(card) {
         for (const [deviceName, deviceCards] of deviceEntries) {
             for (const cardEntry of deviceCards) {
                 const id = cardEntry?.name ?? cardEntry?.id ?? cardEntry?.key;
+                const storedId = cardEntry?.id ?? '';
                 if (!id || id === 'devices_table') continue;
+                // Skip subsystem overview cards so they remain available in the cards list
+                // but are not auto-added to generated boards.
+                if (id.includes('subsystems_overview') || storedId.includes('subsystems_overview')) continue;
                 const src = cardEntry || {};
                 const d = src.defaults || {};
 
@@ -568,6 +634,29 @@ const regenerateBoardForDevice = async (deviceName: string) => {
     
     // Delete existing actions & cards for this device before adding new ones
     await deleteDeviceActions(deviceInfo.data.name)
+
+    const subsystemCardId = `devices_${deviceInfo.data.name}_subsystems_overview`;
+    addCard({
+        group: 'devices',
+        tag: deviceInfo.data.name,
+        id: subsystemCardId,
+        templateName: `${deviceInfo.data.name} subsystem overview`,
+        name: 'subsystems_overview',
+        defaults: {
+            label: `${deviceInfo.data.name} subsystems`,
+            name: `${deviceInfo.data.name} subsystems`,
+            description: 'Live view of monitors and actions grouped by subsystem.',
+            rulesCode: 'return true',
+            type: 'value',
+            icon: 'component',
+            html: buildSubsystemsCardHtml(deviceInfo.data.name),
+            width: 6,
+            height: 18,
+            order: 0,
+            displayResponse: false,
+        },
+        emitEvent: true
+    })
 
     const formatParamsJson = (json) => {
         const parts = Object.entries(json).map(([key, value]) => {

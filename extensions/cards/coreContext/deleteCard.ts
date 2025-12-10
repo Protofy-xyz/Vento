@@ -12,6 +12,7 @@ export const deleteCard = async (options: {
 }) => {
     const group = options.group || 'system';
     const { tag, name } = options;
+    const token = options.token || getServiceToken();
 
     if (!name) {
         logger.error({}, 'Card name is required');
@@ -22,25 +23,30 @@ export const deleteCard = async (options: {
         return;
     }
 
-    if (options.token) {
-        return await API.post(
-            `/api/core/v1/cards/${group}/${tag}/${encodeURIComponent(name)}/delete?token=${options.token}`,
-            {}
-        );
-    } else {
-        ProtoMemDB('cards').remove(group, tag, name);
-
-        if (options.emitEvent) {
-            generateEvent(
-                {
-                    path: `cards/${group}/${tag}/${name}/delete`,
-                    from: 'states',
-                    user: 'system',
-                    payload: { group, tag, name },
-                    ephemeral: true,
-                },
-                getServiceToken()
-            );
-        }
+    if (!token) {
+        logger.error({ group, tag, name }, 'No token available to delete card');
+        return;
     }
+
+    const cardId = `${group}.${tag}.${name}`;
+    const response = await API.get(
+        `/api/core/v1/cards/${encodeURIComponent(cardId)}/delete?token=${token}`
+    );
+
+    ProtoMemDB('cards').remove(group, tag, name);
+
+    if (options.emitEvent) {
+        generateEvent(
+            {
+                path: `cards/${group}/${tag}/${name}/delete`,
+                from: 'states',
+                user: 'system',
+                payload: { group, tag, name },
+                ephemeral: true,
+            },
+            token
+        );
+    }
+
+    return response;
 };

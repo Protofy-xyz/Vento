@@ -92,6 +92,15 @@ const getDB = (path, req, session, context) => {
             const cardPath = fspath.join(dataDir(getRoot()), group, tag, key + '.json');
             if(fsSync.existsSync(cardPath)) {
                 fsSync.unlinkSync(cardPath);
+                // clean up empty directories to avoid stale device folders
+                const tagDir = fspath.join(dataDir(getRoot()), group, tag);
+                if (fsSync.existsSync(tagDir) && fsSync.readdirSync(tagDir).length === 0) {
+                    fsSync.rmdirSync(tagDir);
+                }
+                const groupDir = fspath.join(dataDir(getRoot()), group);
+                if (fsSync.existsSync(groupDir) && fsSync.readdirSync(groupDir).length === 0) {
+                    fsSync.rmdirSync(groupDir);
+                }
             }
         },
 

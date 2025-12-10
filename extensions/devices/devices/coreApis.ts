@@ -494,34 +494,35 @@ function Widget(card) {
 const deleteDeviceCards = async (deviceName: string) => {
     try {
         const token = getServiceToken();
-        // fetch the full cards tree
+        // fetch cards list (AutoAPI returns a paginated list with items)
         const cardsTree = await API.get(`/api/core/v1/cards?token=${token}`);
+        const items = cardsTree?.data?.items || cardsTree?.items || [];
+        const deviceCards = items.filter((card: any) => card?.group === 'devices' && card?.tag === deviceName);
+        const ids = deviceCards.map((c: any) => c?.id).filter(Boolean);
 
-        // cardsTree structure: { [group]: { [tag]: { [name]: {...} } } }
-        const deviceCards = cardsTree?.data?.devices?.[deviceName] || {};
-        const names = Object.keys(deviceCards);
-
-        if (names.length) {
+        if (ids.length) {
             // POST-based delete per card: /api/core/v1/cards/:group/:tag/:name/delete
             // Also clear from ProtoMemDB cache
             await Promise.all(
-                names.map(async (name) => {
+                ids.map(async (cardId) => {
                     try {
+                        const [grp, tg, nm] = String(cardId).split('.');
+                        const cardName = nm || cardId;
+                        const groupName = grp || 'devices';
+                        const tagName = tg || deviceName;
+
                         // Clear from in-memory cache
-                        ProtoMemDB('cards').remove('devices', deviceName, name);
-                        // Delete from disk via API
-                        await API.post(
-                            `/api/core/v1/cards/devices/${encodeURIComponent(
-                                deviceName
-                            )}/${encodeURIComponent(name)}/delete?token=${token}`,
-                            {}
+                        ProtoMemDB('cards').remove(groupName, tagName, cardName);
+                        // Delete from disk via API (AutoAPI delete uses the card id path)
+                        await API.get(
+                            `/api/core/v1/cards/${encodeURIComponent(cardId)}/delete?token=${token}`
                         );
                     } catch (err) {
-                        logger.error({ deviceName, name, err }, 'Failed deleting device card');
+                        logger.error({ deviceName, cardId, err }, 'Failed deleting device card');
                     }
                 })
             );
-            logger.info({ deviceName, count: names.length }, 'Deleted device cards via API and cache');
+            logger.info({ deviceName, count: ids.length }, 'Deleted device cards via API and cache');
         }
 
         // Also directly delete the cards folder from disk to ensure no stale files remain

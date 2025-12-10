@@ -400,11 +400,11 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                             padding="$4"
                             borderRadius="$4"
                             borderWidth={2}
-                            borderColor={isSelected ? '$color8' : '$borderColor'}
-                            backgroundColor={isSelected ? '$color3' : '$background'}
+                            borderColor={isSelected ? '$color6' : 'transparent'}
+                            backgroundColor={isSelected ? '$background' : '$gray2'}
                             hoverStyle={{
-                                borderColor: isSelected ? '$color8' : '$color6',
-                                backgroundColor: isSelected ? '$color3' : '$color2'
+                                borderColor: '$color6',
+                                backgroundColor: "$background"
                             }}
                             pressStyle={{ scale: 0.98 }}
                             cursor="pointer"
@@ -439,16 +439,14 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
 
     const renderApiKeyStep = () => (
         <YStack gap="$4" f={1}>
-            <Tinted>
-                <YStack
-                    padding="$4"
-                    borderRadius="$4"
-                    backgroundColor="$color3"
-                    gap="$4"
-                    borderWidth={2}
-                    borderColor="$color6"
-                >
-                    <XStack gap="$3" alignItems="center">
+            <YStack
+                padding="$4"
+                borderRadius="$4"
+                backgroundColor="$gray2"
+                gap="$4"
+            >
+                <XStack gap="$3" alignItems="center">
+                    <Tinted>
                         <XStack
                             width={40}
                             height={40}
@@ -457,23 +455,23 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                             alignItems="center"
                             justifyContent="center"
                         >
-                            <Key size={20} color="$color11" />
+                            <Key size={20} />
                         </XStack>
-                        <Text fontWeight="600" color="$color12">API Key</Text>
-                    </XStack>
-                    <Input
-                        placeholder="sk-proj-..."
-                        value={apiKey}
-                        onChangeText={setApiKey}
-                        size="$4"
-                        backgroundColor="$background"
-                        borderColor="$color6"
-                    />
-                </YStack>
-            </Tinted>
+                        <Text fontWeight="600">API Key</Text>
+                    </Tinted>
+                </XStack>
+                <Input
+                    // bc="$bgContent"
+                    placeholder="sk-proj-..."
+                    borderColor="transparent"
+                    value={apiKey}
+                    onChangeText={setApiKey}
+                    size="$4"
+                />
+            </YStack>
             <Paragraph size="$2" color="$color10">
                 Get your API key from{' '}
-                <Text color="$color11" fontWeight="600">platform.openai.com</Text>
+                <Text fontWeight="600">platform.openai.com</Text>
             </Paragraph>
         </YStack>
     )

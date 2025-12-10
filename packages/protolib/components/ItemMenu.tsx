@@ -30,20 +30,22 @@ export const ItemMenu = ({ type, sourceUrl = '', enableAddToInitialData = false,
     return <Stack {...props}>
         <AlertDialog
             acceptCaption="Delete"
+            showCancel
             setOpen={setOpen}
             open={open}
             onAccept={async (setOpen) => {
                 await onDelete(sourceUrl, element.data[element.idField])
                 setOpen(false);
             }}
-            title={'Delete '}
-            description={"Are you sure to delete this item?"}
-            w={280}
+            onCancel={() => setOpen(false)}
+            title={'Delete'}
+            acceptTint="red"
+            w={400}
         >
-            <YStack f={1} jc="center" ai="center">
-
+            <YStack f={1} my="$4" jc="center">
+                <Text>Are you sure to delete this item?</Text>
             </YStack>
-        </AlertDialog>
+            </AlertDialog>
         <Popover onOpenChange={setMenuOpened} open={menuOpened} allowFlip>
             <Popover.Trigger>
                 <InteractiveIcon id={`more-btn-${sourceUrl.split("/").slice(-1)}`} Icon={MoreVertical} onPress={(e) => { e.stopPropagation(); setMenuOpened(true) }} ml={"$3"}></InteractiveIcon>

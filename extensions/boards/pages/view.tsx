@@ -303,7 +303,12 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
 
   return (
     <YStack f={1} padding="$4" gap="$3">
-      <Paragraph size="$5" fow="600">Linked devices</Paragraph>
+      <XStack ai="center" jc="space-between">
+        <Paragraph size="$5" fow="600">Linked devices</Paragraph>
+        <Button size="$2" onPress={() => { window.location.href = '/workspace/devices'; }}>
+          Go to devices
+        </Button>
+      </XStack>
       {selected ? (
         <YStack gap="$3">
           <XStack ai="center" jc="space-between">

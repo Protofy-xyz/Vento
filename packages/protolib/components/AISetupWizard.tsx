@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { YStack, XStack, Text, Paragraph, Input, Progress, Checkbox, Label } from '@my/ui'
 import { AlertDialog } from './AlertDialog'
 import { Tinted } from './Tinted'
-import { Bot, Cpu, Cloud, Sparkles, Key, ChevronLeft, Download, CheckCircle, AlertCircle, Loader } from '@tamagui/lucide-icons'
+import { Bot, Cpu, Cloud, Sparkles, Key, ChevronLeft, Download, CheckCircle, AlertCircle, Loader, ExternalLink, Info } from '@tamagui/lucide-icons'
 import { API } from 'protobase'
 import { useSession } from '../lib/useSession'
 
@@ -438,41 +438,67 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
     )
 
     const renderApiKeyStep = () => (
-        <YStack gap="$4" f={1}>
+        <YStack gap="$8" f={1}>
+            <Input
+                bc="$gray3"
+                placeholder="sk-proj-..."
+                borderColor="transparent"
+                autoFocus
+                value={apiKey}
+                onChangeText={setApiKey}
+                size="$4"
+            />
             <YStack
-                padding="$4"
-                borderRadius="$4"
-                backgroundColor="$gray2"
                 gap="$4"
             >
-                <XStack gap="$3" alignItems="center">
-                    <Tinted>
-                        <XStack
-                            width={40}
-                            height={40}
-                            borderRadius={10}
-                            backgroundColor="$color5"
-                            alignItems="center"
-                            justifyContent="center"
-                        >
-                            <Key size={20} />
-                        </XStack>
-                        <Text fontWeight="600">API Key</Text>
-                    </Tinted>
+                <XStack ai="center" gap="$2">
+                    <Info size={18} color="$gray9" />
+                    <Text fontWeight="500" color="$gray9">How to get your API key</Text>
                 </XStack>
-                <Input
-                    // bc="$bgContent"
-                    placeholder="sk-proj-..."
-                    borderColor="transparent"
-                    value={apiKey}
-                    onChangeText={setApiKey}
-                    size="$4"
-                />
+
+                <YStack gap="$2">
+                    {[
+                        { num: '1', text: 'Go to OpenAI\'s API Keys page' },
+                        { num: '2', text: 'Log in or create an account' },
+                        { num: '3', text: 'Click "Create new secret key"' },
+                        { num: '4', text: 'Copy the key and paste it above' }
+                    ].map((step) => (
+                        <XStack key={step.num} ai="center" gap="$3">
+                            <XStack
+                                width={24}
+                                height={24}
+                                borderRadius={12}
+                                backgroundColor="$bgPanel"
+                                alignItems="center"
+                                justifyContent="center"
+                            >
+                                <Text fontSize="$2" fontWeight="600">{step.num}</Text>
+                            </XStack>
+                            <Text fontSize="$3">{step.text}</Text>
+                        </XStack>
+                    ))}
+                </YStack>
+
+                <XStack
+                    alignItems="center"
+                    gap="$2"
+                    cursor="pointer"
+                    alignSelf="flex-start"
+                    hoverStyle={{ opacity: 0.8 }}
+                    pressStyle={{ opacity: 0.6 }}
+                    onPress={() => window.open('https://platform.openai.com/api-keys', '_blank')}
+                >
+                <ExternalLink size={14} color="$blue10" />
+                <Text fontSize="$2" color="$blue10" fontWeight="600" textDecorationLine="underline">
+                    Open OpenAI API Keys page
+                </Text>
+                </XStack>
+                <XStack ai="center" gap="$2" opacity={0.7}>
+                    <Text fontSize="$2" color="$gray9">
+                            ⚠️ Keep your API key secret — usage is billed to your OpenAI account
+                    </Text>
+                </XStack>
             </YStack>
-            <Paragraph size="$2" color="$color10">
-                Get your API key from{' '}
-                <Text fontWeight="600">platform.openai.com</Text>
-            </Paragraph>
         </YStack>
     )
 

@@ -42,7 +42,8 @@ const boardStatesHtml = context.ai.objectToHTML(
 )
 
 const promptHtml = context.ai.htmlBox(
-  `<p style="margin:0;font-size:15px;color:#ffffff;">${params.prompt}</p>`,
+  `<p style="margin:0;font-size:15px;color:#ffffff;">${params.prompt}
+  The following actions have been executed: ${board?.["agent_prepare"]}</p>`,
   '💬 User Prompt',
   { accent: true }
 )

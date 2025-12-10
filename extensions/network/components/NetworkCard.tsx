@@ -37,7 +37,7 @@ const MiniChip = memo(({ label, color }: { label: string; color?: string }) => (
     bg={color || '$color4'}
     ai="center"
   >
-    <Text fontSize={9} fontWeight="500" color="$color11" numberOfLines={1}>
+    <Text fontSize={9} fontWeight="500" color="$color8" numberOfLines={1}>
       {label}
     </Text>
   </XStack>
@@ -74,7 +74,7 @@ const CardIconPreview = memo(({ cards }: { cards: any[] }) => {
         </YStack>
       ))}
       {remaining > 0 && (
-        <Text fontSize={9} color="$color9" ml="$1">+{remaining}</Text>
+        <Text fontSize={9} color="$color8" ml="$1">+{remaining}</Text>
       )}
     </XStack>
   )
@@ -123,8 +123,8 @@ export const NetworkCard = memo(({
   const isHidden = isHiddenProp ?? !shouldShowInArea(board, 'agents')
   
   // Border and styling only reflect connection status if we know it
-  const borderColor = !showConnectionStatus ? '$color6' : (isConnected ? '$green8' : '$gray6')
-  const bgColor = selected ? '$color3' : '$bgPanel'
+  const borderColor = !showConnectionStatus ? '$color6' : (isConnected ? '$color8' : '$gray6')
+  const bgColor = selected ? '$color2' : '$bgPanel'
   
   const cardWidth = mode === 'node' ? 260 : (width || '100%')
   const cardHeight = mode === 'node' ? 140 : 'auto'
@@ -141,7 +141,7 @@ export const NetworkCard = memo(({
       borderColor={borderColor}
       cursor={'pointer'}
       hoverStyle={onPress ? { 
-        borderColor: !showConnectionStatus ? '$color8' : (isConnected ? '$green9' : '$gray7'),
+        borderColor: !showConnectionStatus ? '$color8' : (isConnected ? '$color8' : '$gray7'),
         scale: 1.01 
       } : {}}
       pressStyle={onPress ? { scale: 0.98 } : {}}
@@ -150,7 +150,7 @@ export const NetworkCard = memo(({
         boxShadow: selected 
           ? '0 12px 32px rgba(0,0,0,0.25), 0 0 0 2px var(--color9)' 
           : (showConnectionStatus && isConnected)
-            ? '0 6px 20px rgba(0,0,0,0.12), 0 0 20px rgba(var(--green9-rgb), 0.15)' 
+            ? '0 6px 20px rgba(0,0,0,0.12), 0 0 20px rgba(var(--color9-rgb), 0.15)' 
             : '0 4px 12px rgba(0,0,0,0.1)',
         transition: 'all 0.2s ease',
       }}
@@ -194,11 +194,11 @@ export const NetworkCard = memo(({
               br="$3"
               ai="center"
               jc="center"
-              bg={!showConnectionStatus ? '$color4' : (isConnected ? '$green4' : '$gray4')}
+              bg={!showConnectionStatus ? '$color4' : (isConnected ? '$color4' : '$gray4')}
             >
               <IconComponent 
                 size={20} 
-                color={!showConnectionStatus ? 'var(--color10)' : (isConnected ? 'var(--green10)' : 'var(--gray9)')} 
+                color={!showConnectionStatus ? 'var(--color10)' : (isConnected ? 'var(--color10)' : 'var(--gray9)')} 
               />
             </YStack>
             <YStack f={1}>
@@ -206,7 +206,7 @@ export const NetworkCard = memo(({
                 <Text 
                   fontSize="$3" 
                   fontWeight="700" 
-                  color="$color12"
+                  color="color9"
                   numberOfLines={1}
                   style={{ maxWidth: mode === 'card' ? 200 : 140 }}
                 >
@@ -216,7 +216,7 @@ export const NetworkCard = memo(({
                   <Sparkles size={12} color="var(--color9)" />
                 )}
               </XStack>
-              <Text fontSize={10} color="$color9" numberOfLines={1}>
+              <Text fontSize={10} color="$color8" numberOfLines={1}>
                 {board?.name}
               </Text>
             </YStack>
@@ -227,9 +227,9 @@ export const NetworkCard = memo(({
             {/* Connection status - only show if we have real connection info */}
             {showConnectionStatus && (
               isConnected ? (
-                <XStack ai="center" gap="$1" bg="$green3" br="$10" px="$2" py="$1">
-                  <Wifi size={10} color="var(--green10)" />
-                  <Text fontSize={9} fontWeight="600" color="$green11">ON</Text>
+                <XStack ai="center" gap="$1" bg="$color2" br="$10" px="$2" py="$1">
+                  <Wifi size={10} color="var(--color10)" />
+                  <Text fontSize={9} fontWeight="600" color="$color8">ON</Text>
                 </XStack>
               ) : (
                 <XStack ai="center" gap="$1" bg="$gray3" br="$10" px="$2" py="$1">
@@ -265,7 +265,7 @@ export const NetworkCard = memo(({
             <Layers size={11} color="var(--color8)" />
             <CardIconPreview cards={cards} />
             {cards.length > 0 && (
-              <Text fontSize={9} color="$color9">
+              <Text fontSize={9} color="$color8">
                 {cards.length} card{cards.length !== 1 ? 's' : ''}
               </Text>
             )}
@@ -282,7 +282,7 @@ export const NetworkCard = memo(({
               </Tinted>
             ))}
             {tags.length > 3 && (
-              <Text fontSize={9} color="$color9">+{tags.length - 3}</Text>
+              <Text fontSize={9} color="$color8">+{tags.length - 3}</Text>
             )}
           </XStack>
         )}
@@ -293,7 +293,7 @@ export const NetworkCard = memo(({
             br="$2"
             px="$2"
             py="$0.5"
-            bg="$color3"
+            bg="$color2"
           >
             <Text fontSize={9} fontWeight="600" color="$color10" textTransform="uppercase">
               {platform}

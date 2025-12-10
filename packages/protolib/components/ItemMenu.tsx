@@ -12,10 +12,10 @@ export const ItemMenu = ({ type, sourceUrl = '', enableAddToInitialData = false,
     const addToInitialData = ({ data }) => { }
 
     const MenuButton = ({ id = "", type, text, Icon, onPress, disabled }: { id?: string, type: string, text: string, Icon: any, onPress: any, disabled?: boolean }) => {
-        return <XStack id={id} ml={"$1"} o={1} br={"$5"} p={"$3"} als="flex-start"
+        return <XStack id={id} o={1} br={"$5"} p={"$3"} w="100%" als="flex-start"
             cursor={!disabled ? 'pointer' : 'default'}
             pressStyle={!disabled ? { o: 0.7 } : {}}
-            hoverStyle={!disabled ? { bc: "$color5" } : {}}
+            hoverStyle={!disabled ? { bc: "$bgPanel" } : {}}
             onPress={(e) => {
                 if (!disabled) {
                     onPress(type === "global" ? '*' : element, e)
@@ -48,9 +48,9 @@ export const ItemMenu = ({ type, sourceUrl = '', enableAddToInitialData = false,
             <Popover.Trigger>
                 <InteractiveIcon id={`more-btn-${sourceUrl.split("/").slice(-1)}`} Icon={MoreVertical} onPress={(e) => { e.stopPropagation(); setMenuOpened(true) }} ml={"$3"}></InteractiveIcon>
             </Popover.Trigger>
-            <Popover.Content padding={0} space={0} left={"$7"} top={"$2"} bw={1} boc="$borderColor" br="$4" bc={"$color1"} >
+            <Popover.Content padding={0} space={0} left={"$7"} top={"$2"} bw={1} boc="$borderColor" br="$6" overflow="hidden" >
                 <Tinted>
-                    <YStack alignItems="center" justifyContent="center" padding={"$3"} paddingVertical={"$3"} onPress={(e) => e.stopPropagation()}>
+                    <YStack bc="$bgContent" alignItems="center" justifyContent="center" padding={"$2"} onPress={(e) => e.stopPropagation()}>
                         <YStack>
                             {extraMenuActions.map((action, i) => {
                                 return (!action.menus && type === "item" || action.menus && action.menus?.includes(type)) && action.isVisible && action.isVisible(element) && <MenuButton id={`more-btn-${sourceUrl.split("/").slice(-1)}-option-${i + 1}`} type={type} key={i} text={typeof action.text == "function" ? action.text(type) : action.text} Icon={action.icon} onPress={action.action}></MenuButton>

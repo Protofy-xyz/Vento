@@ -121,7 +121,7 @@ const FloatingEdge = memo(({ id, source, target, data, style }: any) => {
   const targetNode = useInternalNode(target)
 
   const isConnected = data?.connected === true
-  const strokeColor = isConnected ? 'var(--green9)' : 'var(--gray9)'
+  const strokeColor = isConnected ? 'var(--color9)' : 'var(--gray9)'
 
   // Using negative begin makes the animation start as if it's already been running
   const offset = useMemo(() => {
@@ -161,12 +161,12 @@ const FloatingEdge = memo(({ id, source, target, data, style }: any) => {
         strokeDasharray={'6 4'}
         fill="none"
         style={{
-          filter: isConnected ? 'drop-shadow(0 0 3px var(--green9))' : undefined,
+          filter: isConnected ? 'drop-shadow(0 0 3px var(--color9))' : undefined,
           ...style
         }}
       />
       {isConnected && (
-        <circle r="3" fill="var(--green9)">
+        <circle r="3" fill="var(--color9)">
           <animateMotion
             dur="3s"
             begin={`${offset}s`}
@@ -196,7 +196,7 @@ const VentoNode = memo(({ data }: { data: any }) => {
       ai="center"
       jc="center"
       style={{
-        background: 'linear-gradient(145deg, var(--color5), var(--color3))',
+        background: 'linear-gradient(145deg, var(--color3), var(--color2))',
         boxShadow: '0 0 40px rgba(var(--color9-rgb), 0.3), inset 0 1px 0 rgba(255,255,255,0.1)',
         border: '3px solid var(--color8)',
       }}
@@ -205,7 +205,7 @@ const VentoNode = memo(({ data }: { data: any }) => {
         position="absolute"
         top={-8}
         right={-8}
-        bg="$green9"
+        bg="$color9"
         br="$10"
         px="$2"
         py="$1"

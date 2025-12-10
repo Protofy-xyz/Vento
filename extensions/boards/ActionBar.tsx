@@ -1,4 +1,4 @@
-import { X, Save, Plus, Pause, Play, Workflow, Settings, Presentation, LayoutDashboard, Book, Code, UserPen, Bot, Undo, Redo, FileClock, Layers, Activity, Diamond, LayoutGrid } from 'lucide-react';
+import { X, Save, Plus, Pause, Play, Workflow, Settings, Presentation, LayoutDashboard, Book, Code, UserPen, Bot, Undo, Redo, FileClock, Layers, Activity, Diamond, LayoutGrid, Router } from 'lucide-react';
 import { useBoardControls } from './BoardControlsContext';
 import { ActionBarButton, ActionBarSelector } from 'protolib/components/ActionBarWidget';
 import { Separator } from '@my/ui';
@@ -233,6 +233,7 @@ const getActionBar = (generateEvent) => {
       <ActionBarButton tooltipText="Relayout" Icon={LayoutGrid} onPress={() => generateEvent({ type: "relayout" })} />,
       <AutopilotButton generateEvent={generateEvent} autopilot={autopilot} />,
       <ActionBarButton tooltipText={tabVisible == "states" ? "Close States" : "Open States"} selected={tabVisible == "states"} Icon={Book} onPress={() => generateEvent({ type: "toggle-states" })} />,
+      <ActionBarButton tooltipText={tabVisible == "devices" ? "Close Devices" : "Open Devices"} selected={tabVisible == "devices"} Icon={Router} onPress={() => generateEvent({ type: "toggle-devices" })} />,
       <LogsButton selected={tabVisible == "logs"} showDot={showLogsDot} onPress={() => generateEvent({ type: "toggle-logs" })} />,
       <ActionBarButton tooltipText="Agent Settings" selected={tabVisible == "board-settings"} Icon={Settings} onPress={() => generateEvent({ type: "board-settings" })} />,
       <LayersButton layers={layers} activeLayer={activeLayer} setActiveLayer={setActiveLayer} />,
@@ -245,6 +246,7 @@ const getActionBar = (generateEvent) => {
       <ActionBarButton tooltipText="Code" selected={tabVisible == "uicode"} Icon={Code} onPress={() => generateEvent({ type: "toggle-uicode" })} />,
       <ActionBarButton tooltipText={"Visual UI (Beta)"} selected={tabVisible == "visualui"} Icon={UserPen} onPress={() => generateEvent({ type: "toggle-visualui" })} />,
       <ActionBarButton tooltipText={tabVisible == "states" ? "Close States" : "Open States"} selected={tabVisible == "states"} Icon={Book} onPress={() => generateEvent({ type: "toggle-states" })} />,
+      <ActionBarButton tooltipText={tabVisible == "devices" ? "Close Devices" : "Open Devices"} selected={tabVisible == "devices"} Icon={Router} onPress={() => generateEvent({ type: "toggle-devices" })} />,
       <AutopilotButton generateEvent={generateEvent} autopilot={autopilot} />,
       <>
         <Separator vertical borderColor="var(--gray8)" h="30px" ml="$2.5" />

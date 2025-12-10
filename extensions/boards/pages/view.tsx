@@ -1569,6 +1569,9 @@ export const BoardViewAdmin = ({ params, pageSession, workspace, boardData, icon
     if (event.type === 'toggle-states') {
       setTabVisible(tabVisible === 'states' ? "" : 'states');
     }
+    if (event.type === 'toggle-devices') {
+      setTabVisible(tabVisible === 'devices' ? "" : 'devices');
+    }
     if (event.type === 'toggle-uicode') {
       setTabVisible(tabVisible === 'uicode' ? "" : 'uicode');
     }

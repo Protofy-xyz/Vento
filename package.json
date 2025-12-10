@@ -22,10 +22,7 @@
     "packages/visualui",
     "extensions/*",
     "scripts",
-    "data/automations",
-    "apps/adminpanel",
-    "apps/chat",
-    "apps/docs"
+    "data/automations"
   ],
   "scripts": {
     "dev-service": "FULL_DEV=1 yarn prepare-dev && FULL_DEV=1 yarn start-service-fast",

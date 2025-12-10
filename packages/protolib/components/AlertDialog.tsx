@@ -61,7 +61,7 @@ export const AlertDialog = forwardRef(({
                                 </XStack>
                             </XStack>}
                             {description && <Dialog.Description mt="$3" mb="$6">
-                                {description}
+                                <Center>{description}</Center>
                             </Dialog.Description>}
 
                             {error && (

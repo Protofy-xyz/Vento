@@ -501,16 +501,21 @@ export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, showAll = fa
     return { nodes: allNodes, edges: allEdges }
   }, [boards, devices, isDeviceConnected, showAll])
 
-  const [nodesState, setNodesState, onNodesChange] = useNodesState(nodes)
-  const [edgesState, setEdgesState] = useEdgesState(edges)
+  const [nodesState, setNodesState, onNodesChange] = useNodesState([])
+  const [edgesState, setEdgesState] = useEdgesState([])
+
+  // Sync nodes and edges when data changes - using a stable reference check
+  useEffect(() => {
+    if (nodes.length > 0 || !loading) {
+      setNodesState(nodes)
+    }
+  }, [nodes, loading, setNodesState])
 
   useEffect(() => {
-    setNodesState(nodes)
-  }, [nodes, setNodesState])
-
-  useEffect(() => {
-    setEdgesState(edges)
-  }, [edges, setEdgesState])
+    if (edges.length > 0 || !loading) {
+      setEdgesState(edges)
+    }
+  }, [edges, loading, setEdgesState])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
     if (node.id === 'add-node' && onAddClick) {
@@ -530,6 +535,11 @@ export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, showAll = fa
     }
   }, [])
 
+  // Generate a stable key based on the number of nodes to force re-mount when data changes significantly
+  const flowKey = useMemo(() => {
+    return `network-flow-${nodesState.length}-${edgesState.length}`
+  }, [nodesState.length, edgesState.length])
+
   if (loading) {
     return (
       <YStack f={1} ai="center" jc="center">
@@ -544,6 +554,7 @@ export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, showAll = fa
     <Tinted>
       <div style={{ width: '100%', height: '100%', minHeight: '500px' }}>
         <ReactFlow
+          key={flowKey}
           nodes={nodesState}
           edges={edgesState}
           nodeTypes={nodeTypes}

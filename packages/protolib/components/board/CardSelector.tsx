@@ -540,14 +540,25 @@ const useCards = (extraCards = []) => {
   return [...extraCards, ...(_items?.data?.items ?? [])]
 }
 
-const makeDefaultCard = (tpl) => ({
-  key: "key",
-  width: tpl?.defaults?.type === 'value' ? 1 : 2,
-  height: tpl?.defaults?.type === 'value' ? 4 : 6,
-  icon: iconTable[tpl?.defaults?.type],
-  html: typeCodes[tpl?.defaults?.type],
-  ...tpl?.defaults,
-})
+const makeDefaultCard = (tpl) => {
+  const type = tpl?.defaults?.type || tpl?.type || 'value';
+  const width = tpl?.defaults?.width ?? (type === 'value' ? 1 : 2);
+  const height = tpl?.defaults?.height ?? (type === 'value' ? 4 : 6);
+  const icon = tpl?.defaults?.icon ?? iconTable[type];
+  const html = tpl?.defaults?.html ?? typeCodes[type];
+
+  // Include template metadata (group, tag, id, templateName, etc.) so we can
+  // later derive device associations or other properties on save.
+  return {
+    key: "key",
+    ...tpl,
+    ...tpl?.defaults,
+    width,
+    height,
+    icon,
+    html,
+  };
+}
 
 function generateVersionatedName(name, existing) {
   const set = existing instanceof Set ? existing : new Set(existing);

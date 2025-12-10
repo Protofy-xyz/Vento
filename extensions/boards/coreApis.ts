@@ -28,6 +28,41 @@ const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
 const memory = {}
 let alreadyStarted = false
 
+const collectDevicesFromCards = (cards: any[] = []) => {
+    const devices = new Set<string>();
+
+    const add = (name?: string) => {
+        if (typeof name === 'string' && name.trim().length) {
+            devices.add(name.trim());
+        }
+    };
+
+    for (const card of cards) {
+        if (!card) continue;
+
+        if (card.group === 'devices') {
+            add(card.tag);
+            continue;
+        }
+
+        const idLike: string | undefined = card.id || card.key || card.name;
+        if (typeof idLike === 'string') {
+            const direct = /^devices[._-]([a-z0-9]+)/i.exec(idLike);
+            if (direct?.[1]) {
+                add(direct[1]);
+                continue;
+            }
+
+            const keyPattern = /^[a-z]+_([a-z0-9-]+)__/i.exec(idLike);
+            if (keyPattern?.[1]) {
+                add(keyPattern[1]);
+            }
+        }
+    }
+
+    return Array.from(devices).sort();
+};
+
 // Coalescence mechanism for board reloading
 let isReloadingBoards = false
 let pendingBoardsReload = false
@@ -366,6 +401,7 @@ const getDB = (path, req, session, context?) => {
                 const { value, ...rest } = card;
                 return rest;
             })
+            value.devices = collectDevicesFromCards(value.cards);
 
             const filePath = BoardsDir(getRoot(req)) + key + ".json"
 
@@ -1442,6 +1478,7 @@ export default async (app, context) => {
                 ...(board.inputs || {}),
                 default: `/api/agents/v1/${board}/agent_input`
             };
+            board.devices = collectDevicesFromCards(board.cards || []);
             if (!board.cards || !Array.isArray(board.cards)) {
                 res.send(board);
                 return;

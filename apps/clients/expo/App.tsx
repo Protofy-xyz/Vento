@@ -492,17 +492,31 @@ export default function App() {
               onResponderRelease={() => handleTouch([])}
               onResponderTerminate={() => handleTouch([])}
             >
-              <Text
-                style={[
-                  styles.blankHint,
-                  {
-                    color: overrideTextColor ?? mutedColor,
-                    fontSize: overrideTextSize ?? 14,
-                  },
-                ]}
-              >
-                {overrideText ?? ''}
-              </Text>
+              {overrideText ? (
+                <Text
+                  style={[
+                    styles.blankHint,
+                    {
+                      color: overrideTextColor ?? mutedColor,
+                      fontSize: overrideTextSize ?? 14,
+                    },
+                  ]}
+                >
+                  {overrideText}
+                </Text>
+              ) : (
+                <View style={styles.welcomeContainer}>
+                  <Text style={styles.welcomeIcon}>✓</Text>
+                  <Text style={styles.welcomeTitle}>Connected to Vento</Text>
+                  <Text style={styles.welcomeSubtitle}>
+                    This device is now part of your Vento network
+                  </Text>
+                  <Text style={styles.welcomeDevice}>{state.deviceName}</Text>
+                  <Text style={styles.welcomeHint}>
+                    Tap ☰ to view logs or disconnect
+                  </Text>
+                </View>
+              )}
             </View>
           )}
           {/* Menu button in top right corner - outside touch view */}
@@ -524,42 +538,102 @@ export default function App() {
         </View>
       )}
 
-      {/* Logs mode */}
+      {/* Menu/Settings mode */}
       {screenMode === 'logs' && (
-        <View style={styles.logsContainer}>
-          <View style={styles.header}>
-            <View>
-              <Text style={[styles.label, { color: mutedColor }]}>Device</Text>
-              <Text style={[styles.value, { color: textColor }]}>{state.deviceName}</Text>
-            </View>
-            <Button title="Disconnect" onPress={disconnect} color="#ff6b6b" />
-          </View>
-
-          <View style={styles.modeButtons}>
-            <Pressable
-              style={[styles.modeButton, { backgroundColor: isDark ? '#222' : '#eee' }]}
+        <View style={styles.menuContainer}>
+          {/* Header with close button */}
+          <View style={styles.menuHeader}>
+            <Text style={styles.menuTitle}>Settings</Text>
+            <Pressable 
+              style={styles.menuCloseButton} 
               onPress={() => setScreenMode('blank')}
             >
-              <Text style={[styles.modeButtonText, { color: textColor }]}>Blank</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.modeButton, { backgroundColor: isDark ? '#222' : '#eee' }]}
-              onPress={() => setScreenMode('camera')}
-            >
-              <Text style={[styles.modeButtonText, { color: textColor }]}>Camera</Text>
+              <Text style={styles.menuCloseButtonText}>✕</Text>
             </Pressable>
           </View>
 
-          <Text style={[styles.label, { color: mutedColor }]}>Logs</Text>
-          <ScrollView style={[styles.logContainer, { borderColor: isDark ? '#333' : '#ddd' }]}>
-            {state.logs.length === 0 && (
-              <Text style={[styles.muted, { color: mutedColor }]}>Waiting for events...</Text>
-            )}
-            {state.logs.map((log, idx) => (
-              <Text key={`${log}-${idx}`} style={[styles.log, { color: textColor }]}>
-                {log}
+          <ScrollView style={styles.menuContent} showsVerticalScrollIndicator={false}>
+            {/* Connection Info Section */}
+            <View style={styles.menuSection}>
+              <Text style={styles.menuSectionTitle}>Connection</Text>
+              <View style={styles.menuCard}>
+                <View style={styles.menuCardRow}>
+                  <Text style={styles.menuCardLabel}>Status</Text>
+                  <View style={styles.statusBadge}>
+                    <View style={styles.statusDot} />
+                    <Text style={styles.statusText}>Connected</Text>
+                  </View>
+                </View>
+                <View style={styles.menuCardDivider} />
+                <View style={styles.menuCardRow}>
+                  <Text style={styles.menuCardLabel}>Device ID</Text>
+                  <Text style={styles.menuCardValue} numberOfLines={1}>{state.deviceName}</Text>
+                </View>
+                <View style={styles.menuCardDivider} />
+                <View style={styles.menuCardRow}>
+                  <Text style={styles.menuCardLabel}>Server</Text>
+                  <Text style={styles.menuCardValue} numberOfLines={1}>
+                    {state.host?.replace(/^https?:\/\//, '')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Screen Mode Section */}
+            <View style={styles.menuSection}>
+              <Text style={styles.menuSectionTitle}>Screen Mode</Text>
+              <View style={styles.menuCard}>
+                <Pressable
+                  style={styles.menuOption}
+                  onPress={() => setScreenMode('blank')}
+                >
+                  <Text style={styles.menuOptionIcon}>📱</Text>
+                  <View style={styles.menuOptionContent}>
+                    <Text style={styles.menuOptionTitle}>Home Screen</Text>
+                    <Text style={styles.menuOptionDesc}>Show welcome or remote content</Text>
+                  </View>
+                  <Text style={styles.menuOptionArrow}>→</Text>
+                </Pressable>
+                <View style={styles.menuCardDivider} />
+                <Pressable
+                  style={styles.menuOption}
+                  onPress={() => setScreenMode('camera')}
+                >
+                  <Text style={styles.menuOptionIcon}>📷</Text>
+                  <View style={styles.menuOptionContent}>
+                    <Text style={styles.menuOptionTitle}>Camera Preview</Text>
+                    <Text style={styles.menuOptionDesc}>View live camera feed</Text>
+                  </View>
+                  <Text style={styles.menuOptionArrow}>→</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Logs Section */}
+            <View style={styles.menuSection}>
+              <Text style={styles.menuSectionTitle}>Activity Log</Text>
+              <View style={[styles.menuCard, styles.logsCard]}>
+                {state.logs.length === 0 ? (
+                  <Text style={styles.logsEmpty}>No activity yet</Text>
+                ) : (
+                  state.logs.slice(-10).map((log, idx) => (
+                    <Text key={`${log}-${idx}`} style={styles.logEntry}>
+                      {log}
+                    </Text>
+                  ))
+                )}
+              </View>
+            </View>
+
+            {/* Disconnect Section */}
+            <View style={styles.menuSection}>
+              <Pressable style={styles.disconnectButton} onPress={disconnect}>
+                <Text style={styles.disconnectButtonText}>Disconnect</Text>
+              </Pressable>
+              <Text style={styles.disconnectHint}>
+                You can reconnect anytime from the home screen
               </Text>
-            ))}
+            </View>
           </ScrollView>
         </View>
       )}
@@ -745,6 +819,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.5,
   },
+  welcomeContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  welcomeIcon: {
+    fontSize: 48,
+    color: '#4ade80',
+    marginBottom: 16,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  welcomeDevice: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'monospace',
+    backgroundColor: '#1d1d24',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 32,
+  },
+  welcomeHint: {
+    fontSize: 12,
+    color: '#555',
+    textAlign: 'center',
+  },
   webviewContainer: {
     flex: 1,
     width: '100%',
@@ -795,52 +907,166 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // Logs mode
-  logsContainer: {
+  // Menu/Settings mode
+  menuContainer: {
     flex: 1,
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    gap: 12,
+    backgroundColor: '#0b0b0f',
   },
-  header: {
+  menuHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1d1d24',
   },
-  label: {
-    fontSize: 14,
-    marginBottom: 4,
+  menuTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#fff',
   },
-  value: {
+  menuCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1d1d24',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuCloseButtonText: {
     fontSize: 18,
-    fontWeight: '500',
+    color: '#888',
+    fontWeight: '600',
   },
-  modeButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  modeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  modeButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  logContainer: {
+  menuContent: {
     flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 20,
   },
-  log: {
-    fontSize: 12,
-    marginBottom: 4,
-    fontFamily: 'monospace',
+  menuSection: {
+    marginTop: 24,
   },
-  muted: {
+  menuSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  menuCard: {
+    backgroundColor: '#1d1d24',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  menuCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  menuCardLabel: {
+    fontSize: 15,
+    color: '#888',
+  },
+  menuCardValue: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '500',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  menuCardDivider: {
+    height: 1,
+    backgroundColor: '#2a2a32',
+    marginHorizontal: 16,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a2a1a',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4ade80',
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 13,
+    color: '#4ade80',
+    fontWeight: '600',
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  menuOptionIcon: {
+    fontSize: 24,
+    marginRight: 14,
+  },
+  menuOptionContent: {
+    flex: 1,
+  },
+  menuOptionTitle: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  menuOptionDesc: {
+    fontSize: 13,
+    color: '#666',
+  },
+  menuOptionArrow: {
+    fontSize: 18,
+    color: '#444',
+  },
+  logsCard: {
+    padding: 16,
+    maxHeight: 200,
+  },
+  logsEmpty: {
+    fontSize: 14,
+    color: '#555',
     fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  logEntry: {
+    fontSize: 12,
+    color: '#888',
+    fontFamily: 'monospace',
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  disconnectButton: {
+    backgroundColor: '#2a1a1a',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3a2020',
+  },
+  disconnectButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ff6b6b',
+  },
+  disconnectHint: {
+    fontSize: 12,
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 40,
   },
   hiddenBridges: {
     position: 'absolute',

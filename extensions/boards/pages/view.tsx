@@ -51,6 +51,7 @@ import { ItemMenu } from 'protolib/components/ItemMenu'
 import { DevicesModel } from '@extensions/devices/devices/devicesSchemas'
 import { useEsphomeDeviceActions } from '@extensions/esphome/hooks/useEsphomeDeviceActions'
 import { SubsystemsEditor } from 'protodevice/src/SubsystemEditor'
+import { Subsystems } from 'protodevice/src/Subsystem'
 
 const defaultCardMethod: "post" | "get" = 'post'
 
@@ -217,7 +218,7 @@ type DeviceActions = {
   viewLogs: (device: DevicesModel) => Promise<void>;
 };
 
-const DeviceListItem = ({ device, actions }: { device: DevicesModel, actions: DeviceActions }) => {
+const DeviceListItem = ({ device, actions, onSelect }: { device: DevicesModel, actions: DeviceActions, onSelect: (device: DevicesModel) => void }) => {
   const [subsystemsEditor, setSubsystemsEditor] = useState<{ open: boolean, device: DevicesModel | null }>({ open: false, device: null });
 
   const extraMenuActions = [
@@ -244,7 +245,7 @@ const DeviceListItem = ({ device, actions }: { device: DevicesModel, actions: De
   return (
     <>
       <Tinted>
-        <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5" jc="space-between">
+        <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5" jc="space-between" onPress={() => onSelect(device)} cursor="pointer">
           <XStack ai="center" gap="$3">
             <Router size={16} />
             <Text>{device?.data?.name ?? 'Unknown device'}</Text>
@@ -273,6 +274,7 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
   const list = Array.isArray(devices) ? devices.filter(Boolean) : [];
   const [loading, setLoading] = useState(false);
   const [deviceMap, setDeviceMap] = useState<Record<string, DevicesModel | null>>({});
+  const [selected, setSelected] = useState<DevicesModel | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -302,7 +304,46 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
   return (
     <YStack f={1} padding="$4" gap="$3">
       <Paragraph size="$5" fow="600">Linked devices</Paragraph>
-      {list.length === 0 ? (
+      {selected ? (
+        <YStack gap="$3">
+          <XStack ai="center" jc="space-between">
+            <XStack ai="center" gap="$3">
+              <Button size="$2" onPress={() => setSelected(null)}>Back</Button>
+              <Text fontWeight="700">{selected.data?.name}</Text>
+            </XStack>
+            <ItemMenu
+              type="item"
+              sourceUrl="/api/core/v1/devices"
+              element={selected}
+              deleteable={() => false}
+              hideDeleteButton
+              extraMenuActions={[
+                {
+                  text: "Edit subsystems",
+                  icon: Radio,
+                  action: (element: DevicesModel) => setSelected(element), // no-op; subsystems already shown
+                  isVisible: () => true
+                },
+                {
+                  text: "Upload config file",
+                  icon: UploadCloud,
+                  action: async (element: DevicesModel) => { await actions.uploadConfigFile(element); },
+                  isVisible: (element: DevicesModel) => Boolean(element.getConfigFile())
+                },
+                {
+                  text: "View logs",
+                  icon: Bug,
+                  action: async (element: DevicesModel) => { await actions.viewLogs(element); },
+                  isVisible: (element: DevicesModel) => Boolean(element.getLogs())
+                },
+              ]}
+            />
+          </XStack>
+          <Tinted>
+            <Subsystems subsystems={selected.data?.subsystem ?? []} deviceName={selected.data?.name} />
+          </Tinted>
+        </YStack>
+      ) : list.length === 0 ? (
         <Paragraph color="$gray9">No devices linked to this board yet.</Paragraph>
       ) : loading ? (
         <Paragraph color="$gray9">Loading devices…</Paragraph>
@@ -311,7 +352,7 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
           {list.map((dev) => {
             const deviceModel = deviceMap[dev];
             return deviceModel ? (
-              <DeviceListItem key={dev} device={deviceModel} actions={actions} />
+              <DeviceListItem key={dev} device={deviceModel} actions={actions} onSelect={(d) => setSelected(d)} />
             ) : (
               <Tinted key={dev}>
                 <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5">

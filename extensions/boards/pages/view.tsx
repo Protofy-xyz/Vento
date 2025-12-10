@@ -1,4 +1,4 @@
-import { Copy, Plus, Settings, X, Book, Activity, Bot, Presentation, FileClock, Router } from '@tamagui/lucide-icons'
+import { Copy, Plus, Settings, X, Book, Activity, Bot, Presentation, FileClock, Router, Radio, UploadCloud, Bug } from '@tamagui/lucide-icons'
 import { API, getPendingResult, set } from 'protobase'
 import { AdminPage } from "protolib/components/AdminPage"
 import { useIsAdmin } from "protolib/lib/useIsAdmin"
@@ -47,6 +47,10 @@ import { useBoardVersions, latestVersion } from '../utils/versions'
 import { GraphView, EdgeDeleteInfo, EdgeCreateInfo } from './graphView'
 import { useEventEffect } from '@extensions/events/hooks'
 import { getUIPreferences, mergeUIPreferences } from '../utils/uiPreferences'
+import { ItemMenu } from 'protolib/components/ItemMenu'
+import { DevicesModel } from '@extensions/devices/devices/devicesSchemas'
+import { useEsphomeDeviceActions } from '@extensions/esphome/hooks/useEsphomeDeviceActions'
+import { SubsystemsEditor } from 'protodevice/src/SubsystemEditor'
 
 const defaultCardMethod: "post" | "get" = 'post'
 
@@ -118,11 +122,11 @@ const { useParams } = createParam()
 const RulesSideMenu = dynamic(() => import('protolib/components/autopilot/RulesSideMenu').then(mod => mod.RulesSideMenu), { ssr: false })
 const UISideMenu = dynamic(() => import('protolib/components/autopilot/UISideMenu').then(mod => mod.UISideMenu), { ssr: false })
 
-
 const FileWidget = dynamic<any>(() =>
   import('protolib/adminpanel/features/components/FilesWidget').then(module => module.FileWidget),
   { loading: () => <Tinted><Center><Spinner size='small' color="$color7" scale={4} /></Center></Tinted> }
 );
+
 
 // Memoized ActionCard to prevent unnecessary re-renders
 const GraphActionCard = memo(ActionCard, (prev, next) => {
@@ -208,23 +212,115 @@ const BoardStateView = ({ board }) => {
   </XStack>
 }
 
-const DevicesTab = ({ devices }: { devices: string[] }) => {
+type DeviceActions = {
+  uploadConfigFile: (device: DevicesModel, yamlOverride?: string) => Promise<void>;
+  viewLogs: (device: DevicesModel) => Promise<void>;
+};
+
+const DeviceListItem = ({ device, actions }: { device: DevicesModel, actions: DeviceActions }) => {
+  const [subsystemsEditor, setSubsystemsEditor] = useState<{ open: boolean, device: DevicesModel | null }>({ open: false, device: null });
+
+  const extraMenuActions = [
+    {
+      text: "Edit subsystems",
+      icon: Radio,
+      action: (element: DevicesModel) => setSubsystemsEditor({ open: true, device: element }),
+      isVisible: () => true
+    },
+    {
+      text: "Upload config file",
+      icon: UploadCloud,
+      action: async (element: DevicesModel) => { await actions.uploadConfigFile(element); },
+      isVisible: (element: DevicesModel) => Boolean(element.getConfigFile())
+    },
+    {
+      text: "View logs",
+      icon: Bug,
+      action: async (element: DevicesModel) => { await actions.viewLogs(element); },
+      isVisible: (element: DevicesModel) => Boolean(element.getLogs())
+    },
+  ];
+
+  return (
+    <>
+      <Tinted>
+        <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5" jc="space-between">
+          <XStack ai="center" gap="$3">
+            <Router size={16} />
+            <Text>{device?.data?.name ?? 'Unknown device'}</Text>
+          </XStack>
+          <ItemMenu
+            type="item"
+            sourceUrl="/api/core/v1/devices"
+            element={device}
+            deleteable={() => false}
+            hideDeleteButton
+            extraMenuActions={extraMenuActions}
+          />
+        </XStack>
+      </Tinted>
+      <SubsystemsEditor
+        open={subsystemsEditor.open}
+        deviceName={subsystemsEditor.device?.data?.name}
+        subsystems={subsystemsEditor.device?.data?.subsystem ?? []}
+        onClose={() => setSubsystemsEditor({ open: false, device: null })}
+      />
+    </>
+  );
+};
+
+const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceActions }) => {
   const list = Array.isArray(devices) ? devices.filter(Boolean) : [];
+  const [loading, setLoading] = useState(false);
+  const [deviceMap, setDeviceMap] = useState<Record<string, DevicesModel | null>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const entries = await Promise.all(list.map(async (name) => {
+          try {
+            const res = await API.get(`/api/core/v1/devices/${encodeURIComponent(name)}`);
+            if (!res?.isError && res?.data) {
+              return [name, DevicesModel.load(res.data)];
+            }
+          } catch (err) { }
+          return [name, null];
+        }));
+        if (!cancelled) {
+          setDeviceMap(Object.fromEntries(entries));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    if (list.length) load(); else setDeviceMap({});
+    return () => { cancelled = true; };
+  }, [JSON.stringify(list)]);
+
   return (
     <YStack f={1} padding="$4" gap="$3">
       <Paragraph size="$5" fow="600">Linked devices</Paragraph>
       {list.length === 0 ? (
         <Paragraph color="$gray9">No devices linked to this board yet.</Paragraph>
+      ) : loading ? (
+        <Paragraph color="$gray9">Loading devices…</Paragraph>
       ) : (
         <YStack gap="$2">
-          {list.map((dev) => (
-            <Tinted key={dev}>
-              <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5">
-                <Router size={16} />
-                <Text>{dev}</Text>
-              </XStack>
-            </Tinted>
-          ))}
+          {list.map((dev) => {
+            const deviceModel = deviceMap[dev];
+            return deviceModel ? (
+              <DeviceListItem key={dev} device={deviceModel} actions={actions} />
+            ) : (
+              <Tinted key={dev}>
+                <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5">
+                  <Router size={16} />
+                  <Text>{dev} (not found)</Text>
+                </XStack>
+              </Tinted>
+            );
+          })}
         </YStack>
       )}
     </YStack>
@@ -232,7 +328,7 @@ const DevicesTab = ({ devices }: { devices: string[] }) => {
 };
 
 const MAX_BUFFER_MSG = 1000
-const FloatingArea = ({ tabVisible, setTabVisible, board, automationInfo, boardRef, actions, states, uicodeInfo, setUICodeInfo, onEditBoard }) => {
+const FloatingArea = ({ tabVisible, setTabVisible, board, automationInfo, boardRef, actions, states, uicodeInfo, setUICodeInfo, onEditBoard, deviceActions }) => {
   const { panelSide, setPanelSide } = useBoardControls() || {};
   const [logs, setLogs] = useState([])
   useLog((log) => {
@@ -296,7 +392,7 @@ const FloatingArea = ({ tabVisible, setTabVisible, board, automationInfo, boardR
     "devices": {
       "label": "Devices",
       "icon": Router,
-      "content": <DevicesTab devices={board.devices ?? []} />
+      "content": <DevicesTab devices={board.devices ?? []} actions={deviceActions} />
     },
     "board-settings": {
       "label": "Settings",
@@ -489,6 +585,16 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
   const [boardVersion, setBoardVersion] = useBoardVersion()
   const { refresh } = useBoardVersions(board.name);
   const boardRef = useRef(board)
+  const {
+    uploadConfigFile,
+    viewLogs,
+    ui: deviceActionsUi,
+  } = useEsphomeDeviceActions();
+
+  const deviceActions: DeviceActions = {
+    uploadConfigFile,
+    viewLogs,
+  };
 
   //@ts-ignore store the states in the window object to be used in the cards htmls
   window['protoStates'] = states
@@ -1358,18 +1464,19 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
           data={{ board, state: states?.boards?.[board.name] }}
           setData={(data) => console.log('set data from board', data)}
         />
-        <FloatingArea tabVisible={tabVisible} setTabVisible={setTabVisible} board={board} automationInfo={automationInfo} boardRef={boardRef} actions={actions} states={states} uicodeInfo={uicodeInfo} setUICodeInfo={setUICodeInfo} onEditBoard={onEditBoard} />
-        <YStack
-          position={"fixed" as any}
-          left={0}
-          height="100vh"
-          width="100vw"
-          display={tabVisible === 'visualui' ? 'flex' : 'none'}
-        >
-          {visualui}
-        </YStack>
-      </XStack>
+        <FloatingArea tabVisible={tabVisible} setTabVisible={setTabVisible} board={board} automationInfo={automationInfo} boardRef={boardRef} actions={actions} states={states} uicodeInfo={uicodeInfo} setUICodeInfo={setUICodeInfo} onEditBoard={onEditBoard} deviceActions={deviceActions} />
+    <YStack
+      position={"fixed" as any}
+      left={0}
+      height="100vh"
+      width="100vw"
+      display={tabVisible === 'visualui' ? 'flex' : 'none'}
+    >
+      {visualui}
     </YStack>
+    {deviceActionsUi}
+  </XStack>
+</YStack>
   )
 }
 

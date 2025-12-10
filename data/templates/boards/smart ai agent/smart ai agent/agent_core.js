@@ -55,14 +55,14 @@ const instructionsExecution = context.ai.htmlBox(`
 {
   "response": "your message in markdown format",
   "actions": [
-    { "name": "action_name", "params": { "key": "value" } }
+    { "name": "action name", "params": { "key": "value" } }
   ]
 }
 </pre>
 <ul style="margin:8px 0;padding-left:20px;color:#e5e5e7;">
 <li>The <strong>response</strong> will be shown to the user</li>
 <li>The <strong>actions</strong> array can be empty if no actions needed</li>
-<li>Always use the action <strong>name</strong>, never the id</li>
+<li>Always use the action <strong>name</strong>, never the key, or id, just the name</li>
 <li>Use <strong style="color:#0a84ff;">Board States</strong> to answer questions</li>
 <li>If something is unavailable, suggest extending the board</li>
 </ul>
@@ -72,7 +72,7 @@ const instructionsReadOnly = context.ai.htmlBox(`
 <p>You are an assistant providing answers about an agent's state.</p>
 <p>Use the <strong style="color:#0a84ff;">Board States</strong> to answer questions.</p>
 <p>Answer in plain language, in the same language as the prompt.</p>
-<p>If information is unavailable, suggest extending the board with more cards.</p>
+<p>Your answer will be sent to a human. Please don't use json or other things except markdown</p>
 `, '📋 Instructions')
 
 const message_prompt = params.allow_execution 
@@ -81,6 +81,7 @@ const message_prompt = params.allow_execution
 
 if(params.debug) return message_prompt
 const response = await context.chatgpt.prompt({
+  model: "gpt-5.1",
   message: message_prompt,
   conversation: await context.chatgpt.getSystemPrompt({
     prompt: `You can analyze images provided in the same user turn. 

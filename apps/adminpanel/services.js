@@ -3,7 +3,7 @@ const path = require('path')
 const services = [
       {
         "name": "adminpanel",
-        "disabled": true,
+        "disabled": false,
         "description": "Admin panel UI to manage and interact with core services",
         "route": (req) => {
           if (req.url.startsWith('/workspace/') || req.url == '/workspace') {

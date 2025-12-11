@@ -14,7 +14,7 @@ import { AlertDialog } from 'protolib/components/AlertDialog'
 import { useState } from 'react'
 import { Slides } from 'protolib/components/Slides';
 import { TemplateCard } from '../../apis/TemplateCard';
-import { Eye, EyeOff, Plus, Bot, Sparkles, Network } from '@tamagui/lucide-icons'
+import { Eye, EyeOff, Plus, Bot, Sparkles, Network, PlayCircle } from '@tamagui/lucide-icons'
 import { usePageParams } from 'protolib/next'
 import { Tinted } from 'protolib/components/Tinted'
 import { BoardView } from '@extensions/boards/pages/view'
@@ -22,6 +22,7 @@ import { networkOptions, NetworkOption } from '../options'
 import { shouldShowInArea } from 'protolib/helpers/Visibility'
 import { NetworkTopologyView } from '../components/NetworkTopologyView'
 import { NetworkCard } from '../components/NetworkCard'
+import { TutorialVideoDialog } from 'protolib/components/TutorialVideoDialog'
 
 const { useParams } = createParam()
 
@@ -107,6 +108,7 @@ export default {
       const router = useRouter()
       const { push, query} = usePageParams({})
       const [addOpen, setAddOpen] = React.useState(false)
+      const [tutorialOpen, setTutorialOpen] = useState(false)
       const [selectedOption, setSelectedOption] = useState<NetworkOption | null>(networkOptions[0] || null)
       const [step, setStep] = useState<'select' | 'configure'>('select')
 
@@ -148,6 +150,14 @@ export default {
 
       // Memoize extraActions
       const extraActions = useMemo(() => [
+        <Tinted key="watch-tutorial">
+          <DataViewActionButton
+            id="admin-dataview-tutorial-btn"
+            icon={PlayCircle}
+            description="Watch tutorial"
+            onPress={() => setTutorialOpen(true)}
+          />
+        </Tinted>,
         <Tinted key="toggle-visibility-scope">
           <DataViewActionButton
             id="admin-dataview-add-btn"
@@ -189,6 +199,11 @@ export default {
       }), [query.all, router])
 
       return (<AdminPage title="Network" workspace={workspace} pageSession={pageSession}>
+        
+        <TutorialVideoDialog
+          open={tutorialOpen}
+          onClose={() => setTutorialOpen(false)}
+        />
 
         <AlertDialog
           p={"$2"}

@@ -1,5 +1,6 @@
 import { useState, useEffect, ReactNode } from 'react'
 import { AISetupWizard } from './AISetupWizard'
+import { TutorialVideoDialog, useTutorialVideo } from './TutorialVideoDialog'
 import { useSettings, settingsAtom } from '@extensions/settings/hooks'
 import { API } from 'protobase'
 import { useAtom } from 'jotai'
@@ -12,8 +13,10 @@ type AISetupProviderProps = {
 export const AISetupProvider = ({ children }: AISetupProviderProps) => {
     const [settings, setSettings] = useAtom(settingsAtom)
     const [showWizard, setShowWizard] = useState(false)
+    const [showTutorial, setShowTutorial] = useState(false)
     const [checked, setChecked] = useState(false)
     const [session] = useSession()
+    const { hasWatchedTutorial, markTutorialAsWatched } = useTutorialVideo()
 
     useEffect(() => {
         // Esperar a tener sesión antes de cargar settings
@@ -66,6 +69,11 @@ export const AISetupProvider = ({ children }: AISetupProviderProps) => {
             'ai.provider': provider
         }))
         setShowWizard(false)
+        
+        // Show tutorial video after AI setup if not watched before
+        if (!hasWatchedTutorial()) {
+            setShowTutorial(true)
+        }
     }
 
     const handleSkip = async () => {
@@ -95,6 +103,15 @@ export const AISetupProvider = ({ children }: AISetupProviderProps) => {
         return <>{children}</>
     }
 
+    const handleTutorialClose = () => {
+        setShowTutorial(false)
+        markTutorialAsWatched()
+    }
+
+    const handleDontShowAgain = () => {
+        markTutorialAsWatched()
+    }
+
     return (
         <>
             {children}
@@ -102,6 +119,12 @@ export const AISetupProvider = ({ children }: AISetupProviderProps) => {
                 open={showWizard}
                 onComplete={handleComplete}
                 onSkip={handleSkip}
+            />
+            <TutorialVideoDialog
+                open={showTutorial}
+                onClose={handleTutorialClose}
+                showDontShowAgain
+                onDontShowAgain={handleDontShowAgain}
             />
         </>
     )

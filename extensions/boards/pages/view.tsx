@@ -987,35 +987,61 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
 
   boardRef.current.layouts = layouts
 
-  const addWidget = async (card) => {
-    try {
-      await checkCard(boardRef.current?.cards, card)
-      setErrors([]); // Clear errors if validation passes
-    } catch (e) {
-      if (e instanceof ValidationError) {
-        setErrors(e.errors);
-      } else {
-        console.error('Error checking card:', e);
-        setErrors(['An unexpected error occurred while checking the card.']);
+  const addWidget = async (cardOrCards) => {
+    // Support both single card and array of cards
+    const cardsToAdd = Array.isArray(cardOrCards) ? cardOrCards : [cardOrCards];
+    const newCards = [];
+    const validationErrors = [];
+
+    // Validate all cards first
+    let currentCards = [...(boardRef.current?.cards ?? [])];
+    for (let i = 0; i < cardsToAdd.length; i++) {
+      const card = cardsToAdd[i];
+      try {
+        await checkCard(currentCards, card);
+        const uniqueKey = `${card.type}_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
+        const newCard = { ...card, key: uniqueKey, layer: card.layer ?? activeLayer ?? 'base' };
+        newCards.push(newCard);
+        // Add to current cards for subsequent validations
+        currentCards = [...currentCards, newCard];
+      } catch (e) {
+        if (e instanceof ValidationError) {
+          validationErrors.push(...e.errors);
+        } else {
+          console.error('Error checking card:', e);
+          validationErrors.push(`Error adding card "${card.name}": ${e.message || 'Unknown error'}`);
+        }
       }
-      throw new Error(e)
     }
 
-    const uniqueKey = card.type + '_' + Date.now();
-    const newCard = { ...card, key: uniqueKey, layer: card.layer ?? activeLayer ?? 'base' }
-    const newItems = [...boardRef.current?.cards, newCard].filter(item => item.key !== 'addwidget');
-    setItems(newItems)
-    boardRef.current.cards = newItems;
-    await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
+    } else {
+      setErrors([]);
+    }
 
-    // animate to the bottom
-    setTimeout(() => {
-      scrollToAndHighlight(document.getElementById(uniqueKey), {
-        duration: 1300,
-        color: 'var(--color6)',
-        ring: 2,
-      });
-    }, 500);
+    // If no cards were valid, throw error
+    if (newCards.length === 0 && validationErrors.length > 0) {
+      throw new Error(validationErrors.join(', '));
+    }
+
+    // Add all valid cards at once
+    if (newCards.length > 0) {
+      const newItems = [...boardRef.current?.cards, ...newCards].filter(item => item.key !== 'addwidget');
+      setItems(newItems);
+      boardRef.current.cards = newItems;
+      await saveBoard(board.name, boardRef.current, setBoardVersion, refresh);
+
+      // Animate to the last added card
+      const lastCard = newCards[newCards.length - 1];
+      setTimeout(() => {
+        scrollToAndHighlight(document.getElementById(lastCard.key), {
+          duration: 1300,
+          color: 'var(--color6)',
+          ring: 2,
+        });
+      }, 500);
+    }
   };
 
   const setCardContent = (key, content) => {

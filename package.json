@@ -47,7 +47,6 @@
     "fix": "manypkg fix",
     "check-deps": "check-dependency-version-consistency .",
     "shrink": "node scripts/removeDevMode.js && node scripts/shrink.js",
-    "clean": "yarn workspaces foreach --all run clean",
     "vento-update-setup": "git remote add vento git@github.com:Protofy-xyz/Vento.git",
     "vento-update": "git fetch vento && git merge vento/main && yarn clean && yarn package",
     "python": "node apps/python/run.js",
@@ -79,7 +78,9 @@
     "update-agent": "node scripts/download-agent.js --force",
     "build-agent": "node scripts/build-agent.js",
     "setup-agent": "node apps/agent/setup.js",
-    "update": "node scripts/update.js && yarn update-ui && yarn update-android-client && git fetch origin --tags --force && git pull"
+    "update": "node scripts/update.js && yarn update-ui && yarn update-android-client && git fetch origin --tags --force && git pull",
+    "clean": "yarn workspaces foreach --all run clean && node scripts/clean.js",
+    "clean:all": "yarn clean && yarn clean-deps"
   },
   "resolutions": {
     "react": "18.2.0",

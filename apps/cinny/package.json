@@ -10,6 +10,7 @@
   "scripts": {
     "start": "vite --port 8181",
     "package": "shx rm -rf dist && vite build && shx rm -rf ../../data/pages/chat && shx mkdir -p ../../data/pages/chat && shx cp -r dist/* ../../data/pages/chat",
+    "clean": "shx rm -rf dist ../../data/pages/chat",
     "lint": "yarn check:eslint && yarn check:prettier",
     "check:eslint": "eslint src/*",
     "check:prettier": "prettier --check .",

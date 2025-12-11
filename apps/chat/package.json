@@ -3,6 +3,7 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "prepare-dev": "node prepare.js"
+        "prepare-dev": "node prepare.js",
+        "clean": "rimraf ../../data/pages/chat"
     }
 }

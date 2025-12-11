@@ -13,7 +13,8 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "prepare-dev": "node prepare.js"
+    "prepare-dev": "node prepare.js",
+    "clean": "shx rm -rf build ../../data/pages/docs"
   },
   "dependencies": {
     "@docusaurus/core": "3.9.2",

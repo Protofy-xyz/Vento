@@ -4,7 +4,8 @@
   "scripts": {
     "prepare-dev": "node prepare.js",
     "dev-standalone": "FULL_DEV=1 NODE_ENV=development node entrypoint.js",
-    "package-launcher": "node prepare.js && shx rm -rf out && NEXT_PUBLIC_APP_ID=launcher BUILD_MODE=export DISABLE_EXTRACTION=true next build && shx rm -rf ../../electron/launcher && shx mkdir -p ../../electron/launcher && shx cp -r out/* ../../electron/launcher && shx mkdir -p ../../electron/launcher/public && shx cp -r ../../data/public/* ../../electron/launcher/public"
+    "package-launcher": "node prepare.js && shx rm -rf out && NEXT_PUBLIC_APP_ID=launcher BUILD_MODE=export DISABLE_EXTRACTION=true next build && shx rm -rf ../../electron/launcher && shx mkdir -p ../../electron/launcher && shx cp -r out/* ../../electron/launcher && shx mkdir -p ../../electron/launcher/public && shx cp -r ../../data/public/* ../../electron/launcher/public",
+    "clean": "shx rm -rf .next out ../../electron/launcher"
   },
   "dependencies": {
     "@craftjs/core": "0.2.0-beta.8",

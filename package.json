@@ -2,7 +2,7 @@
   "name": "site",
   "main": "electron/launcher-main.js",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "workspaces": [
     "apps/api",
     "apps/dendrite",

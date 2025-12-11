@@ -235,7 +235,7 @@ const DeviceModal = ({
                                         onPress={() => {
                                             onCancel();
                                             if (typeof window !== 'undefined') {
-                                                window.open(boardHref, '_blank', 'noreferrer');
+                                                window.location.assign(boardHref);
                                             }
                                         }}
                                     >

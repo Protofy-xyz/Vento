@@ -215,6 +215,7 @@ const BoardStateView = ({ board }) => {
 
 type DeviceActions = {
   uploadConfigFile: (device: DevicesModel, yamlOverride?: string) => Promise<void>;
+  flashDevice: (device: DevicesModel, yamlOverride?: string) => Promise<void>;
   viewLogs: (device: DevicesModel) => Promise<void>;
 };
 
@@ -229,10 +230,16 @@ const DeviceListItem = ({ device, actions, onSelect }: { device: DevicesModel, a
       isVisible: () => true
     },
     {
+      text: "Upload definition",
+      icon: UploadCloud,
+      action: async (element: DevicesModel) => { await actions.flashDevice(element); },
+      isVisible: (element: DevicesModel) => Boolean(element.data?.deviceDefinition)
+    },
+    {
       text: "Upload config file",
       icon: UploadCloud,
       action: async (element: DevicesModel) => { await actions.uploadConfigFile(element); },
-      isVisible: (element: DevicesModel) => Boolean(element.getConfigFile())
+      isVisible: (element: DevicesModel) => Boolean(element.getConfigFile()) && !element.data?.deviceDefinition
     },
     {
       text: "View logs",
@@ -330,10 +337,16 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
                   isVisible: () => true
                 },
                 {
+                  text: "Upload definition",
+                  icon: UploadCloud,
+                  action: async (element: DevicesModel) => { await actions.flashDevice(element); },
+                  isVisible: (element: DevicesModel) => Boolean(element.data?.deviceDefinition)
+                },
+                {
                   text: "Upload config file",
                   icon: UploadCloud,
                   action: async (element: DevicesModel) => { await actions.uploadConfigFile(element); },
-                  isVisible: (element: DevicesModel) => Boolean(element.getConfigFile())
+                  isVisible: (element: DevicesModel) => Boolean(element.getConfigFile()) && !element.data?.deviceDefinition
                 },
                 {
                   text: "View logs",
@@ -633,12 +646,14 @@ export const Board = ({ board, icons, forceViewMode = undefined }: { board: any,
   const boardRef = useRef(board)
   const {
     uploadConfigFile,
+    flashDevice,
     viewLogs,
     ui: deviceActionsUi,
   } = useEsphomeDeviceActions();
 
   const deviceActions: DeviceActions = {
     uploadConfigFile,
+    flashDevice,
     viewLogs,
   };
 

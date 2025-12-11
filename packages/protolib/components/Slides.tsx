@@ -1,8 +1,8 @@
-import { XStack, YStack, Text, Stack, Button, Spinner } from '@my/ui'
+import { XStack, YStack, Text, Stack, Button } from '@my/ui'
 import { useState } from 'react'
 import { Tinted } from './Tinted'
 
-export const Slides = ({ slides, lastButtonCaption, onFinish, id = "pages", styles = {}, hideHeader = false, disabled = false, loading = false }) => {
+export const Slides = ({ slides, lastButtonCaption, onFinish, id = "pages", styles = {}, hideHeader = false, disabled = false }) => {
   const [step, setStep] = useState(0)
   const totalSlides = slides.length
   const prev_step = step > 1 ? step - 1 : 0
@@ -12,8 +12,6 @@ export const Slides = ({ slides, lastButtonCaption, onFinish, id = "pages", styl
     .filter((_, index) => index <= step)
     .map(slide => slide.name)
     .join(" / ")
-
-  const isLastStep = totalSlides === step + 1
 
   return (
     <YStack
@@ -39,7 +37,7 @@ export const Slides = ({ slides, lastButtonCaption, onFinish, id = "pages", styl
 
       <XStack gap={40} jc='center' mb={"$1"} alignItems="flex-end">
         {step !== 0 && (
-          <Button disabled={disabled || loading} w={250} onPress={(e) => {
+          <Button disabled={disabled} w={250} onPress={(e) => {
             e.stopPropagation()
             if (step > 0) {
               setStep(prev_step)
@@ -49,23 +47,17 @@ export const Slides = ({ slides, lastButtonCaption, onFinish, id = "pages", styl
           </Button>
         )}
         <Tinted>
-          <Button 
-            disabled={disabled || loading} 
-            id={"admin-" + id + "-add-btn"} 
-            w={250} 
-            onPress={async (e) => {
-              e.stopPropagation()
-              if (post_step) {
-                setStep(post_step)
-              } else {
-                if (onFinish) {
-                  await onFinish()
-                }
+          <Button disabled={disabled} id={"admin-" + id + "-add-btn"} w={250} onPress={async (e) => {
+            e.stopPropagation()
+            if (post_step) {
+              setStep(post_step)
+            } else {
+              if (onFinish) {
+                await onFinish()
               }
-            }}
-            icon={isLastStep && loading ? <Spinner size="small" color="$color" /> : undefined}
-          >
-            {isLastStep ? lastButtonCaption : "Next"}
+            }
+          }}>
+            {totalSlides === step + 1 ? lastButtonCaption : "Next"}
           </Button>
         </Tinted>
       </XStack>

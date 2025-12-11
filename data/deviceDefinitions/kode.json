@@ -63,6 +63,14 @@
           "units": "",
           "endpoint": "/binary_sensor/display_touch/state",
           "connectionType": "mqtt"
+        },
+        {
+          "name": "espbinary_sensorlsm6ds_shake",
+          "label": "LSM6DS Shake",
+          "description": "binary_sensor",
+          "units": "",
+          "endpoint": "/binary_sensor/lsm6ds_shake/state",
+          "connectionType": "mqtt"
         }
       ],
       "actions": []
@@ -216,19 +224,19 @@
           "connectionType": "mqtt"
         },
         {
-          "name": "espsensortouch_x",
-          "label": "Touch X",
-          "description": "sensor",
-          "units": "px",
-          "endpoint": "/sensor/touch_x/state",
-          "connectionType": "mqtt"
-        },
-        {
           "name": "espsensortouch_y",
           "label": "Touch Y",
           "description": "sensor",
           "units": "px",
           "endpoint": "/sensor/touch_y/state",
+          "connectionType": "mqtt"
+        },
+        {
+          "name": "espsensortouch_x",
+          "label": "Touch X",
+          "description": "sensor",
+          "units": "px",
+          "endpoint": "/sensor/touch_x/state",
           "connectionType": "mqtt"
         }
       ],

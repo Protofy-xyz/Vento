@@ -3,6 +3,16 @@ esphome:
 wifi:
   ssid: YOUR_SSID
   password: YOUR_PASSWORD
+  on_connect:
+    - lambda: |-
+        id(is_online) = true;
+    - component.update: vento_logo
+    - component.update: my_display
+  on_disconnect:
+    - lambda: |-
+        id(is_online) = false;
+    - component.update: my_display
+
 mqtt:
   broker: YOUR_MQTT_BROKER_IP
   port: 1883
@@ -21,6 +31,21 @@ external_components:
       - lsm6ds
       - bq27220
     refresh: 0s
+http_request:
+  timeout: 10s
+  useragent: esphome/online_image
+online_image:
+  - url: "https://raw.githubusercontent.com/Protofy-xyz/Vento/main/data/public/vento-square.png"
+    format: png
+    id: vento_logo
+    type: RGB565
+    resize: 200x200
+    transparency: alpha_channel
+    update_interval: 30min
+    on_download_finished:
+      - lambda: |-
+          id(logo_loaded) = true;
+      - component.update: my_display
 i2c:
   sda: 48
   scl: 47
@@ -87,6 +112,11 @@ sensor:
     address: 106
     update_interval: 5s
     id: lsm6ds_sensor
+    shake:
+      name: LSM6DS Shake
+    shake_duration: 1s
+    shake_threshold: "8 m/s^2"
+    shake_check_interval: 100ms
     acceleration_x:
       name: LSM6DS Accel X
       id: lsm6ds_accel_x
@@ -201,7 +231,35 @@ display:
       - - 17
       - delay 120ms
       - - 41
-    show_test_card: true
+    show_test_card: false
+    update_interval: 150ms
+    lambda: |-
+      if (!id(is_online)) {
+        it.fill(Color::BLACK);
+
+        static uint8_t frame = 0;
+        const int cx = 205;    // center of display (410/2)
+        const int cy = 251;    // center of display (502/2)
+        const int size = 14;   // square size
+        const int offset = 30; // distance from center
+
+        Color dim(40, 40, 40);
+        Color bright(255, 255, 255);
+
+        it.filled_rectangle(cx - offset,       cy - offset,       size, size, frame == 0 ? bright : dim);
+        it.filled_rectangle(cx + offset - size, cy - offset,       size, size, frame == 1 ? bright : dim);
+        it.filled_rectangle(cx + offset - size, cy + offset - size, size, size, frame == 2 ? bright : dim);
+        it.filled_rectangle(cx - offset,       cy + offset - size, size, size, frame == 3 ? bright : dim);
+
+        frame = (frame + 1) % 4;
+      } else {
+        if (!id(logo_loaded)) {
+          it.fill(Color::BLACK);
+        } else {
+          it.fill(Color::WHITE);
+          it.image(105, 151, id(vento_logo));
+        }
+      }
 touchscreen:
   - platform: cst816
     id: my_touchscreen
@@ -218,3 +276,14 @@ touchscreen:
               );
           id(touch_x_coordinate).publish_state(touch.x);
           id(touch_y_coordinate).publish_state(touch.y);
+
+
+globals:
+  - id: logo_loaded
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: is_online
+    type: bool
+    restore_value: no
+    initial_value: 'false'

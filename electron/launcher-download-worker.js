@@ -77,8 +77,17 @@ async function main() {
     const downloadAgentScript = path.join(projectFolderPath, 'scripts', 'download-agent.js');
     console.log('[worker] Running download-agent script');
     currentStep = 'download-agent';
-    const { downloadAgent } = require(downloadAgentScript);
-    await downloadAgent({ force: true });
+    if (fs.existsSync(downloadAgentScript)) {
+      try {
+        const { downloadAgent } = require(downloadAgentScript);
+        await downloadAgent({ force: true });
+      } catch (err) {
+        console.error('[worker] download-agent script failed', err);
+        throw err;
+      }
+    } else {
+      console.log(`[worker] Skipping download-agent script: not found at ${downloadAgentScript}`);
+    }
 
     const downloadDendriteScript = path.join(projectFolderPath, 'scripts', 'download-dendrite.js');
     console.log('[worker] Running download-dendrite script');

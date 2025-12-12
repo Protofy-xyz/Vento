@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { configClass, varsClass } from 'folds';
 import { onDarkFontWeight, onLightFontWeight } from '../../config.css';
 import { ventoDarkTheme, ventoLightTheme } from '../../colors.css';
 
@@ -74,7 +75,6 @@ function applyThemeToDOM(theme: Theme) {
   html.classList.add(theme.tamaguiClass);
   
   // También actualizar body classes
-  const { configClass, varsClass } = require('folds');
   document.body.className = '';
   document.body.classList.add(configClass, varsClass);
   document.body.classList.add(...theme.classNames);

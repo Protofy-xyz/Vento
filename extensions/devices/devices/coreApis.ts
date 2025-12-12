@@ -637,7 +637,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
     await deleteDeviceActions(deviceInfo.data.name)
 
     const subsystemCardId = `devices_${deviceInfo.data.name}_subsystems_overview`;
-    addCard({
+    await addCard({
         group: 'devices',
         tag: deviceInfo.data.name,
         id: subsystemCardId,
@@ -761,7 +761,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
             });
 
             if (subsystem.monitors.length == 1) {
-                addCard({
+                await addCard({
                     group: 'devices',
                     tag: deviceInfo.data.name,
                     id: 'devices_monitors_' + deviceInfo.data.name + '_' + subsystem.name,
@@ -784,7 +784,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                     emitEvent: true
                 })
             } else {
-                addCard({
+                await addCard({
                     group: 'devices',
                     tag: deviceInfo.data.name,
                     id: 'devices_monitors_' + deviceInfo.data.name + '_' + monitor.name,
@@ -849,7 +849,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                 ? `const value = { value: JSON.stringify(userParams) };\nreturn (await execute_action('${url}', value))?.reply`
                 : `return (await execute_action('${url}', userParams))?.reply`;
             
-            addAction({
+            await addAction({
                 group: 'devices',
                 name: subsystem.name + '_' + action.name,
                 url: `/api/core/v1/devices/${deviceInfo.data.name}/subsystems/${subsystem.name}/actions/${action.name}`,
@@ -867,7 +867,7 @@ const regenerateBoardForDevice = async (deviceName: string) => {
             const cardWidth = action.cardProps?.width || width;
             const cardHeight = action.cardProps?.height || height;
             
-            addCard({
+            await addCard({
                 group: 'devices',
                 tag: deviceInfo.data.name,
                 id: 'devices_' + deviceInfo.data.name + '_' + subsystem.name + '_' + action.name,

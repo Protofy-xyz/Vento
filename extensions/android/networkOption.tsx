@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { YStack, XStack, Button, Text, Stack, useToastController, Spinner } from "@my/ui"
+import { YStack, XStack, Button, Text, Stack, useToastController, Spinner, ScrollView } from "@my/ui"
 import { Tinted } from 'protolib/components/Tinted'
 import { Copy, Check, Smartphone, Download, QrCode, Wifi, AlertCircle, CheckCircle } from '@tamagui/lucide-icons'
 import { API } from 'protobase'
@@ -401,7 +401,7 @@ const AndroidWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
     }
 
     return (
-        <YStack padding="$3" paddingTop="$0" width={800} flex={1}>
+        <YStack padding="$3" paddingTop="$0" width="100%" maxWidth={800} maxHeight="80vh">
             <XStack justifyContent="space-between" width="100%">
                 <Stack flex={1}>
                     <Text fontWeight={"500"} fontSize={16} color="$gray9">{titlesUpToCurrentStep}</Text>
@@ -417,38 +417,40 @@ const AndroidWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                 </Stack>
             </Tinted>
 
-            <Stack flex={1} marginTop={"$4"}>
-                {step === 0 && (
-                    <NetworkVerificationSlide 
-                        networkInfo={networkInfo} 
-                        loading={loading}
-                    />
-                )}
-                {step === 1 && (
-                    <DownloadSlide 
-                        apkUrl={apkUrl} 
-                        networkInfo={networkInfo} 
-                        loading={loading}
-                        onCopy={handleCopy}
-                        copied={copied}
-                    />
-                )}
-                {step === 2 && (
-                    <ConnectSlide 
-                        connectUrl={connectUrl} 
-                        loading={loading || !connectUrl}
-                        onCopy={handleCopy}
-                        copied={copied}
-                    />
-                )}
-            </Stack>
+            <ScrollView flex={1} marginTop={"$4"} showsVerticalScrollIndicator={true}>
+                <Stack paddingBottom="$4">
+                    {step === 0 && (
+                        <NetworkVerificationSlide 
+                            networkInfo={networkInfo} 
+                            loading={loading}
+                        />
+                    )}
+                    {step === 1 && (
+                        <DownloadSlide 
+                            apkUrl={apkUrl} 
+                            networkInfo={networkInfo} 
+                            loading={loading}
+                            onCopy={handleCopy}
+                            copied={copied}
+                        />
+                    )}
+                    {step === 2 && (
+                        <ConnectSlide 
+                            connectUrl={connectUrl} 
+                            loading={loading || !connectUrl}
+                            onCopy={handleCopy}
+                            copied={copied}
+                        />
+                    )}
+                </Stack>
+            </ScrollView>
 
-            <XStack gap={40} justifyContent='center' marginBottom={"$1"} alignItems="flex-end">
-                <Button width={250} onPress={handleBack}>
+            <XStack gap="$4" justifyContent='center' marginTop="$3" marginBottom={"$1"} flexWrap="wrap">
+                <Button minWidth={200} flex={1} maxWidth={250} onPress={handleBack}>
                     Back
                 </Button>
                 <Tinted>
-                    <Button width={250} onPress={handleNext}>
+                    <Button minWidth={200} flex={1} maxWidth={250} onPress={handleNext}>
                         {step === totalSlides - 1 ? "Done" : "Next"}
                     </Button>
                 </Tinted>

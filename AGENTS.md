@@ -2071,6 +2071,24 @@ Databases are in `data/databases/`. To reset:
 2. Run `yarn update-ui` to re-download
 3. Or `yarn enable-ui-dev` for development
 
+### `yarn app-dev` Fails with ECONNREFUSED on Port 3002
+
+**Symptom:** Running `yarn app-dev` for the first time shows many errors like:
+```
+connect ECONNREFUSED 127.0.0.1:3002
+Proxy error on /workspace/network
+```
+
+**Cause:** `yarn app-dev` does NOT run `prepare-dev`, unlike `yarn dev`. The environment is not initialized.
+
+**Solution:** Run `yarn prepare-dev` first, then `yarn app-dev`:
+```bash
+yarn prepare-dev
+yarn app-dev
+```
+
+**Why it works after running `yarn dev`:** Because `yarn dev` = `yarn prepare-dev && yarn dev-fast`, so it initializes everything first.
+
 ---
 
 ## Quick Reference

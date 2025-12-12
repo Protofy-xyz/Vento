@@ -32,7 +32,13 @@ export const initClient = async (session: Session): Promise<MatrixClient> => {
   });
 
   await indexedDBStore.startup();
-  await mx.initRustCrypto();
+  
+  try {
+    await mx.initRustCrypto();
+  } catch (error) {
+    // Rust crypto can fail on some M1 Macs - continue without E2EE
+    console.error('Failed to initialize Rust crypto:', error);
+  }
 
   mx.setMaxListeners(50);
 

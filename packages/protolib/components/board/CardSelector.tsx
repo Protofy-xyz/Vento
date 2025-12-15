@@ -20,14 +20,15 @@ const SelectGrid = ({ children }) => {
   </XStack>
 }
 
-const FirstSlide = ({ selected, setSelected, options, errors }) => {
+const FirstSlide = ({ selectedCards, setSelectedCards, options, errors }) => {
   const themeName = useThemeName()
   const { resolvedTheme } = useThemeSetting()
   const darkMode = resolvedTheme == 'dark'
   const [search, setSearch] = useState('')
   const isAction = (option) => option.defaults?.type === 'action'
   const [selectedGroups, setSelectedGroups] = useState([]);
-  const cardNameInputRef = useRef(null)
+  const cardNameInputRefs = useRef({})
+  const [lastClickedId, setLastClickedId] = useState(null)
 
   // Extrae los grupos disponibles de las options
   const groups = useMemo(() => {
@@ -68,11 +69,57 @@ const FirstSlide = ({ selected, setSelected, options, errors }) => {
     }, {});
   }, [filteredOptions]);
 
+  const flatFilteredOptions = useMemo(() => Object.values(groupedOptions).flat(), [groupedOptions]);
+
   const onChangeSearch = (text) => {
     setSearch(text);
     const itemToSelect = getFilteredOptions(options, text, selectedGroups)?.[0];
-    if (itemToSelect) {
-      setSelected(itemToSelect);
+    if (itemToSelect && selectedCards.length <= 1) {
+      setSelectedCards([itemToSelect]);
+    }
+  }
+
+  const isSelected = (option) => selectedCards.some(c => c.id === option.id);
+
+  const handleCardClick = (option, event) => {
+    if (event.shiftKey && lastClickedId && flatFilteredOptions.length > 0) {
+      const lastIndex = flatFilteredOptions.findIndex(o => o.id === lastClickedId);
+      const currentIndex = flatFilteredOptions.findIndex(o => o.id === option.id);
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex);
+        const end = Math.max(lastIndex, currentIndex);
+        const rangeItems = flatFilteredOptions.slice(start, end + 1);
+        const existingIds = new Set(selectedCards.map(c => c.id));
+        const newItems = rangeItems.filter(item => !existingIds.has(item.id));
+        setSelectedCards([...selectedCards, ...newItems]);
+      }
+    } else if (event.ctrlKey || event.metaKey) {
+      if (isSelected(option)) {
+        if (selectedCards.length > 1) {
+          setSelectedCards(selectedCards.filter(c => c.id !== option.id));
+        }
+      } else {
+        setSelectedCards([...selectedCards, option]);
+      }
+      setLastClickedId(option.id);
+    } else {
+      setSelectedCards([option]);
+      setLastClickedId(option.id);
+      setTimeout(() => cardNameInputRefs.current[option.id]?.focus(), 0);
+    }
+  }
+
+  const updateCardName = (cardId, value) => {
+    setSelectedCards(prev => prev.map(card => 
+      card.id === cardId 
+        ? { ...card, defaults: { ...card.defaults, customName: value && value.length ? value : null } }
+        : card
+    ));
+  }
+
+  const removeCard = (cardId) => {
+    if (selectedCards.length > 1) {
+      setSelectedCards(prev => prev.filter(c => c.id !== cardId));
     }
   }
 
@@ -132,47 +179,47 @@ const FirstSlide = ({ selected, setSelected, options, errors }) => {
                   )}
 
                   <SelectGrid>
-                    {options.map((option) => (
-                      <XStack
-                        height={70}
-                        key={option.id}
-                        width="calc(50% - 12.5px)"
-                        $gtLg={{ width: "calc(33% - 17px)" }}
-                        gap={"$2"}
-                        p={"$2"}
-                        px={"$3"}
-                        cursor="pointer"
-                        onPress={() => {
-                          setSelected(option)
-                          cardNameInputRef.current?.focus()
-                        }}
-                        borderRadius={"$3"}
-                        ai="center"
-                        bw={"1px"}
-                        boc={selected?.id === option.id ? "$gray8" : "$gray5"}
-                        bc={selected?.id === option.id ? "$gray5" : "$gray2"}
-                        hoverStyle={{ bc: "$color4", boc: "$color7" }}
-                      >
-                        <YStack
-                          br={isAction(option) ? "$10" : "$2"}
-                          p={"$2.5"}
-                          bc={
-                            option?.defaults?.color
-                              ? option?.defaults?.color
-                              : isAction(option)
-                                ? "$yellow8"
-                                : "$blue8"
-                          }
+                    {options.map((option) => {
+                      const selected = isSelected(option);
+                      return (
+                        <XStack
+                          height={70}
+                          key={option.id}
+                          width="calc(50% - 12.5px)"
+                          $gtLg={{ width: "calc(33% - 17px)" }}
+                          gap={"$2"}
+                          p={"$2"}
+                          px={"$3"}
+                          cursor="pointer"
+                          onPress={(e) => handleCardClick(option, e)}
+                          borderRadius={"$3"}
+                          ai="center"
+                          bw={"1px"}
+                          boc={selected ? "$color8" : "$gray5"}
+                          bc={selected ? "$color4" : "$gray2"}
+                          hoverStyle={{ bc: "$color4", boc: "$color7" }}
                         >
-                          <PublicIcon
-                            name={option.defaults.icon}
-                            color="var(--color)"
-                            size={20}
-                          />
-                        </YStack>
-                        <Text ml="$2" fontSize="$4">{option.templateName}</Text>
-                      </XStack>
-                    ))}
+                          <YStack
+                            br={isAction(option) ? "$10" : "$2"}
+                            p={"$2.5"}
+                            bc={
+                              option?.defaults?.color
+                                ? option?.defaults?.color
+                                : isAction(option)
+                                  ? "$yellow8"
+                                  : "$blue8"
+                            }
+                          >
+                            <PublicIcon
+                              name={option.defaults.icon}
+                              color="var(--color)"
+                              size={20}
+                            />
+                          </YStack>
+                          <Text ml="$2" fontSize="$4">{option.templateName}</Text>
+                        </XStack>
+                      );
+                    })}
                   </SelectGrid>
                 </YStack>
               ))}
@@ -180,62 +227,75 @@ const FirstSlide = ({ selected, setSelected, options, errors }) => {
           </Tinted>
 
         </XStack>
+        <Text fontSize="$2" color="$gray9" mt="$2">
+          Tip: Shift+Click to select a range, Ctrl+Click to add/remove
+        </Text>
       </YStack>
       <YStack
         width={500}
         height={"100%"}
-        cursor="pointer"
         gap="$3"
       >
-        <YStack
-          flex={1} w="100%" h="100%" jc="flex-start"
-          ai="center" px="$2" gap="$3" overflow='scroll'
-          bw={1} bc="$gray3" br="$3" p="$4" boc={"$gray6"}
-          px="$6" overflowX="hidden"
-        >
-          <XStack gap="$2" ai="center" jc="center">
-            <XStack mah={20} mt="-8px">
-              <PublicIcon
-                name={selected.defaults.icon}
-                color="var(--color)"
-                size={20}
-              />
-            </XStack>
-            <Text fontSize="$7" fontWeight="600" mb="$2" textAlign='center'>{selected.name}</Text>
-          </XStack>
-          <YStack w="100%">
-            <Label alignSelf="flex-start" ml={"$3"} h={"$3.5"} color="$gray9" size="$5">
-              Name
-            </Label>
-            <Input
-              bg="$gray6"
-              placeholder={selected.defaults?.name ?? "Card name"}
-              placeholderTextColor={"$gray10"}
-              outlineColor="$gray8"
-              w="100%"
-              ref={cardNameInputRef}
-              onChangeText={(value) => {
-                setSelected(prev => {
-                  return { ...prev, defaults: { ...prev.defaults, customName: value && value.length ? value : null } }
-                })
-              }}
-            />
-            {errors?.length > 0 ?
-              <YStack>
-                {errors.map((error, index) => (
-                  <Paragraph key={"err" + index} color="$red9" fontSize="$4">{error}</Paragraph>
-                ))}
+        <XStack jc="space-between" ai="center" px="$2">
+          <Text fontSize="$5" fontWeight="600" color="$gray11">
+            {selectedCards.length} card{selectedCards.length !== 1 ? 's' : ''} selected
+          </Text>
+        </XStack>
+        <ScrollView f={1}>
+          <YStack gap="$3" pr="$2">
+            {selectedCards.map((card, index) => (
+              <YStack
+                key={card.id}
+                bw={1} bc="$gray3" br="$3" p="$4" boc={"$gray6"}
+              >
+                <XStack gap="$2" ai="center" jc="space-between" mb="$2">
+                  <XStack gap="$2" ai="center" f={1}>
+                    <YStack
+                      br={isAction(card) ? "$10" : "$2"}
+                      p={"$2"}
+                      bc={card?.defaults?.color ? card.defaults.color : isAction(card) ? "$yellow8" : "$blue8"}
+                    >
+                      <PublicIcon name={card.defaults?.icon} color="var(--color)" size={16} />
+                    </YStack>
+                    <Text fontSize="$4" fontWeight="500" f={1} numberOfLines={1}>{card.templateName}</Text>
+                  </XStack>
+                  {selectedCards.length > 1 && (
+                    <Button size="$2" circular bc="transparent" hoverStyle={{ bc: "$red4" }} onPress={() => removeCard(card.id)}>
+                      <Text color="$red9" fontSize="$3">✕</Text>
+                    </Button>
+                  )}
+                </XStack>
+                <YStack w="100%">
+                  <Label alignSelf="flex-start" ml={"$2"} h={"$3"} color="$gray9" size="$3">Name</Label>
+                  <Input
+                    bg="$gray6"
+                    placeholder={card.defaults?.name ?? "Card name"}
+                    placeholderTextColor={"$gray10"}
+                    outlineColor="$gray8"
+                    w="100%"
+                    size="$3"
+                    ref={(ref) => { cardNameInputRefs.current[card.id] = ref; }}
+                    value={card.defaults?.customName ?? ''}
+                    onChangeText={(value) => updateCardName(card.id, value)}
+                  />
+                </YStack>
+                {card.defaults?.description && (
+                  <YStack w="100%" mt="$2">
+                    <Label alignSelf="flex-start" ml={"$2"} h={"$3"} color="$gray9" size="$3">Description</Label>
+                    <Text fontSize="$2" color="$gray10" numberOfLines={3}>{card.defaults.description}</Text>
+                  </YStack>
+                )}
+                {index === 0 && errors?.length > 0 && (
+                  <YStack mt="$2">
+                    {errors.map((error, idx) => (
+                      <Paragraph key={"err" + idx} color="$red9" fontSize="$3">{error}</Paragraph>
+                    ))}
+                  </YStack>
+                )}
               </YStack>
-              : <></>
-            }
+            ))}
           </YStack>
-          <YStack w="100%" pt="$5">
-            <Label alignSelf="flex-start" ml={"$3"} h={"$3.5"} color="$gray9" size="$5">
-              Description
-            </Label>
-            <Markdown readOnly={true} copyToClipboardEnabled={false} data={selected.defaults?.description ?? "No description provided for this card"} />
-          </YStack>
-        </YStack>
+        </ScrollView>
       </YStack>
     </XStack>
   )
@@ -584,31 +644,28 @@ function generateVersionatedName(name, existing) {
 export const CardSelector = ({ defaults = {}, board, addOpened, setAddOpened, onFinish, states, icons, actions, errors }) => {
   const cards = useCards(extraCards)
 
-  const [selectedCard, setSelectedCard] = useState(null)
-  const [card, setCard] = useState(null)
+  const [selectedCards, setSelectedCards] = useState([])
   const [loading, setLoading] = useState(false)
   const [remountKey, setRemountKey] = useState(uuidv4())
 
   useEffect(() => {
-    if (cards?.length && !selectedCard) {
-      setSelectedCard(cards[0])
+    if (cards?.length && selectedCards.length === 0) {
+      setSelectedCards([cards[0]])
     }
-  }, [cards, selectedCard])
-
-  useEffect(() => {
-    if (!selectedCard) return
-    setCard(makeDefaultCard(selectedCard))
-    setRemountKey(uuidv4())
-  }, [selectedCard])
+  }, [cards, selectedCards.length])
 
   useEffect(() => {
     if (!addOpened) return
-    const tpl = selectedCard ?? cards?.[0]
-    if (tpl) {
-      setCard(makeDefaultCard(tpl))
-    }
     setRemountKey(uuidv4())
   }, [addOpened])
+
+  useEffect(() => {
+    if (!addOpened && cards?.length) {
+      setSelectedCards([cards[0]])
+    }
+  }, [addOpened])
+
+  const createButtonLabel = selectedCards.length > 1 ? `Create ${selectedCards.length} cards` : 'Create';
 
   return <AlertDialog
     integratedChat
@@ -625,17 +682,24 @@ export const CardSelector = ({ defaults = {}, board, addOpened, setAddOpened, on
         <Slides
           hideHeader={true}
           styles={{ f: 1, w: "90vw", maw: 1400, h: "90vh", mah: 1200 }}
-          lastButtonCaption="Create"
-          disabled={loading || !card}
+          lastButtonCaption={createButtonLabel}
+          disabled={selectedCards.length === 0}
+          loading={loading}
           onFinish={async () => {
             setLoading(true)
             try {
-              const existingNames = board?.cards.map(c => c.name) ?? []
-              card["name"] = card.customName ?? generateVersionatedName(card.name, existingNames)
-              await onFinish(card)
+              const existingNames = new Set(board?.cards.map(c => c.name) ?? [])
+              const cardsToCreate = selectedCards.map(selectedCard => {
+                const card = makeDefaultCard(selectedCard)
+                const baseName = selectedCard.defaults?.customName ?? card.name
+                card["name"] = generateVersionatedName(baseName, existingNames)
+                existingNames.add(card["name"])
+                return card
+              })
+              await onFinish(cardsToCreate)
               setAddOpened(false)
             } catch (e) {
-              console.error("Error creating card: ", e)
+              console.error("Error creating cards: ", e)
             }
             setLoading(false)
           }}
@@ -643,7 +707,7 @@ export const CardSelector = ({ defaults = {}, board, addOpened, setAddOpened, on
             {
               name: "Create new card",
               component: (
-                <FirstSlide options={cards} selected={selectedCard} setSelected={setSelectedCard} errors={errors} />
+                <FirstSlide options={cards} selectedCards={selectedCards} setSelectedCards={setSelectedCards} errors={errors} />
               ),
             },
             // {

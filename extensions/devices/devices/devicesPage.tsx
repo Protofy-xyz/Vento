@@ -25,7 +25,7 @@ import { SelectList } from 'protolib/components/SelectList';
 import { useEsphomeDeviceActions } from '@extensions/esphome/hooks/useEsphomeDeviceActions';
 import { AlertDialog } from 'protolib/components/AlertDialog';
 import { useEsphomeTemplateCreator } from '@extensions/esphome/hooks/useEsphomeTemplateCreator';
-import { EsphomeTemplateDialog } from '@extensions/esphome/ui/EsphomeTemplateDialog';
+import { DeviceTemplateDialog } from '@extensions/devices/components/DeviceTemplateDialog';
 import { ConfigEditor } from '../deviceDefinitions/ConfigEditor';
 import { Spinner } from '@my/ui';
 import { useToastController } from '@my/ui';
@@ -316,7 +316,7 @@ export default {
         </YStack>
       </AlertDialog>
 
-      <EsphomeTemplateDialog
+      <DeviceTemplateDialog
         templateDialog={templateDialog}
         setTemplateDialog={setTemplateDialog}
         resetTemplateDialog={resetTemplateDialog}

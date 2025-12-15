@@ -4,7 +4,7 @@ import { Tinted } from 'protolib/components/Tinted'
 import { SelectList } from 'protolib/components/SelectList'
 import { Button, Input, Text, XStack, YStack } from '@my/ui'
 
-type TemplateDialogState = {
+export type TemplateDialogState = {
   open: boolean
   device: any
   yaml: string
@@ -18,28 +18,36 @@ type TemplateDialogState = {
   overwriteConfirmed: boolean
 }
 
-type EsphomeTemplateDialogProps = {
+type DeviceTemplateDialogProps = {
   templateDialog: TemplateDialogState
   setTemplateDialog: React.Dispatch<React.SetStateAction<TemplateDialogState>>
   resetTemplateDialog: () => void
   submitTemplateDialog: () => Promise<void> | void
   boardOptions: string[]
+  actionLabel?: string
+  boardFieldMode?: 'select' | 'readonly' | 'hidden'
+  lockedBoardName?: string
+  title?: string
 }
 
-export const EsphomeTemplateDialog = ({
+export const DeviceTemplateDialog = ({
   templateDialog,
   setTemplateDialog,
   resetTemplateDialog,
   submitTemplateDialog,
-  boardOptions
-}: EsphomeTemplateDialogProps) => {
+  boardOptions,
+  actionLabel = 'Create template',
+  boardFieldMode = 'select',
+  lockedBoardName,
+  title = 'Create template'
+}: DeviceTemplateDialogProps) => {
   return (
     <AlertDialog
       open={templateDialog.open}
       setOpen={(open) => {
         if (!open) resetTemplateDialog()
       }}
-      title="Create template"
+      title={title}
       description=""
       hideAccept
       onOpenChange={(open) => {
@@ -72,17 +80,26 @@ export const EsphomeTemplateDialog = ({
             disabled={templateDialog.submitting}
           />
         </YStack>
-        <YStack gap="$1">
-          <Text fontSize="$3" fontWeight="600" color="$gray11">Board</Text>
-          <SelectList
-            //@ts-ignore
-            f={1}
-            elements={boardOptions}
-            value={templateDialog.boardName}
-            setValue={(v) => setTemplateDialog(prev => ({ ...prev, boardName: v }))}
-            placeholder="Select a board"
-          />
-        </YStack>
+        {boardFieldMode !== 'hidden' && (
+          <YStack gap="$1">
+            <Text fontSize="$3" fontWeight="600" color="$gray11">Board</Text>
+            {boardFieldMode === 'select' ? (
+              <SelectList
+                //@ts-ignore
+                f={1}
+                elements={boardOptions}
+                value={templateDialog.boardName}
+                setValue={(v) => setTemplateDialog(prev => ({ ...prev, boardName: v }))}
+                placeholder="Select a board"
+              />
+            ) : (
+              <Input
+                value={lockedBoardName ?? templateDialog.boardName}
+                disabled
+              />
+            )}
+          </YStack>
+        )}
         {templateDialog.warning ? (
           <Text color="$yellow10" fontSize="$3">{templateDialog.warning}</Text>
         ) : null}
@@ -106,7 +123,7 @@ export const EsphomeTemplateDialog = ({
               disabled={templateDialog.submitting}
               onPress={submitTemplateDialog}
             >
-              Create template
+              {actionLabel}
             </Button>
           </Tinted>
         </XStack>

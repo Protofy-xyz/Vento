@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { CircuitBoard, Tag, BookOpen, Router, Cog, Upload } from '@tamagui/lucide-icons'
+import { CircuitBoard, Tag, BookOpen, Router, Cog, Upload, Copy } from '@tamagui/lucide-icons'
 import { DeviceDefinitionModel } from './deviceDefinitionsSchemas'
 import { API, z, getPendingResult } from 'protobase'
 import { DeviceCoreModel } from '../devicecores'
@@ -12,12 +12,13 @@ import { AdminPage } from "protolib/components/AdminPage"
 import { PaginatedData } from "protolib/lib/SSR"
 import { ConfigComponent } from "./ConfigComponent" //TODO: Delete this file when WLED case integrated on ConfigEditor
 import { ConfigEditor } from "./ConfigEditor"
-import { Button, Input, XStack, YStack, Text, Paragraph } from '@my/ui'
+import { Button, Input, XStack, YStack, Text, Paragraph, useToastController } from '@my/ui'
 import { Tinted } from "protolib/components/Tinted"
 import { usePageParams } from "protolib/next"
 import { InteractiveIcon } from "protolib/components/InteractiveIcon"
 import { AlertDialog } from 'protolib/components/AlertDialog'
 import { useRouter } from "next/router"
+import { DeviceTemplateDialog, TemplateDialogState } from "../components/DeviceTemplateDialog"
 
 const DeviceDefitionIcons = {
   name: Tag,
@@ -28,12 +29,27 @@ const sourceUrl = '/api/core/v1/devicedefinitions'
 const boardsSourceUrl = '/api/core/v1/deviceboards'
 const coresSourceUrl = '/api/core/v1/devicecores?all=1'
 
+const createDuplicateDialogState = (): TemplateDialogState => ({
+  open: false,
+  device: null,
+  yaml: '',
+  templateName: '',
+  description: '',
+  boardName: '',
+  subsystems: [],
+  error: undefined,
+  warning: undefined,
+  submitting: false,
+  overwriteConfirmed: false
+})
+
 export default {
   component: ({ workspace, pageState, initialItems, itemData, pageSession, extraData }: any) => {
     const [coresList, setCoresList] = useState(extraData?.cores ?? getPendingResult('pending'))
     const [selectedDefinition, setSelectedDefinition] = useState(null)
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
     const router = useRouter();
+    const toast = useToastController()
 
     usePendingEffect((s) => { API.get({ url: coresSourceUrl }, s) }, setCoresList, extraData?.cores)
     const cores = coresList.isLoaded ? coresList.data.items.map(i => DeviceCoreModel.load(i).getData()) : []
@@ -47,6 +63,8 @@ export default {
     const [boardsList, setBoardsList] = useState(extraData?.boards ?? getPendingResult('pending'))
     usePendingEffect((s) => { API.get({ url: boardsSourceUrl }, s) }, setBoardsList, extraData?.boards)
     const boards = boardsList.isLoaded ? boardsList.data.items.map(i => DeviceBoardModel.load(i).getData()) : []
+    const [duplicateDialog, setDuplicateDialog] = useState<TemplateDialogState>(createDuplicateDialogState())
+    const [definitionToDuplicate, setDefinitionToDuplicate] = useState<DeviceDefinitionModel | null>(null)
 
     const generateBoardJs = (boardName) => {
       const board = boards.find((board) => board.name === boardName)
@@ -70,6 +88,66 @@ export default {
     //     extraActions ={[
     //   <DataViewActionButton icon={Upload} description="Upload a Definition" onPress={() => {console.log("Upload button pressed"); setUploadDialogOpen(true);}}>Extra Action 1</DataViewActionButton>,
     // ]}
+    const resetDuplicateDialog = () => {
+      setDuplicateDialog(createDuplicateDialogState())
+      setDefinitionToDuplicate(null)
+    }
+
+    const openDuplicateDialog = (definition) => {
+      const model = ensureDefinitionModel(definition)
+      if (!model) return
+      const data = model.getData()
+      const defaultName = data?.name ? `${data.name}_copy` : ''
+      setDefinitionToDuplicate(model)
+      setDuplicateDialog({
+        ...createDuplicateDialogState(),
+        open: true,
+        templateName: defaultName,
+        description: data?.description ?? '',
+        boardName: typeof data?.board === 'string' ? data.board : data?.board?.name ?? ''
+      })
+    }
+
+    const submitDuplicateDefinition = async () => {
+      if (!definitionToDuplicate) {
+        return
+      }
+      const trimmedName = duplicateDialog.templateName.trim()
+      if (!trimmedName) {
+        setDuplicateDialog(prev => ({ ...prev, error: 'Name is required' }))
+        return
+      }
+      setDuplicateDialog(prev => ({ ...prev, submitting: true, error: undefined }))
+      try {
+        const originalResponse = await API.get(`/api/core/v1/devicedefinitions/${encodeURIComponent(definitionToDuplicate.getId())}`)
+        if (originalResponse.isError || !originalResponse.data) {
+          throw new Error(originalResponse.error?.message ?? 'Unable to load definition')
+        }
+        const payload = {
+          ...originalResponse.data,
+          name: trimmedName,
+          description: duplicateDialog.description
+        }
+        const result = await API.post('/api/core/v1/devicedefinitions', payload)
+        if (result.isError) {
+          throw new Error(result.error?.message ?? 'Unable to duplicate template')
+        }
+        toast.show('Definition duplicated', { message: trimmedName })
+        resetDuplicateDialog()
+      } catch (e: any) {
+        setDuplicateDialog(prev => ({ ...prev, submitting: false, error: e?.message ?? 'Unable to duplicate template' }))
+      }
+    }
+
+    const extraMenuActions = [
+      {
+        text: "Duplicate template",
+        icon: Copy,
+        action: (element) => openDuplicateDialog(element),
+        isVisible: () => true
+      }
+    ]
+
     return (<AdminPage title="Device Definitions" workspace={workspace} pageSession={pageSession}>
       {!selectedDefinition
         ? <DataView
@@ -145,6 +223,7 @@ export default {
             </XStack>
           }
           dataTableGridProps={{ itemMinWidth: 300, spacing: 20 }}
+          extraMenuActions={extraMenuActions}
         />
         : <ConfigEditor
           onSave={async (data) => {
@@ -170,6 +249,17 @@ export default {
           </XStack>
         </YStack>
       </AlertDialog>
+      <DeviceTemplateDialog
+        templateDialog={duplicateDialog}
+        setTemplateDialog={setDuplicateDialog}
+        resetTemplateDialog={resetDuplicateDialog}
+        submitTemplateDialog={submitDuplicateDefinition}
+        boardOptions={duplicateDialog.boardName ? [duplicateDialog.boardName] : []}
+        boardFieldMode="readonly"
+        lockedBoardName={duplicateDialog.boardName}
+        actionLabel="Duplicate template"
+        title="Duplicate template"
+      />
     </AdminPage>
     )
   },

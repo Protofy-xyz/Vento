@@ -239,14 +239,15 @@ export const NetworkCard = memo(({
               )
             )}
             
-            {/* Menu (only in card mode) */}
-            {mode === 'card' && onDelete && (
+            {/* Menu (both card and node modes) */}
+            {onDelete && (
               <XStack
                 onClick={(e) => { e.stopPropagation?.(); e.preventDefault?.(); }}
                 onPointerDown={(e) => { e.stopPropagation?.(); }}
               >
                 <ItemMenu
                   type="item"
+                  sourceUrl={`/api/core/v1/boards/${board?.name}`}
                   element={{ data: board }}
                   deleteable={() => true}
                   onDelete={onDelete}

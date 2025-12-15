@@ -250,6 +250,7 @@ const DeviceNode = memo(({ data, selected }: { data: any; selected?: boolean }) 
       selected={selected}
       mode="node"
       handlePosition={data.handlePosition}
+      onDelete={data.onDelete}
     />
   )
 })
@@ -307,10 +308,11 @@ const getHandlePosition = (angle: number): Position => {
 type NetworkTopologyViewProps = {
   onNodeClick?: (node: any) => void
   onAddClick?: () => void
+  onDeleteNode?: (node: any) => Promise<void>
   showAll?: boolean
 }
 
-export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, showAll = false }: NetworkTopologyViewProps) => {
+export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, onDeleteNode, showAll = false }: NetworkTopologyViewProps) => {
   const [boards, setBoards] = useState<any[]>([])
   const [devices, setDevices] = useState<any[]>([])
   const [deviceStates, setDeviceStates] = useState<Record<string, any>>({})
@@ -367,6 +369,20 @@ export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, showAll = fa
     const state = deviceStates[deviceName]
     return state && Object.keys(state).length > 0
   }, [deviceStates])
+
+  // Handle delete with optimistic update
+  const handleDelete = useCallback(async (nodeData: any) => {
+    if (!nodeData?.name) return
+    
+    // Optimistically remove from local state
+    setBoards(prev => prev.filter(b => b.name !== nodeData.name))
+    setDevices(prev => prev.filter(d => d.name !== nodeData.name))
+    
+    // Call the actual delete handler
+    if (onDeleteNode) {
+      await onDeleteNode(nodeData)
+    }
+  }, [onDeleteNode])
 
   // Build nodes and edges
   const { nodes, edges } = useMemo(() => {
@@ -485,6 +501,7 @@ export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, showAll = fa
           icon: getIconForPlatform(element.platform),
           handlePosition,
           originalData: element.originalData,
+          onDelete: element.originalData ? () => handleDelete(element.originalData) : undefined,
         },
       })
 
@@ -499,7 +516,7 @@ export const NetworkTopologyView = memo(({ onNodeClick, onAddClick, showAll = fa
     })
 
     return { nodes: allNodes, edges: allEdges }
-  }, [boards, devices, isDeviceConnected, showAll])
+  }, [boards, devices, isDeviceConnected, showAll, handleDelete])
 
   const [nodesState, setNodesState, onNodesChange] = useNodesState([])
   const [edgesState, setEdgesState] = useEdgesState([])

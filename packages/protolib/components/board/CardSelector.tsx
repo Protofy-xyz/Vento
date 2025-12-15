@@ -647,25 +647,15 @@ export const CardSelector = ({ defaults = {}, board, addOpened, setAddOpened, on
   const [selectedCards, setSelectedCards] = useState([])
   const [loading, setLoading] = useState(false)
   const [remountKey, setRemountKey] = useState(uuidv4())
-
-  useEffect(() => {
-    if (cards?.length && selectedCards.length === 0) {
-      setSelectedCards([cards[0]])
-    }
-  }, [cards, selectedCards.length])
-
-  useEffect(() => {
-    if (!addOpened) return
-    setRemountKey(uuidv4())
-  }, [addOpened])
-
-  useEffect(() => {
-    if (!addOpened && cards?.length) {
-      setSelectedCards([cards[0]])
-    }
-  }, [addOpened])
-
   const createButtonLabel = selectedCards.length > 1 ? `Create ${selectedCards.length} cards` : 'Create';
+
+  useEffect(() => {
+    if (addOpened) {
+      setRemountKey(uuidv4())
+    } else if (cards?.length) {
+      setSelectedCards([cards[0]])
+    }
+  }, [addOpened])
 
   return <AlertDialog
     integratedChat

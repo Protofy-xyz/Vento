@@ -137,6 +137,13 @@ export default {
         setAddOpen(true)
       }, [])
 
+      // Handler for deleting a node from topology view
+      const handleDeleteNode = useCallback(async (nodeData: any) => {
+        if (nodeData?.name) {
+          await API.get(`/api/core/v1/boards/${nodeData.name}/delete`)
+        }
+      }, [])
+
       // Memoize extraViews to prevent re-renders of NetworkTopologyView
       const extraViews = useMemo(() => [{
         name: 'topology',
@@ -145,8 +152,9 @@ export default {
           showAll={query.all === 'true'}
           onNodeClick={handleNodeClick}
           onAddClick={handleAddClick}
+          onDeleteNode={handleDeleteNode}
         />,
-      }], [query.all, handleNodeClick, handleAddClick])
+      }], [query.all, handleNodeClick, handleAddClick, handleDeleteNode])
 
       // Memoize extraActions
       const extraActions = useMemo(() => [

@@ -54,9 +54,10 @@ type MarkdownProps = {
   autoSaveTrigger?: any;
   autoSaveOnBlur?: boolean;
   editOnDoubleClick?: boolean;
+  fontSize?: number;
 } & StackProps
 
-export function Markdown({ data, readOnly = false, copyToClipboardEnabled = true, setData = undefined, ...props }: MarkdownProps) {
+export function Markdown({ data, readOnly = false, copyToClipboardEnabled = true, setData = undefined, fontSize, ...props }: MarkdownProps) {
   const text = data ? (typeof data === "string" ? data : String(data)) : "";
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -179,7 +180,7 @@ export function Markdown({ data, readOnly = false, copyToClipboardEnabled = true
       )}
     </XStack>
     {/* Content */}
-    <YStack style={{ flex: 1, overflow: "auto" }}>
+    <YStack style={{ flex: 1, overflow: "auto", fontSize: fontSize ?? 'inherit' }}>
       {editing ? (
         <Monaco
           key={id}

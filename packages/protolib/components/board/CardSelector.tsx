@@ -77,13 +77,13 @@ const FirstSlide = ({ selectedCards, setSelectedCards, options, errors }) => {
 
   const getFilteredOptions = (options, search, selectedGroups) => {
     const lowerSearch = search.toLowerCase().trim();
-    
+
     // Split search into individual terms (words)
     const searchTerms = lowerSearch.split(/\s+/).filter(t => t.length > 0);
-    
+
     // If no search, return all (filtered by group)
     if (searchTerms.length === 0) {
-      return options.filter(opt => 
+      return options.filter(opt =>
         selectedGroups.length === 0 || selectedGroups.includes(opt.group)
       );
     }
@@ -152,8 +152,8 @@ const FirstSlide = ({ selectedCards, setSelectedCards, options, errors }) => {
   }
 
   const updateCardName = (cardId, value) => {
-    setSelectedCards(prev => prev.map(card => 
-      card.id === cardId 
+    setSelectedCards(prev => prev.map(card =>
+      card.id === cardId
         ? { ...card, defaults: { ...card.defaults, customName: value && value.length ? value : null } }
         : card
     ));
@@ -324,7 +324,7 @@ const FirstSlide = ({ selectedCards, setSelectedCards, options, errors }) => {
                 {card.defaults?.description && (
                   <YStack w="100%" mt="$2">
                     <Label alignSelf="flex-start" ml={"$2"} h={"$3"} color="$gray9" size="$3">Description</Label>
-                    <Text fontSize="$2" color="$gray10" numberOfLines={3}>{card.defaults.description}</Text>
+                    <Markdown readOnly copyToClipboardEnabled={false} fontSize={14} p={4} data={card.defaults.description} />
                   </YStack>
                 )}
                 {index === 0 && errors?.length > 0 && (

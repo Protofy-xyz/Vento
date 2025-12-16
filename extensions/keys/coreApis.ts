@@ -75,7 +75,7 @@ const maskKeyValue = (data) => {
     return data;
 };
 
-const isSystemRequest = (session) => session?.user?.type === 'system';
+const canSeeSecrets = (session) => session?.user?.type === 'system' || session?.user?.admin === true;
 
 const KeysAutoAPI = AutoAPI({
     modelName: 'keys',
@@ -84,11 +84,11 @@ const KeysAutoAPI = AutoAPI({
     dbName: 'keys',
     getDB: getDB,
     onAfterRead: async (data, session, req) => {
-        if (isSystemRequest(session)) return data;
+        if (canSeeSecrets(session)) return data;
         return maskKeyValue(data);
     },
     onAfterList: async (data, session, req) => {
-        if (isSystemRequest(session)) return data;
+        if (canSeeSecrets(session)) return data;
         // data.items contiene el array de keys
         if (data?.items && Array.isArray(data.items)) {
             return { ...data, items: data.items.map(maskKeyValue) };
@@ -96,11 +96,11 @@ const KeysAutoAPI = AutoAPI({
         return data;
     },
     onAfterCreate: async (data, session, req) => {
-        if (isSystemRequest(session)) return data;
+        if (canSeeSecrets(session)) return data;
         return maskKeyValue(data);
     },
     onAfterUpdate: async (data, session, req) => {
-        if (isSystemRequest(session)) return data;
+        if (canSeeSecrets(session)) return data;
         return maskKeyValue(data);
     },
     requiresAdmin: ['*']

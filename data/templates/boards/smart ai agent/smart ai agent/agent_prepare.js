@@ -80,10 +80,9 @@ const message_prompt = params.allow_execution
   : `${instructionsReadOnly}\n${boardStatesHtml}\n${promptHtml}`
 
 if(params.debug) return message_prompt
-const response = await context.chatgpt.prompt({
-  model: "gpt-5.1",
+const response = await context.ai.prompt({
   message: message_prompt,
-  conversation: await context.chatgpt.getSystemPrompt({
+  conversation: await context.ai.getSystemPrompt({
     prompt: `You can analyze images provided in the same user turn. 
 Do NOT claim you cannot see images. 
 Answer following the JSON contract only (no code fences).`,
@@ -100,7 +99,7 @@ Answer following the JSON contract only (no code fences).`,
   }),
 });
 if(params.allow_execution) {
-  return context.chatgpt.processResponse({
+  return context.ai.processResponse({
     response: response,
     execute_action: execute_action,
   });

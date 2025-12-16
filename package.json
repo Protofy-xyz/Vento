@@ -44,6 +44,7 @@
     "kill": "node scripts/start.js stop",
     "stop": "node scripts/start.js stop",
     "logs": "node scripts/start.js logs",
+    "extension": "node scripts/extension.js",
     "fix": "manypkg fix",
     "check-deps": "check-dependency-version-consistency .",
     "shrink": "node scripts/removeDevMode.js && node scripts/shrink.js",

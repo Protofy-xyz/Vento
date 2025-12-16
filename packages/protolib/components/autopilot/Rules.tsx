@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Text, TooltipSimple } from '@my/ui'
 import { XStack, YStack, Button, Spinner } from '@my/ui'
-import { Trash, Plus, ArrowUp, X, Sparkles } from '@tamagui/lucide-icons'
+import { Trash, ArrowUp, X, Sparkles } from '@tamagui/lucide-icons'
 import dynamic from 'next/dynamic';
 import { isElectron } from 'protolib/lib/isElectron';
 
@@ -109,25 +109,28 @@ export const Rules = ({
 
   const editFirstRule = async () => {
     setGenerating(true)
+    setErrorMsg(null)
     try {
       await onEditRule?.(0, draftRules[0])
     } catch (e) {
       setErrorMsg(e?.message || 'Error editing rule.')
+    } finally {
+      setGenerating(false)
     }
-    setGenerating(false)
   }
 
   const isLoadingOrGenerating = loadingIndex === rules.length || generating || loading
   const ruleHasChanged = draftRules[0] !== rules[0] && draftRules[0] != ""
   const differentRulesCode = ruleHasChanged && !isFocus
 
+  // Error has priority over "rules changed" warning
   const borderStyles = {
-    borderColor: differentRulesCode ? "$color9" : errorMsg ? '$red10' : 'transparent',
+    borderColor: errorMsg ? '$red10' : differentRulesCode ? "$color9" : 'transparent',
     borderWidth: (errorMsg || differentRulesCode) && !isLoadingOrGenerating ? 2 : 0,
-    borderStyle: 'dashed',
+    borderStyle: 'dashed' as const,
   }
 
-  const feedbackMessageText = differentRulesCode ? '⚠️ Rules not generated. Press the send button "↑" to generate or "x" to cancel.' : errorMsg
+  const feedbackMessageText = errorMsg || (differentRulesCode ? '⚠️ Rules not generated. Press the send button "↑" to generate or "x" to cancel.' : null)
 
   useEffect(() => {
     setDraftRules(rules ?? [])
@@ -137,27 +140,7 @@ export const Rules = ({
   return (
     <YStack height="100%" f={1} w="100%">
       {!(disabledConfig["enabled"] === false) ? <>
-        {/* <YStack style={{ overflowY: 'auto', flex: 1, width: '100%', padding: "2px" }}>
-          {draftRules.map((rule, i) => (
-            <RuleItem
-              key={i}
-              value={rule}
-              loading={loadingIndex === i}
-              onEdit={(text) => setDraftAt(i, text)}
-              // onBlur={() => commitIfChanged(i)}
-              onDelete={async () => {
-                setGenerating(true)
-                setErrorMsg(null)
-                await onDeleteRule(i)
-                setGenerating(false)
-              }}
-              opacity={isLoadingOrGenerating ? 0.5 : 1}
-            />
-          ))}
-        </YStack> */}
-
-        {/* Input para nueva regla */}
-        <XStack gap="$3" width="100%" f={1} {...borderStyles}>
+        <XStack gap="$3" width="100%" f={1} {...borderStyles} data-tour="rules-textarea">
           <BoardTextArea
             onBlur={() => {
               setTimeout(() => setIsFocus(false), 100)
@@ -178,29 +161,27 @@ export const Rules = ({
             availableParams={availableParams}
             allowParams={allowParams}
             footer={
-              <XStack justifyContent='space-between' f={1} ai="flex-end">
-                <XStack mt="$1" mb="$2" flex={1}>
+              <XStack justifyContent='space-between' f={1} ai="flex-end" gap="$2">
+                <XStack flex={1} minWidth={0} maxHeight={40} overflow="hidden">
                   {(errorMsg || differentRulesCode) && !isLoadingOrGenerating && (
                     <TooltipSimple label={feedbackMessageText} restMs={0} delay={{ open: 500, close: 0 }}>
                       <Text
-                        numberOfLines={2}
                         paddingHorizontal="$2"
+                        numberOfLines={2}
                         style={{
                           display: '-webkit-box',
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
                           overflow: 'hidden',
-                          textOverflow: 'ellipsis',
                         }}
-                        display={isLoadingOrGenerating ? 'none' : 'flex'}
-                        color={differentRulesCode ? "$color9" : "$red10"}
+                        color={errorMsg ? "$red10" : "$color9"}
                         fontSize="$3"
                       >
                         {feedbackMessageText}
                       </Text>
                     </TooltipSimple>)}
                 </XStack>
-                <XStack gap="$2">
+                <XStack gap="$2" flexShrink={0}>
                   {differentRulesCode && <TooltipSimple
                     label={"Cancel changes"}
                     delay={{ open: 500, close: 0 }}
@@ -220,7 +201,7 @@ export const Rules = ({
                       circular
                       icon={X}
                       scaleIcon={1.4}
-                      onPress={() => setDraftAt(0, rules[0] || "")}
+                      onPress={() => { setDraftAt(0, rules[0] || ""); setErrorMsg(null); }}
                     />
                   </TooltipSimple>}
                   <TooltipSimple
@@ -241,7 +222,6 @@ export const Rules = ({
                       icon={isLoadingOrGenerating ? Spinner : (!ruleHasChanged ? Sparkles : ArrowUp)}
                       scaleIcon={1.4}
                       onPress={editFirstRule}
-                    // onPress={newRule.trim().length > 1 ? addRule : reloadRules}
                     />
                   </TooltipSimple>
                 </XStack>

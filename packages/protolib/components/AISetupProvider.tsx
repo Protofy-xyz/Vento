@@ -3,8 +3,18 @@ import { AISetupWizard } from './AISetupWizard'
 import { TutorialVideoDialog, useTutorialVideo } from './TutorialVideoDialog'
 import { useSettings, settingsAtom } from '@extensions/settings/hooks'
 import { API } from 'protobase'
-import { useAtom } from 'jotai'
+import { atom, useAtom } from 'jotai'
 import { useSession } from '../lib/useSession'
+import { OnboardingProvider, OnboardingTrigger } from '@extensions/onboarding'
+
+// Global atom to control AI setup wizard visibility
+export const showAISetupWizardAtom = atom(false)
+
+// Hook to open the AI setup wizard from anywhere
+export const useOpenAISetupWizard = () => {
+    const [, setShowWizard] = useAtom(showAISetupWizardAtom)
+    return () => setShowWizard(true)
+}
 
 type AISetupProviderProps = {
     children: ReactNode
@@ -12,11 +22,20 @@ type AISetupProviderProps = {
 
 export const AISetupProvider = ({ children }: AISetupProviderProps) => {
     const [settings, setSettings] = useAtom(settingsAtom)
-    const [showWizard, setShowWizard] = useState(false)
+    const [showWizardGlobal, setShowWizardGlobal] = useAtom(showAISetupWizardAtom)
+    const [showWizardLocal, setShowWizardLocal] = useState(false)
     const [showTutorial, setShowTutorial] = useState(false)
+    const [showOnboarding, setShowOnboarding] = useState(false)
     const [checked, setChecked] = useState(false)
     const [session] = useSession()
     const { hasWatchedTutorial, markTutorialAsWatched } = useTutorialVideo()
+    
+    // Combine local and global wizard state
+    const showWizard = showWizardLocal || showWizardGlobal
+    const setShowWizard = (value: boolean) => {
+        setShowWizardLocal(value)
+        setShowWizardGlobal(value)
+    }
 
     useEffect(() => {
         // Esperar a tener sesión antes de cargar settings

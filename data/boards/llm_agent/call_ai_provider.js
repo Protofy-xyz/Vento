@@ -4,7 +4,7 @@ await executeAction({ name: "agent_input.skip"})
 const defaultProvider = await context.settings.get({ key: 'ai.provider' }) ?? 'skip'
 const defaultLocalModel = await context.settings.get({ key: 'ai.localmodel' }) ?? ''
 
-logger.info('**************************************Default provider: ', defaultProvider)
+logger.info(`AI Provider settings - provider: "${defaultProvider}", localModel: "${defaultLocalModel}"`)
 
 let {provider, model, ...llmParams} = params
 
@@ -87,7 +87,39 @@ if (provider === 'llama') {
     reply["raw"] = raw
   }
 } else if (provider === 'lmstudio') {
-  reply = await context.lmstudio.chatWithModel(prompt, model)
+  const lmResult = await context.lmstudio.chatWithModel(llmParams.message, model)
+  
+  // Check if LMStudio returned an error
+  if (lmResult?.error) {
+    const errorDetails = lmResult.message || lmResult.rawError || 'Unknown LMStudio error'
+    const tokenInfo = lmResult.estimatedTokens ? ` (~${lmResult.estimatedTokens} tokens)` : ''
+    logger.error(`LMStudio error${tokenInfo}: ${errorDetails}`)
+    reply = {
+      choices: [
+        {
+          message: {
+            content: ''
+          }
+        }
+      ],
+      error: true,
+      errorMessage: lmResult.message
+    }
+  } else {
+    const content = lmResult?.choices?.[0]?.message?.content ?? ''
+    reply = {
+      choices: [
+        {
+          message: {
+            content: context.ai.cleanCode(content)
+          }
+        }
+      ]
+    }
+    if (!content) {
+      reply["raw"] = lmResult
+    }
+  }
 } else {
   // Unknown provider
   reply = {

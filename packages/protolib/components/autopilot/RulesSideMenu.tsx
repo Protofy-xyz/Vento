@@ -11,6 +11,7 @@ import { Save } from '@tamagui/lucide-icons'
 import { useKeyState } from '../KeySetter'
 import { RulesKeySetter } from './RulesKeySetter'
 import { Panel, PanelGroup } from "react-resizable-panels";
+import { getAIProvider } from '../AISetupWizard';
 import CustomPanelResizeHandle from "../MainPanel/CustomPanelResizeHandle";
 import { ActionsAndStatesPanel } from './ActionsAndStatesPanel';
 
@@ -71,10 +72,30 @@ export const RulesSideMenu = ({ leftIcons = <></>, icons = <></>, automationInfo
 
     const savedCode = useRef(code)
     const editedCode = useRef(code)
-    const [generatingBoardCode, setGeneratingBoardCode] = useState(false)
     const toast = useToastController()
     const isAIEnabled = useSettingValue('ai.enabled', false);
-    const { hasKey, updateKey, loading } = useKeyState('OPENAI_API_KEY')
+    const aiProvider = useSettingValue<string>('ai.provider', '');
+    const providerConfig = useMemo(() => getAIProvider(aiProvider), [aiProvider]);
+    
+    // Get the API key name from provider config, or default to OPENAI_API_KEY
+    const apiKeyName = providerConfig?.apiKeyName || 'OPENAI_API_KEY';
+    const { hasKey, updateKey, loading } = useKeyState(apiKeyName);
+    
+    // Determine AI readiness based on provider configuration
+    const { isAIReady, aiMode } = useMemo(() => {
+        // Provider is 'skip' or not configured
+        if (!aiProvider || aiProvider === 'skip') {
+            return { isAIReady: false, aiMode: 'not-configured' as const };
+        }
+        
+        // Check if provider requires API key
+        if (providerConfig?.requiresApiKey) {
+            return { isAIReady: hasKey, aiMode: 'needs-key' as const };
+        }
+        
+        // Provider doesn't require API key (local providers)
+        return { isAIReady: true, aiMode: 'ready' as const };
+    }, [aiProvider, providerConfig, hasKey]);
 
     const theme = useTheme()
     const flows = useMemo(() => {
@@ -84,8 +105,14 @@ export const RulesSideMenu = ({ leftIcons = <></>, icons = <></>, automationInfo
             onApplyRules={async (rules) => {
                 const rulesCode = await API.post(`/api/core/v1/autopilot/getBoardCode`, { rules: rules, previousRules: boardRef.current.rules, states: boardStates, actions: actions.boards ? actions.boards[board.name] : {}, boardName: board.name })
                 boardRef.current.rules = rules
-                if (rulesCode.error || !rulesCode.data?.jsCode) {
-                    throw new Error(rulesCode.error.message)
+                if (rulesCode.isError || rulesCode.error || !rulesCode.data?.jsCode) {
+                    // Extract error message from various possible formats
+                    const errorMsg = rulesCode.error?.message 
+                        || rulesCode.data?.message 
+                        || rulesCode.error?.error
+                        || (typeof rulesCode.error === 'string' ? rulesCode.error : null)
+                        || 'Error generating rules. The AI model may have returned an empty response.'
+                    throw new Error(errorMsg)
                 }
                 try {
 
@@ -112,8 +139,13 @@ export const RulesSideMenu = ({ leftIcons = <></>, icons = <></>, automationInfo
             defaultMode={isAIEnabled ? 'rules' : 'code'}
             rules={board.rules}
             rulesConfig={{
-                enabled: hasKey,
-                disabledView: () => <RulesKeySetter updateKey={updateKey} loading={loading} />
+                enabled: isAIReady,
+                disabledView: () => <RulesKeySetter 
+                    updateKey={updateKey} 
+                    loading={loading} 
+                    mode={aiMode === 'not-configured' ? 'not-configured' : 'needs-key'}
+                    providerName={providerConfig?.name}
+                />
             }}
             leftIcons={
                 <XStack gap="$3" pl="$2">
@@ -161,7 +193,7 @@ export const RulesSideMenu = ({ leftIcons = <></>, icons = <></>, automationInfo
                 minimap: { enabled: false }
             }}
         />
-    }, [resolvedTheme, board.name, theme, editedCode.current, isAIEnabled, hasKey, loading]);
+    }, [resolvedTheme, board.name, theme, editedCode.current, isAIEnabled, isAIReady, loading]);
     return <PanelGroup direction="horizontal" style={{ height: '100%' }}>
         <Panel defaultSize={70} minSize={20}>
             <YStack w="100%" backgroundColor="transparent" backdropFilter="blur(5px)" height="100%">

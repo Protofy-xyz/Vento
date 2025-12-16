@@ -26,6 +26,7 @@ export const AlertDialog = forwardRef(({
     disableAdapt = false,
     dialogCloseProps = {},
     integratedChat = false,
+    preventCloseOnOutsideClick = false,
     ...props
 }: any, ref: any) => {
 
@@ -48,8 +49,51 @@ export const AlertDialog = forwardRef(({
                 {trigger}
             </Dialog.Trigger>}
             <Dialog.Portal >
-                <Dialog.Overlay {...props.overlayProps}/>
-                <Dialog.Content scale={1} p="$7" ai="flex-start" jc="flex-start" {...props}>
+                <Dialog.Overlay 
+                  {...props.overlayProps}
+                  onPointerDownOutside={(e) => {
+                    // Prevent closing if prop is set or clicking on driver.js tour elements
+                    if (preventCloseOnOutsideClick) {
+                      e.preventDefault()
+                      return
+                    }
+                    const target = e.target as HTMLElement
+                    if (target?.closest?.('#driver-popover-content') || target?.closest?.('.driver-popover')) {
+                      e.preventDefault()
+                    }
+                    props.overlayProps?.onPointerDownOutside?.(e)
+                  }}
+                />
+                <Dialog.Content 
+                  scale={1} 
+                  p="$7" 
+                  ai="flex-start" 
+                  jc="flex-start" 
+                  onPointerDownOutside={(e) => {
+                    // Prevent closing if prop is set or clicking on driver.js tour elements
+                    if (preventCloseOnOutsideClick) {
+                      e.preventDefault()
+                      return
+                    }
+                    const target = e.target as HTMLElement
+                    if (target?.closest?.('#driver-popover-content') || target?.closest?.('.driver-popover')) {
+                      e.preventDefault()
+                    }
+                    props.onPointerDownOutside?.(e)
+                  }}
+                  onInteractOutside={(e) => {
+                    // Prevent closing if prop is set or interacting with driver.js tour elements
+                    if (preventCloseOnOutsideClick) {
+                      e.preventDefault()
+                      return
+                    }
+                    const target = e.target as HTMLElement
+                    if (target?.closest?.('#driver-popover-content') || target?.closest?.('.driver-popover')) {
+                      e.preventDefault()
+                    }
+                    props.onInteractOutside?.(e)
+                  }}
+                  {...props}>
                     {/* {integratedChat && openState && <Tinted>
                     <BubbleChat/>
                 </Tinted> } */}

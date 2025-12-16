@@ -1014,27 +1014,32 @@ export default async (app, context) => {
             });
 
             if (isError && error) {
-                logger.ui.error({ error }, "Error from AI model");
-                return res.status(500).send({ error: 'Error from AI model', message: error });
+                const errorMsg = typeof error === 'object' ? (error.message || JSON.stringify(error)) : error;
+                logger.error({ errorMsg }, "Error from AI model");
+                return res.status(500).send({ error: 'Error from AI model', message: errorMsg });
             }
 
             const jsCode = data?.choices?.[0]?.message?.content;
 
-            if (data?.raw?.error) {
-                res.status(500).send({ error: 'Error from AI model', message: data.raw.error });
-                return
+            // Check for LMStudio/AI provider errors
+            const aiError = data?.errorMessage || data?.error?.message || data?.raw?.error;
+            if (data?.error === true || aiError) {
+                const errorMsg = aiError || 'Unknown AI error';
+                logger.error({ errorMsg }, 'Error from AI model');
+                return res.status(500).send({ error: 'Error from AI model', message: errorMsg });
             }
 
             if (!jsCode) {
-                logger.ui.error({ data }, 'No response from AI model or empty content');
-                return res.status(500).send({ error: 'No response from AI model' });
+                const errorMsg = 'The AI model returned an empty response. This may be due to context length limits.';
+                logger.error({ errorMsg }, 'No response from AI model');
+                return res.status(500).send({ error: 'No response from AI model', message: errorMsg });
             }
 
             console.log("JS CODE 2: ", jsCode);
             res.send({ jsCode: cleanCode(jsCode) });
         } catch (e) {
             console.error('Error getting board code: ', e);
-            logger.ui.error('Error getting board code', e);
+            logger.error({ error: e?.message }, 'Error getting board code');
             res.status(500).send({ error: 'Internal Server Error', message: e.message });
         }
     })

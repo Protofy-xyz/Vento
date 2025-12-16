@@ -6,26 +6,53 @@ import { Bot, Cpu, Cloud, Sparkles, Key, ChevronLeft, Download, CheckCircle, Ale
 import { API } from 'protobase'
 import { useSession } from '../lib/useSession'
 
-const providers = [
+export type AIProvider = {
+    id: string
+    name: string
+    description: string
+    icon: any
+    requiresApiKey: boolean
+    apiKeyName?: string  // e.g., 'OPENAI_API_KEY'
+}
+
+export const AI_PROVIDERS: AIProvider[] = [
     {
         id: 'llama',
         name: 'Local AI',
         description: 'Run AI locally, no API key required. Use your own hardware to run AI.',
-        icon: Bot
+        icon: Bot,
+        requiresApiKey: false
     },
     {
         id: 'chatgpt',
         name: 'ChatGPT',
         description: 'OpenAI GPT-4 and 5 and other advanced cloud models',
-        icon: Cloud
+        icon: Cloud,
+        requiresApiKey: true,
+        apiKeyName: 'OPENAI_API_KEY'
     },
     {
         id: 'lmstudio',
         name: 'LM Studio',
         description: 'Local models with LM Studio',
-        icon: Cpu
+        icon: Cpu,
+        requiresApiKey: false
     }
 ]
+
+// Helper to get provider config by id
+export const getAIProvider = (providerId: string): AIProvider | undefined => {
+    return AI_PROVIDERS.find(p => p.id === providerId)
+}
+
+// Helper to check if a provider requires an API key
+export const providerRequiresApiKey = (providerId: string): boolean => {
+    const provider = getAIProvider(providerId)
+    return provider?.requiresApiKey ?? false
+}
+
+// Legacy alias for backward compatibility
+const providers = AI_PROVIDERS
 
 const localModels = [
     {

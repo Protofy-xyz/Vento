@@ -12,6 +12,7 @@ import { atomWithStorage } from 'jotai/utils'
 import { Popover } from '../../components/Popover'
 import { AppState } from '../AdminPanel'
 import { useRouter } from 'solito/navigation'
+import { settingsAtom } from '@extensions/settings/hooks'
 
 export const CollapsedSideMenuAtom = atomWithStorage('collapsedSideMenu', false)
 
@@ -21,6 +22,11 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
     const [collapsed, setCollapsed] = useState(true) //useAtom(CollapsedSideMenuAtom)
     const width = collapsed ? 64 : 260
     const [appState, setAppState] = useAtom(AppState)
+    const [settings] = useAtom(settingsAtom)
+    
+    // Hide chat button if ai.enabled doesn't exist or is false
+    const aiEnabled = settings?.['ai.enabled']
+    const isChatVisible = aiEnabled === true || aiEnabled === 'true'
 
     const toggleChatExpand = () => {
         setAppState(prev => ({ ...prev, chatExpanded: !prev.chatExpanded }))
@@ -97,21 +103,23 @@ export const SideMenu = ({ sideBarColor = '$background', children, themeSwitcher
 
             {collapsed ? (
                 <YStack gap="$2" ai="center">
-                    <TooltipSimple label={appState.chatExpanded ? "Collapse chat" : "Expand chat"} placement="right">
-                        <YStack
-                            p="$2"
-                            cursor='pointer'
-                            br="$4"
-                            pressStyle={{ backgroundColor: '$backgroundPress' }}
-                            onPress={toggleChatExpand}
-                        >
-                            <MessageCircle 
-                                size={28} 
-                                color={appState.chatExpanded ? '$color9' : '$gray9'} 
-                                strokeWidth={1.5} 
-                            />
-                        </YStack>
-                    </TooltipSimple>
+                    {isChatVisible && (
+                        <TooltipSimple label={appState.chatExpanded ? "Collapse chat" : "Expand chat"} placement="right">
+                            <YStack
+                                p="$2"
+                                cursor='pointer'
+                                br="$4"
+                                pressStyle={{ backgroundColor: '$backgroundPress' }}
+                                onPress={toggleChatExpand}
+                            >
+                                <MessageCircle 
+                                    size={28} 
+                                    color={appState.chatExpanded ? '$color9' : '$gray9'} 
+                                    strokeWidth={1.5} 
+                                />
+                            </YStack>
+                        </TooltipSimple>
+                    )}
                     <TooltipSimple label="Config" placement="right">
                         <YStack
                             p="$2"

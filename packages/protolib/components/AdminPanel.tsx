@@ -165,6 +165,11 @@ export const AdminPanel = ({ children }) => {
   const SiteConfig = useContext<SiteConfigType>(AppConfContext);
   const { PanelLayout } = SiteConfig.layout
   const isMobile = useIsMobile()
+  const [settings] = useAtom(settingsAtom)
+  
+  // Hide chat if ai.enabled doesn't exist or is false/"false"
+  const aiEnabled = settings?.['ai.enabled']
+  const isChatVisible = aiEnabled === true || aiEnabled === 'true'
 
   const { message } = useSubscription('notifications/object/#')
 
@@ -294,7 +299,8 @@ export const AdminPanel = ({ children }) => {
   }, [setAppState])
   
   // Calculate the total chat width (including the resize handle of 2px)
-  const totalChatWidth = isMobile ? 0 : chatWidth + 2
+  // Width is 0 if chat is hidden (ai.enabled is false or doesn't exist)
+  const totalChatWidth = (isMobile || !isChatVisible) ? 0 : chatWidth + 2
   
   // Update the atom so other components (like FloatingWindow) can read it
   useEffect(() => {
@@ -327,8 +333,8 @@ export const AdminPanel = ({ children }) => {
         </PanelLayout>}
       </div>
       
-      {/* Desktop: Resize handle and Chat panel */}
-      {!isMobile && (
+      {/* Desktop: Resize handle and Chat panel (hidden if ai.enabled is false or doesn't exist) */}
+      {!isMobile && isChatVisible && (
         <>
           <div
             onMouseDown={handleMouseDown}
@@ -350,8 +356,8 @@ export const AdminPanel = ({ children }) => {
         </>
       )}
 
-      {/* Mobile: Floating chat button and overlay */}
-      {isMobile && (
+      {/* Mobile: Floating chat button and overlay (hidden if ai.enabled is false or doesn't exist) */}
+      {isMobile && isChatVisible && (
         <>
           {/* Floating button to toggle chat */}
           <Button

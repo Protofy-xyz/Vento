@@ -1,4 +1,4 @@
-import { XStack, YStack, Button } from '@my/ui'
+import { XStack, YStack, Button, Text } from '@my/ui'
 import { PanelMenu } from './PanelMenu';
 import { atom, useAtom } from 'jotai';
 import { useContext, useEffect, useState, useRef, useCallback } from 'react'
@@ -9,7 +9,10 @@ import { AppConfContext, SiteConfigType } from "../providers/AppConf"
 import { useWorkspace } from '../lib/useWorkspace';
 import { useAgents } from '@extensions/boards/hooks/useAgents'
 import { useThemeSetting } from '@tamagui/next-theme'
-import { MessageCircle, X } from '@tamagui/lucide-icons'
+import { MessageCircle, X, Settings } from '@tamagui/lucide-icons'
+import { settingsAtom } from '@extensions/settings/hooks'
+import { useOpenAISetupWizard } from './AISetupProvider'
+import { Tinted } from './Tinted'
 
 const initialLevels = ['info', 'warn', 'error', 'fatal']
 
@@ -53,6 +56,12 @@ const ChatPanel = ({ isVisible }: { isVisible: boolean }) => {
   const [shouldLoad, setShouldLoad] = useState(false)
   const [iframeReady, setIframeReady] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [settings] = useAtom(settingsAtom)
+  const openAISetupWizard = useOpenAISetupWizard()
+  
+  // Check if AI is configured
+  const aiProvider = settings?.['ai.provider']
+  const isAIConfigured = aiProvider && aiProvider !== 'skip'
   
   // Solo cargar el iframe cuando el panel es visible por primera vez
   useEffect(() => {
@@ -86,8 +95,44 @@ const ChatPanel = ({ isVisible }: { isVisible: boolean }) => {
   
   return (
     <YStack f={1} height="100%" width="100%" bg="$bgPanel" position="relative">
+      {/* AI not configured overlay */}
+      {!isAIConfigured && (
+        <YStack 
+          position="absolute" 
+          top={0} 
+          left={0} 
+          right={0} 
+          bottom={0} 
+          bg="$background"
+          zIndex={10}
+          jc="center"
+          ai="center"
+          p="$4"
+          gap="$3"
+        >
+          <Text fontSize="$5" fontWeight="600" textAlign="center" color="$color12">
+            🤖 AI is not configured
+          </Text>
+          <Text fontSize="$3" textAlign="center" color="$color10" maxWidth={280}>
+            Set up an AI provider to chat with your agents and enable AI-powered features.
+          </Text>
+          <Tinted>
+            <Button
+              size="$4"
+              icon={Settings}
+              onPress={openAISetupWizard}
+              backgroundColor="$color8"
+              color="white"
+              hoverStyle={{ backgroundColor: '$color9' }}
+              mt="$2"
+            >
+              Configure AI
+            </Button>
+          </Tinted>
+        </YStack>
+      )}
       {/* Loading placeholder - visible mientras Cinny carga */}
-      {!iframeReady && (
+      {!iframeReady && isAIConfigured && (
         <YStack 
           position="absolute" 
           top={0} 

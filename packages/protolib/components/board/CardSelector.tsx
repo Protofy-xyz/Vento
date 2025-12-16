@@ -47,13 +47,55 @@ const FirstSlide = ({ selectedCards, setSelectedCards, options, errors }) => {
     );
   };
 
+  // Calculate relevance score for a card based on search terms
+  const getCardScore = (opt, searchTerms) => {
+    let score = 0;
+    const templateName = (opt.templateName ?? '').toLowerCase();
+    const name = (opt.name ?? '').toLowerCase();
+    const description = (opt.defaults?.description ?? '').toLowerCase();
+    const group = (opt.group ?? '').toLowerCase();
+    const tag = (opt.tag ?? '').toLowerCase();
+    const paramsText = Object.keys(opt.defaults?.params ?? {}).join(' ').toLowerCase() +
+      ' ' + Object.values(opt.defaults?.params ?? {}).join(' ').toLowerCase();
+
+    for (const term of searchTerms) {
+      // Exact match in templateName (highest priority)
+      if (templateName.includes(term)) score += 100;
+      // Exact match in name
+      if (name.includes(term)) score += 80;
+      // Match in description
+      if (description.includes(term)) score += 60;
+      // Match in group
+      if (group.includes(term)) score += 40;
+      // Match in tag
+      if (tag.includes(term)) score += 40;
+      // Match in params
+      if (paramsText.includes(term)) score += 20;
+    }
+    return score;
+  };
+
   const getFilteredOptions = (options, search, selectedGroups) => {
-    const lowerSearch = search.toLowerCase();
-    return options.filter(opt => {
-      const matchSearch = opt.templateName?.toLowerCase().includes(lowerSearch);
-      const matchGroup = selectedGroups.length === 0 || selectedGroups.includes(opt.group);
-      return matchSearch && matchGroup;
-    });
+    const lowerSearch = search.toLowerCase().trim();
+    
+    // Split search into individual terms (words)
+    const searchTerms = lowerSearch.split(/\s+/).filter(t => t.length > 0);
+    
+    // If no search, return all (filtered by group)
+    if (searchTerms.length === 0) {
+      return options.filter(opt => 
+        selectedGroups.length === 0 || selectedGroups.includes(opt.group)
+      );
+    }
+
+    // Score and filter cards
+    const scored = options
+      .filter(opt => selectedGroups.length === 0 || selectedGroups.includes(opt.group))
+      .map(opt => ({ opt, score: getCardScore(opt, searchTerms) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    return scored.map(({ opt }) => opt);
   }
 
   const filteredOptions = useMemo(() => {

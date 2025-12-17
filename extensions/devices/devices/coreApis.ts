@@ -988,18 +988,11 @@ export const DevicesAutoAPI = AutoAPI({
             try {
                 const deviceModel = DevicesModel.load(data);
                 await deviceModel.setSubsystem();
+                // setSubsystem will also register actions for the device
                 logger.info({ deviceName: data.name }, 'Generated subsystems for new device');
             } catch (err) {
                 logger.warn({ deviceName: data.name, err }, 'Could not generate subsystems for new device (user can upload to generate them)');
             }
-        }
-        
-        // Register actions/cards for the new device
-        try {
-            await registerActions();
-            logger.info({ deviceName: data.name }, 'Registered actions for new device');
-        } catch (err) {
-            logger.warn({ deviceName: data.name, err }, 'Could not register actions for new device');
         }
         
         return data;

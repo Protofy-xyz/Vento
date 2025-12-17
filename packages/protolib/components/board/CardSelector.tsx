@@ -223,12 +223,30 @@ const FirstSlide = ({ selectedCards, setSelectedCards, options, errors }) => {
                   <SelectGrid>
                     {options.map((option) => {
                       const selected = isSelected(option);
+                      // Show device tag as subtitle for device cards to differentiate between multiple devices
+                      const showDeviceTag = option.group === 'devices' && option.tag;
+                      // Format device tag: "android_89707d58" -> "Android · 89707d58"
+                      const formatDeviceTag = (tag: string) => {
+                        if (!tag) return '';
+                        const parts = tag.split('_');
+                        if (parts.length >= 2) {
+                          const type = parts[0]//.charAt(0).toUpperCase() + parts[0].slice(1);
+                          const id = parts.slice(1).join('_');
+                          // Shorten long IDs
+                          const shortId = id.length > 12 ? id.slice(0, 8) + '…' : id;
+                          return `${type} · ${shortId}`;
+                        }
+                        // Single word like "computer" - just capitalize
+                        return tag//.charAt(0).toUpperCase() + tag.slice(1);
+                      };
+                      const deviceTag = showDeviceTag ? formatDeviceTag(option.tag) : null;
+                      
                       return (
                         <XStack
-                          height={70}
+                          height={showDeviceTag ? 80 : 70}
                           key={option.id}
                           width="calc(50% - 12.5px)"
-                          $gtLg={{ width: "calc(33% - 17px)" }}
+                          // $gtLg={{ width: "calc(33% - 17px)" }}
                           gap={"$2"}
                           p={"$2"}
                           px={"$3"}
@@ -258,7 +276,14 @@ const FirstSlide = ({ selectedCards, setSelectedCards, options, errors }) => {
                               size={20}
                             />
                           </YStack>
-                          <Text ml="$2" fontSize="$4">{option.templateName}</Text>
+                          <YStack f={1} ml="$2">
+                            <Text fontSize="$4" numberOfLines={1}>{option.templateName}</Text>
+                            {deviceTag && (
+                              <Text fontSize="$2" color="$gray9" numberOfLines={1} mt="$1">
+                                {deviceTag}
+                              </Text>
+                            )}
+                          </YStack>
                         </XStack>
                       );
                     })}

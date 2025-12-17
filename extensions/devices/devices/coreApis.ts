@@ -15,7 +15,7 @@ import { connect as mqttConnect, IClientOptions } from 'mqtt';
 import protoInfraUrls from "@extensions/protoinfra/utils/protoInfraUrls";
 import { randomUUID } from 'crypto';
 import { getTemplate, TemplatesDir } from "@extensions/boards/system/boards";
-import { buildCardLabel } from "./cardLabeling";
+import { buildCardLabel, buildCardTemplateName } from "./cardLabeling";
 
 const PER_PARAM_ROWS = 1; // tweak as needed (extra grid rows per visible param)
 
@@ -637,11 +637,13 @@ const regenerateBoardForDevice = async (deviceName: string) => {
     await deleteDeviceActions(deviceInfo.data.name)
 
     const subsystemCardId = `devices_${deviceInfo.data.name}_subsystems_overview`;
+    const deviceType = deviceInfo.data.name.split('_')[0] || deviceInfo.data.name;
+    const deviceTypeTitle = deviceType//.charAt(0).toUpperCase() + deviceType.slice(1);
     await addCard({
         group: 'devices',
         tag: deviceInfo.data.name,
         id: subsystemCardId,
-        templateName: `${deviceInfo.data.name} subsystem overview`,
+        templateName: `Subsystems Overview (${deviceTypeTitle})`,
         name: 'subsystems_overview',
         defaults: {
             label: `${deviceInfo.data.name} subsystems`,
@@ -765,7 +767,13 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                     group: 'devices',
                     tag: deviceInfo.data.name,
                     id: 'devices_monitors_' + deviceInfo.data.name + '_' + subsystem.name,
-                    templateName: deviceInfo.data.name + ' ' + subsystem.name + ' device value',
+                    templateName: buildCardTemplateName({
+                        platform: deviceInfo.data.platform,
+                        deviceName: deviceInfo.data.name,
+                        subsystemName: subsystem.name,
+                        baseLabel: monitor.label,
+                        type: 'monitor',
+                    }),
                     name: subsystem.name,
                     defaults: {
                         label: monitorLabel,
@@ -788,7 +796,14 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                     group: 'devices',
                     tag: deviceInfo.data.name,
                     id: 'devices_monitors_' + deviceInfo.data.name + '_' + monitor.name,
-                    templateName: deviceInfo.data.name + ' ' + monitor.name + ' device value',
+                    templateName: buildCardTemplateName({
+                        platform: deviceInfo.data.platform,
+                        deviceName: deviceInfo.data.name,
+                        subsystemName: subsystem.name,
+                        monitorName: monitor.name,
+                        baseLabel: monitor.label,
+                        type: 'monitor',
+                    }),
                     name: monitor.name,
                     defaults: {
                         label: monitorLabel,
@@ -871,7 +886,14 @@ const regenerateBoardForDevice = async (deviceName: string) => {
                 group: 'devices',
                 tag: deviceInfo.data.name,
                 id: 'devices_' + deviceInfo.data.name + '_' + subsystem.name + '_' + action.name,
-                templateName: deviceInfo.data.name + ' ' + subsystem.name + ' ' + action.name + ' device action',
+                templateName: buildCardTemplateName({
+                    platform: deviceInfo.data.platform,
+                    deviceName: deviceInfo.data.name,
+                    subsystemName: subsystem.name,
+                    actionName: action.name,
+                    baseLabel: action.label,
+                    type: 'action',
+                }),
                 name: subsystem.name + '_' + action.name,
                 defaults: (() => {
                     const paramsForDefaults = action.payload?.value ? {} : getParams(params);

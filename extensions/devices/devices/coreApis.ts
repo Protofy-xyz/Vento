@@ -960,6 +960,26 @@ export const DevicesAutoAPI = AutoAPI({
         if (data?.platform === 'esphome') {
             await ensureEsphomeYamlConfigFile(data, session);
         }
+        
+        // Generate subsystems and register actions so device appears in network immediately
+        if (data?.deviceDefinition) {
+            try {
+                const deviceModel = DevicesModel.load(data);
+                await deviceModel.setSubsystem();
+                logger.info({ deviceName: data.name }, 'Generated subsystems for new device');
+            } catch (err) {
+                logger.warn({ deviceName: data.name, err }, 'Could not generate subsystems for new device (user can upload to generate them)');
+            }
+        }
+        
+        // Register actions/cards for the new device
+        try {
+            await registerActions();
+            logger.info({ deviceName: data.name }, 'Registered actions for new device');
+        } catch (err) {
+            logger.warn({ deviceName: data.name, err }, 'Could not register actions for new device');
+        }
+        
         return data;
     },
     onAfterUpdate: async (data, session) => {

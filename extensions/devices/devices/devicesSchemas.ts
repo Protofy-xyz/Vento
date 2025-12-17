@@ -1,5 +1,17 @@
 import { ProtoModel, SessionDataType, API, Schema, z } from 'protobase'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
+import * as protodeviceFunctions from 'protodevice/src/device'
+
+/**
+ * Evaluates device component code with all protodevice functions in scope.
+ * Uses Function constructor to inject functions like device(), wifi(), mqtt(), etc.
+ */
+const evalDeviceCode = (code: string) => {
+  const fnNames = Object.keys(protodeviceFunctions)
+  const fnValues = Object.values(protodeviceFunctions)
+  const fn = new Function(...fnNames, `return ${code}`)
+  return fn(...fnValues)
+}
 
 const normalizeDefinitionSubsystems = (subsystems: any): any[] => {
   if (Array.isArray(subsystems)) return subsystems
@@ -289,7 +301,7 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
       console.log("-----------------deviceData-----------------", deviceObject.data)
       const deviceCode = 'device(' + jsCode.replace(/;/g, "") + ')';
       console.log("-------DEVICE CODE------------", deviceCode)
-      const deviceObj = eval(deviceCode)
+      const deviceObj = evalDeviceCode(deviceCode)
       if(deviceObject.data.credentials){
         deviceObj.setCredentials(deviceObject.data.credentials)
       }
@@ -298,7 +310,7 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
 
       const subsystems = deviceObj.getSubsystemsTree(this.data.name, deviceDefinition)
 
-      await API.post("/api/v1/esphome/" + this.data.name + "/yamls", { yaml })
+      await API.post(withToken("/api/v1/esphome/" + this.data.name + "/yamls"), { yaml })
       if (deviceObject.isError) {
         console.error(deviceObject.error)
         return;
@@ -327,7 +339,7 @@ export class DevicesModel extends ProtoModel<DevicesModel> {
     } else {
       const jsCode = deviceDefinition.config.components;
       const deviceCode = 'device(' + jsCode.replace(/;/g, "") + ')';
-      const deviceObj = eval(deviceCode)
+      const deviceObj = evalDeviceCode(deviceCode)
       subsystems = deviceObj.getSubsystemsTree(this.data.name, deviceDefinition)
     }
 

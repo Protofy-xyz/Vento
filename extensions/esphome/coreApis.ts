@@ -42,6 +42,19 @@ const upsertBy = (list: any[], matcher: (item: any) => boolean, value: any) => {
   return true;
 };
 
+// Track devices that have already had their YAML generated (persistent for session)
+const devicesWithYamlGenerated = new Set<string>();
+
+/**
+ * Generates the config.yaml for an ESPHome device based on its template/definition.
+ * 
+ * Supports all ESPHome SDKs:
+ * - esphome-yaml: Copies and customizes YAML from template
+ * - esphome-idf: Generates YAML from visual component configuration
+ * - esphome-arduino: Generates YAML from visual component configuration
+ * 
+ * If no template is associated, creates a minimal empty config.
+ */
 export async function ensureEsphomeYamlConfigFile(rawData: any, session?: any) {
   let deviceData = rawData;
   try {
@@ -53,6 +66,14 @@ export async function ensureEsphomeYamlConfigFile(rawData: any, session?: any) {
 
   if (deviceData?.platform !== 'esphome') return;
   if (!deviceData?.name) return;
+
+  // Prevent infinite loop: skip if already generated YAML for this device
+  // This check is SYNCHRONOUS to prevent race conditions
+  if (devicesWithYamlGenerated.has(deviceData.name)) {
+    return;
+  }
+  // Mark IMMEDIATELY before any async operations
+  devicesWithYamlGenerated.add(deviceData.name);
 
   const token = getServiceToken();
 
@@ -92,14 +113,22 @@ export async function ensureEsphomeYamlConfigFile(rawData: any, session?: any) {
       return;
     }
 
-    if (definitionResp?.data?.sdk !== 'esphome-yaml') {
+    const sdk = definitionResp?.data?.sdk;
+    const supportedSdks = ['esphome-yaml', 'esphome-idf', 'esphome-arduino'];
+    
+    if (!supportedSdks.includes(sdk)) {
+      logger.debug({ device: deviceData?.name, sdk }, 'SDK not supported for YAML generation');
       return;
     }
 
+    logger.info({ device: deviceData?.name, sdk }, 'Generating config.yaml');
     const model = DevicesModel.load(deviceData, session);
     await model.getYaml(token);
+    logger.info({ device: deviceData?.name }, 'Generated config.yaml successfully');
   } catch (err) {
-    logger.warn({ device: deviceData?.name, err }, 'Failed to generate esphome-yaml config.yaml for device');
+    logger.warn({ device: deviceData?.name, err }, 'Failed to generate config.yaml for device');
+    // On error, allow retry on next request
+    devicesWithYamlGenerated.delete(deviceData.name);
   }
 }
 

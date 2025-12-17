@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useImperativeHandle, forwardRef, useRef } from 'react'
 import { getPendingResult, API } from 'protobase'
 import { YStack, XStack, Spacer, ScrollView, useToastController, Button, Text, Stack, Input, Spinner, Popover } from "@my/ui"
-import { TemplateCard } from '../apis/TemplateCard'
 import { DevicesModel } from '../devices/devices/devicesSchemas'
 import { usePendingEffect } from 'protolib/lib/usePendingEffect'
 import { Tinted } from 'protolib/components/Tinted'
 import { FormInput } from 'protolib/components/FormInput'
-import { useRouter } from 'solito/navigation'
-import { MoreVertical, Pencil, Trash2, Search } from '@tamagui/lucide-icons'
+import { MoreVertical, Pencil, Trash2, Search, UploadCloud } from '@tamagui/lucide-icons'
 import type { NetworkOption } from '../network/options'
 import { PublicIcon } from 'protolib/components/IconSelect'
+import { TemplateEditor, useTemplateEditor } from '../devices/components/TemplateEditor'
+import { useEsphomeDeviceActions } from './hooks/useEsphomeDeviceActions'
 
 const sourceUrl = '/api/core/v1/devices'
 const definitionsSourceUrl = '/api/core/v1/deviceDefinitions?all=1'
@@ -20,12 +20,6 @@ type WifiNetwork = {
     key: string
     ssid: string
     password: string
-}
-
-const SelectGrid = ({ children }) => {
-    return <XStack justifyContent="center" alignItems="center" gap={25} flexWrap='wrap'>
-        {children}
-    </XStack>
 }
 
 const TemplateSlide = ({ selected, setSelected, definitions }) => {
@@ -707,7 +701,6 @@ WifiStep.displayName = 'WifiStep'
 
 const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void, onBack?: () => void }) => {
     const toast = useToastController()
-    const router = useRouter()
     const [data, setData] = useState({ template: '__none__', name: '' })
     const [error, setError] = useState('')
     const [wifiError, setWifiError] = useState('')
@@ -717,13 +710,28 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
     const [selectedBoard, setSelectedBoard] = useState<string | null>(null)
     const [boardError, setBoardError] = useState('')
     const wifiStepRef = useRef<WifiStepHandle>(null)
+    
+    // State for the new flow
+    const [createdTemplateName, setCreatedTemplateName] = useState<string | null>(null)
+    const [savedWifi, setSavedWifi] = useState<WifiNetwork | null>(null)
+    const [isCreating, setIsCreating] = useState(false)
+    const [createdDevice, setCreatedDevice] = useState<DevicesModel | null>(null)
+    
+    // Device actions for upload
+    const { flashDevice, ui: deviceActionsUi } = useEsphomeDeviceActions()
+    
+    // Template editor
+    const templateEditor = useTemplateEditor()
 
     const needsBoardStep = data.template === '__none__'
+    const needsEditTemplateStep = data.template === '__none__'
     const slides = [
         { id: 'template', name: "Select Template", title: "Select a Template (optional)" },
         { id: 'configure', name: "Configure", title: "Configure your Device" },
         ...(needsBoardStep ? [{ id: 'board', name: "Board", title: "Select the board for your device" }] : []),
-        { id: 'wifi', name: "Wi-Fi", title: "Wi-Fi Setup" }
+        { id: 'wifi', name: "Wi-Fi", title: "Wi-Fi Setup" },
+        ...(needsEditTemplateStep ? [{ id: 'edit-template', name: "Edit Template", title: "Edit your Device Template" }] : []),
+        { id: 'upload', name: "Upload", title: "Upload Firmware" }
     ]
 
     const totalSlides = slides.length
@@ -765,184 +773,347 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
         }
     }
 
-    const handleNext = async () => {
-        if (step < totalSlides - 1) {
-            if (currentSlide.id === 'configure' && !isNameValid(data.name)) {
-                setError('Name is required and must use only lowercase letters, numbers or underscores')
-                return
-            }
-            if (currentSlide.id === 'board' && needsBoardStep && !selectedBoard) {
-                setBoardError('Please select a board')
-                return
-            }
-            setStep(step + 1)
-        } else {
-            // Finish - create device
-            if (!isNameValid(data.name)) {
-                setError('Name is required and must use only lowercase letters, numbers or underscores')
-                return
-            }
+    // Helper to build components string for templates
+    const buildComponents = (boardInfo: any, wifi: WifiNetwork, mqttUrl?: string | null) => {
+        const entries: string[] = [`"mydevice"`, `"${selectedBoard}"`]
+        const ports = boardInfo?.ports || []
+        const wifiComponent = `wifi("${wifi.ssid}", "${wifi.password}", "none")`
+        const mqttComponent = mqttUrl ? `mqtt("${mqttUrl}")` : null
 
-            let selectedWifi: WifiNetwork | null = null
-            if (wifiStepRef.current) {
-                selectedWifi = await wifiStepRef.current.ensureSelection()
+        const normalizeType = (t: any) => (typeof t === 'string' ? t.toLowerCase() : '')
+        const isIoCapable = (t: string) => t === 'io' || t === 'i' || t === 'o'
+
+        const virtualIndexes = ports
+            .map((p: any, idx: number) => ({ idx, type: normalizeType(p?.type) }))
+            .filter((p: any) => p.type === 'virtual')
+            .map((p: any) => p.idx)
+
+        const ioIndexes = ports
+            .map((p: any, idx: number) => ({ idx, type: normalizeType(p?.type) }))
+            .filter((p: any) => isIoCapable(p.type))
+            .map((p: any) => p.idx)
+
+        const pickIndex = (list: number[], exclude: number | null) => {
+            for (const idx of list) {
+                if (exclude === null || idx !== exclude) return idx
             }
-            if (!selectedWifi) {
-                setWifiError('Wi-Fi is required. Please select or add a network.')
-                setStep(2)
-                return
+            return null
+        }
+
+        const wifiIdx = virtualIndexes[0] ?? ioIndexes[0] ?? null
+        const mqttIdx = mqttComponent
+            ? (pickIndex(virtualIndexes, wifiIdx) ?? pickIndex(ioIndexes, wifiIdx) ?? null)
+            : null
+
+        const totalPorts = Math.max(ports.length, (wifiIdx !== null ? wifiIdx + 1 : 0), (mqttIdx !== null ? mqttIdx + 1 : 0), 2)
+
+        for (let i = 0; i < totalPorts; i++) {
+            if (i === wifiIdx) {
+                entries.push(wifiComponent)
+            } else if (i === mqttIdx && mqttComponent) {
+                entries.push(mqttComponent)
             } else {
-                setWifiError('')
+                entries.push('null')
+            }
+        }
+
+        entries.push('null')
+        return `[\n  ${entries.join(',\n  ')}\n];`
+    }
+
+    // Create template only (for blank devices)
+    const createTemplateOnly = async (wifi: WifiNetwork): Promise<boolean> => {
+        if (!selectedBoard) {
+            setBoardError('Please select a board')
+            return false
+        }
+
+        setIsCreating(true)
+        setError('')
+
+        try {
+            const templateName = `${data.name}_template`
+
+            // Load board details
+            const boardResp = await API.get(`/api/core/v1/deviceboards/${encodeURIComponent(selectedBoard)}`)
+            if (boardResp?.isError || !boardResp?.data) {
+                setBoardError('Unable to load selected board')
+                setIsCreating(false)
+                return false
+            }
+            const boardData = boardResp.data
+
+            // Create template with WiFi and MQTT placeholder
+            const definitionPayload = {
+                name: templateName,
+                sdk: 'esphome-idf',
+                board: boardData,
+                description: `ESPHome template for ${data.name}`,
+                config: {
+                    components: buildComponents(boardData, wifi, 'MQTT_HOST_PLACEHOLDER'),
+                    sdkConfig: boardData?.config?.['esphome-idf'] ?? {}
+                }
             }
 
+            let definitionResult = await API.post('/api/core/v1/devicedefinitions', definitionPayload)
+            if (definitionResult?.isError) {
+                definitionResult = await API.post(`/api/core/v1/devicedefinitions/${encodeURIComponent(templateName)}`, definitionPayload)
+            }
+            if (definitionResult?.isError) {
+                const apiError = definitionResult?.error?.message || definitionResult?.error || 'Error creating template'
+                setError(typeof apiError === 'string' ? apiError : 'Error creating template')
+                setIsCreating(false)
+                return false
+            }
+
+            setCreatedTemplateName(templateName)
+            setSavedWifi(wifi)
+            setIsCreating(false)
+            return true
+        } catch (e: any) {
+            setError(e?.message || 'Error creating template')
+            setIsCreating(false)
+            return false
+        }
+    }
+
+    // Create device with template
+    const createDeviceWithTemplate = async (templateName: string): Promise<boolean> => {
+        if (!savedWifi) {
+            setError('WiFi credentials not found')
+            return false
+        }
+
+        setIsCreating(true)
+        setError('')
+
+        try {
+            const deviceData = {
+                name: data.name,
+                platform: 'esphome',
+                credentials: {
+                    wifi: {
+                        ssid: savedWifi.ssid,
+                        password: savedWifi.password
+                    }
+                },
+                deviceDefinition: templateName
+            }
+
+            const obj = DevicesModel.load(deviceData)
+            const result = await API.post(sourceUrl, obj.create().getData())
+
+            if (result.isError) {
+                throw result.error
+            }
+
+            // Update template with actual MQTT host
             try {
-                const deviceData: any = {
-                    name: data.name,
-                    platform: 'esphome',
-                    credentials: {
-                        wifi: {
-                            ssid: selectedWifi.ssid,
-                            password: selectedWifi.password
-                        }
-                    }
-                }
-
-                let templateName: string | null = null
-                let boardData: any = null
-                const buildComponents = (boardInfo: any, mqttUrl?: string | null) => {
-                    const entries: string[] = [`"mydevice"`, `"${selectedBoard}"`]
-                    const ports = boardInfo?.ports || []
-                    const wifiComponent = selectedWifi ? `wifi("${selectedWifi.ssid}", "${selectedWifi.password}", "none")` : null
-                    const mqttComponent = mqttUrl ? `mqtt("${mqttUrl}")` : null
-
-                    const normalizeType = (t: any) => (typeof t === 'string' ? t.toLowerCase() : '')
-                    const isIoCapable = (t: string) => t === 'io' || t === 'i' || t === 'o'
-
-                    const virtualIndexes = ports
-                        .map((p, idx) => ({ idx, type: normalizeType(p?.type) }))
-                        .filter(p => p.type === 'virtual')
-                        .map(p => p.idx)
-
-                    const ioIndexes = ports
-                        .map((p, idx) => ({ idx, type: normalizeType(p?.type) }))
-                        .filter(p => isIoCapable(p.type))
-                        .map(p => p.idx)
-
-                    const pickIndex = (list: number[], exclude: number | null) => {
-                        for (const idx of list) {
-                            if (exclude === null || idx !== exclude) return idx
-                        }
-                        return null
-                    }
-
-                    const wifiIdx = wifiComponent
-                        ? (virtualIndexes[0] ?? ioIndexes[0] ?? null)
-                        : null
-                    const mqttIdx = mqttComponent
-                        ? (pickIndex(virtualIndexes, wifiIdx) ?? pickIndex(ioIndexes, wifiIdx) ?? null)
-                        : null
-
-                    const totalPorts = Math.max(ports.length, (wifiIdx !== null ? wifiIdx + 1 : 0), (mqttIdx !== null ? mqttIdx + 1 : 0), 2)
-
-                    for (let i = 0; i < totalPorts; i++) {
-                        if (i === wifiIdx && wifiComponent) {
-                            entries.push(wifiComponent)
-                        } else if (i === mqttIdx && mqttComponent) {
-                            entries.push(mqttComponent)
-                        } else {
-                            entries.push('null')
-                        }
-                    }
-
-                    entries.push('null') // trailing null as in existing implementation
-                    return `[\n  ${entries.join(',\n  ')}\n];`
-                }
-                const hasTemplate = data.template !== '__none__'
-                if (hasTemplate) {
-                    deviceData.deviceDefinition = data.template
-                } else {
-                    if (!selectedBoard) {
-                        setBoardError('Please select a board')
-                        return
-                    }
-                    templateName = `${data.name}_template`
-
-                    // Load the board details because the API validator needs the full board object
-                    const boardResp = await API.get(`/api/core/v1/deviceboards/${encodeURIComponent(selectedBoard)}`)
-                    if (boardResp?.isError || !boardResp?.data) {
-                        setBoardError('Unable to load selected board')
-                        return
-                    }
-                    boardData = boardResp.data
-
-                    const definitionPayload: any = {
-                        name: templateName,
-                        sdk: 'esphome-idf',
-                        board: boardData,
-                        description: `Blank ESPHome template for ${data.name}`,
-                        config: {
-                            components: buildComponents(boardData, null),
-                            sdkConfig: boardData?.config?.['esphome-idf'] ?? {}
-                        }
-                    }
-                    let definitionResult = await API.post('/api/core/v1/devicedefinitions', definitionPayload)
-                    if (definitionResult?.isError) {
-                        // Fallback to update if it already exists
-                        definitionResult = await API.post(`/api/core/v1/devicedefinitions/${encodeURIComponent(templateName)}`, definitionPayload)
-                    }
-                    if (definitionResult?.isError) {
-                        const apiError = definitionResult?.error?.message || definitionResult?.error || 'Error creating template'
-                        setError(typeof apiError === 'string' ? apiError : 'Error creating template')
-                        return
-                    }
-                    deviceData.deviceDefinition = templateName
-                }
-
-                const obj = DevicesModel.load(deviceData)
-                const result = await API.post(sourceUrl, obj.create().getData())
-
-                if (result.isError) {
-                    throw result.error
-                }
-
-                // Update template with actual MQTT host/port once device credentials exist
-                if (templateName) {
-                    try {
-                        const deviceResp = await API.get(`/api/core/v1/devices/${encodeURIComponent(data.name)}`)
-                        if (!deviceResp?.isError && deviceResp?.data && boardData) {
-                            const mqttCreds = deviceResp.data?.credentials?.mqtt
-                            const host = mqttCreds?.host
-                            const mqttUrl = host ? `${host}` : null
-                            const updatedPayload = {
-                                name: templateName,
-                                sdk: 'esphome-idf',
-                                board: boardData,
-                                description: `Blank ESPHome template for ${data.name}`,
+                const deviceResp = await API.get(`/api/core/v1/devices/${encodeURIComponent(data.name)}`)
+                if (!deviceResp?.isError && deviceResp?.data) {
+                    const mqttCreds = deviceResp.data?.credentials?.mqtt
+                    const host = mqttCreds?.host
+                    
+                    if (host) {
+                        // Get current template and replace MQTT placeholder
+                        const defResp = await API.get(`/api/core/v1/devicedefinitions/${encodeURIComponent(templateName)}`)
+                        if (!defResp.isError && defResp.data) {
+                            const currentComponents = defResp.data?.config?.components || ''
+                            const updatedComponents = currentComponents.replace('MQTT_HOST_PLACEHOLDER', host)
+                            
+                            const updatedDef = {
+                                ...defResp.data,
                                 config: {
-                                    components: buildComponents(boardData, mqttUrl),
-                                    sdkConfig: boardData?.config?.['esphome-idf'] ?? {}
+                                    ...defResp.data.config,
+                                    components: updatedComponents
                                 }
                             }
-                            await API.post(`/api/core/v1/devicedefinitions/${encodeURIComponent(templateName)}`, updatedPayload)
+                            await API.post(`/api/core/v1/devicedefinitions/${encodeURIComponent(templateName)}`, updatedDef)
                         }
-                    } catch (err) {
-                        // silently ignore; user can adjust manually in editor
                     }
                 }
-                toast.show('Device created', {
-                    message: data.name
-                })
-                onCreated({ name: data.name, wifi: selectedWifi })
-                const templateQuery = templateName ? `&editTemplate=${encodeURIComponent(templateName)}` : ''
-                router.push(`/devices?created=${data.name}${templateQuery}`)
-            } catch (e: any) {
-                setError(e?.message || 'Error creating device')
+            } catch (err) {
+                // silently ignore
+            }
+
+            // Store created device (config.yaml is generated by backend automatically)
+            const deviceResult = await API.get(`/api/core/v1/devices/${encodeURIComponent(data.name)}`)
+            if (!deviceResult.isError && deviceResult.data) {
+                setCreatedDevice(DevicesModel.load(deviceResult.data))
+            }
+
+            toast.show('Device created', { message: data.name })
+            setIsCreating(false)
+            return true
+        } catch (e: any) {
+            setError(e?.message || 'Error creating device')
+            setIsCreating(false)
+            return false
+        }
+    }
+
+    // Create device with existing template (for non-blank devices)
+    const createDeviceWithExistingTemplate = async (wifi: WifiNetwork): Promise<boolean> => {
+        setIsCreating(true)
+        setError('')
+
+        try {
+            const deviceData = {
+                name: data.name,
+                platform: 'esphome',
+                credentials: {
+                    wifi: {
+                        ssid: wifi.ssid,
+                        password: wifi.password
+                    }
+                },
+                deviceDefinition: data.template
+            }
+
+            const obj = DevicesModel.load(deviceData)
+            const result = await API.post(sourceUrl, obj.create().getData())
+
+            if (result.isError) {
+                throw result.error
+            }
+
+            // Store created device (config.yaml is generated by backend automatically)
+            const deviceResult = await API.get(`/api/core/v1/devices/${encodeURIComponent(data.name)}`)
+            if (!deviceResult.isError && deviceResult.data) {
+                setCreatedDevice(DevicesModel.load(deviceResult.data))
+            }
+
+            setSavedWifi(wifi)
+            toast.show('Device created', { message: data.name })
+            setIsCreating(false)
+            return true
+        } catch (e: any) {
+            setError(e?.message || 'Error creating device')
+            setIsCreating(false)
+            return false
+        }
+    }
+
+    // Track if save was successful (to distinguish between save-close and cancel-close)
+    const templateSavedRef = useRef(false)
+
+    // Delete template (on cancel)
+    const deleteTemplate = async () => {
+        if (createdTemplateName) {
+            try {
+                await API.get(`/api/core/v1/devicedefinitions/${encodeURIComponent(createdTemplateName)}/delete`)
+            } catch (err) {
+                // ignore
             }
         }
     }
 
+    // Handle template editor save - create device and go to upload
+    const handleTemplateSaved = async (templateName: string) => {
+        templateSavedRef.current = true
+        const success = await createDeviceWithTemplate(templateName)
+        if (success) {
+            // Close the editor first, then move to upload step
+            templateEditor.closeEditor()
+            setStep(slides.findIndex(s => s.id === 'upload'))
+        }
+    }
+
+    // Handle template editor close - only cancel if not saved
+    const handleTemplateClose = () => {
+        // Always close the editor state
+        templateEditor.closeEditor()
+        
+        // If not saved, user cancelled - delete template and close wizard
+        if (!templateSavedRef.current) {
+            deleteTemplate()
+            onBack?.()
+        }
+        // Reset for next use
+        templateSavedRef.current = false
+    }
+
+    const handleNext = async () => {
+        // Validation
+        if (currentSlide.id === 'configure' && !isNameValid(data.name)) {
+            setError('Name is required and must use only lowercase letters, numbers or underscores')
+            return
+        }
+        if (currentSlide.id === 'board' && needsBoardStep && !selectedBoard) {
+            setBoardError('Please select a board')
+            return
+        }
+
+        // WiFi step - create template or device
+        if (currentSlide.id === 'wifi') {
+            let wifi: WifiNetwork | null = null
+            if (wifiStepRef.current) {
+                wifi = await wifiStepRef.current.ensureSelection()
+            }
+            if (!wifi) {
+                setWifiError('Wi-Fi is required. Please select or add a network.')
+                return
+            }
+            setWifiError('')
+
+            const isBlankDevice = data.template === '__none__'
+
+            if (isBlankDevice) {
+                // Create template only, then go to edit step
+                const success = await createTemplateOnly(wifi)
+                if (!success) return
+
+                toast.show('Template created', { message: `${data.name}_template` })
+                
+                // Open template editor and move to edit-template step
+                templateEditor.openDefinition(`${data.name}_template`)
+                setStep(step + 1)
+            } else {
+                // Create device with existing template, go directly to upload
+                const success = await createDeviceWithExistingTemplate(wifi)
+                if (!success) return
+
+                setStep(slides.findIndex(s => s.id === 'upload'))
+            }
+            return
+        }
+
+        // Edit template step - handled by template editor buttons
+        if (currentSlide.id === 'edit-template') {
+            return
+        }
+
+        // Upload step - finish wizard
+        if (currentSlide.id === 'upload') {
+            onCreated({ name: data.name, wifi: savedWifi })
+            return
+        }
+
+        // Default: move to next step
+        if (step < totalSlides - 1) {
+            setStep(step + 1)
+        }
+    }
+
+    // Handle upload button
+    const handleUpload = () => {
+        if (createdDevice) {
+            flashDevice(createdDevice)
+        }
+    }
+
+    // Get button text
+    const getNextButtonText = () => {
+        if (currentSlide.id === 'wifi') {
+            if (isCreating) return 'Creating...'
+            return data.template === '__none__' ? 'Create Template' : 'Create Device'
+        }
+        if (currentSlide.id === 'upload') return 'Done'
+        return 'Next'
+    }
+
     return (
-        <YStack id="admin-dataview-create-dlg" padding="$3" paddingTop="$0" width={800} flex={1}>
+        <YStack id="admin-dataview-create-dlg" padding="$3" paddingTop="$0" width={currentSlide.id === 'edit-template' ? 1200 : 800} flex={1}>
             <XStack id="admin-eo" justifyContent="space-between" width="100%">
                 <Stack flex={1}>
                     <Text fontWeight={"500"} fontSize={16} color="$gray9">{titlesUpToCurrentStep}</Text>
@@ -963,23 +1134,80 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                 {currentSlide.id === 'configure' && <ConfigureSlide data={data} setData={setData} errorMessage={error} />}
                 {currentSlide.id === 'board' && <BoardSlide boards={boards} selectedBoard={selectedBoard} setSelectedBoard={(board) => { setSelectedBoard(board); setBoardError('') }} error={boardError} />}
                 {currentSlide.id === 'wifi' && <WifiStep ref={wifiStepRef} active={currentSlide.id === 'wifi'} wifiError={wifiError} onClearError={() => setWifiError('')} />}
+                
+                {/* Edit Template Step - shows TemplateEditor modal */}
+                {currentSlide.id === 'edit-template' && (
+                    <YStack flex={1} alignItems="center" justifyContent="center" gap="$3">
+                        <Text color="$gray10">Edit your device template in the editor...</Text>
+                        <Text color="$gray9" fontSize="$2">Click Save (green button) when done, or X to cancel</Text>
+                    </YStack>
+                )}
+                
+                {/* Upload Step */}
+                {currentSlide.id === 'upload' && (
+                    <YStack flex={1} alignItems="center" justifyContent="center" padding="$4">
+                        {deviceActionsUi}
+                        <YStack 
+                            gap="$4" 
+                            alignItems="center"
+                            padding="$6"
+                            borderWidth={1}
+                            borderColor="$color6"
+                            borderRadius="$5"
+                            backgroundColor="$bg"
+                            maxWidth={500}
+                            width="100%"
+                        >
+                            <YStack alignItems="center" gap="$2">
+                                <Text fontSize="$7" fontWeight="700" color="$color11">
+                                    Device "{data.name}" is ready!
+                                </Text>
+                                <Text color="$gray10" textAlign="center" fontSize="$4">
+                                    Click the button below to upload the firmware to your ESP32 device.
+                                </Text>
+                            </YStack>
+                            <Tinted>
+                                <Button
+                                    size="$5"
+                                    icon={UploadCloud}
+                                    onPress={handleUpload}
+                                    marginTop="$2"
+                                >
+                                    Upload Firmware
+                                </Button>
+                            </Tinted>
+                        </YStack>
+                    </YStack>
+                )}
             </Stack>
 
-            <XStack gap={40} justifyContent='center' marginBottom={"$1"} alignItems="flex-end">
-                <Button width={250} onPress={handleBack}>
-                    Back
-                </Button>
-                <Tinted>
-                    <Button
-                        id={"admin-devices-add-btn"}
-                        width={250}
-                        onPress={handleNext}
-                        disabled={currentSlide.id === 'configure' && !isNameValid(data.name)}
-                    >
-                        {step === totalSlides - 1 ? "Create" : "Next"}
-                    </Button>
-                </Tinted>
-            </XStack>
+            {/* Navigation buttons - hide on edit-template step */}
+            {currentSlide.id !== 'edit-template' && (
+                <XStack gap={40} justifyContent='center' marginBottom={"$1"} alignItems="flex-end">
+                    {currentSlide.id !== 'upload' && (
+                        <Button width={250} onPress={handleBack}>
+                            Back
+                        </Button>
+                    )}
+                    <Tinted>
+                        <Button
+                            id={"admin-devices-add-btn"}
+                            width={250}
+                            onPress={handleNext}
+                            disabled={isCreating || (currentSlide.id === 'configure' && !isNameValid(data.name))}
+                        >
+                            {getNextButtonText()}
+                        </Button>
+                    </Tinted>
+                </XStack>
+            )}
+            
+            {/* Template Editor Modal */}
+            <TemplateEditor
+                {...templateEditor.editorProps}
+                onSaved={handleTemplateSaved}
+                onClose={handleTemplateClose}
+            />
         </YStack>
     )
 }

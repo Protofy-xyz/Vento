@@ -26,9 +26,7 @@ import { useEsphomeDeviceActions } from '@extensions/esphome/hooks/useEsphomeDev
 import { AlertDialog } from 'protolib/components/AlertDialog';
 import { useEsphomeTemplateCreator } from '@extensions/esphome/hooks/useEsphomeTemplateCreator';
 import { DeviceTemplateDialog } from '@extensions/devices/components/DeviceTemplateDialog';
-import { ConfigEditor } from '../deviceDefinitions/ConfigEditor';
-import { Spinner } from '@my/ui';
-import { useToastController } from '@my/ui';
+import { TemplateEditor, useTemplateEditor } from '@extensions/devices/components/TemplateEditor';
 
 const DevicesIcons = { name: Tag, deviceDefinition: BookOpen }
 
@@ -41,7 +39,6 @@ export default {
     if (typeof window !== 'undefined') {
       Object.keys(deviceFunctions).forEach(k => (window as any)[k] = deviceFunctions[k])
     }
-    const toast = useToastController()
     const [deviceDefinitions, setDeviceDefinitions] = useState(extraData?.deviceDefinitions ?? getPendingResult('pending'))
     usePendingEffect((s) => { API.get({ url: definitionsSourceUrl }, s) }, setDeviceDefinitions, extraData?.deviceDefinitions)
     const router = useRouter();
@@ -58,17 +55,14 @@ export default {
       refreshDefinitions: () => API.get({ url: definitionsSourceUrl }, setDeviceDefinitions)
     })
 
+    // Template editor using generic component
+    const templateEditor = useTemplateEditor()
+
     // Handle "created" parameter from network wizard
     const [createdDevice, setCreatedDevice] = useState<any>(null)
     const [showCreatedDialog, setShowCreatedDialog] = useState(false)
     const [showCreatedDialogPending, setShowCreatedDialogPending] = useState(false)
     const [subsystemsEditorState, setSubsystemsEditorState] = useState<{ open: boolean, device: DevicesModel | null }>({ open: false, device: null })
-    const [templateEditorState, setTemplateEditorState] = useState<{
-      open: boolean,
-      loading: boolean,
-      error?: string,
-      definition: any | null
-    }>({ open: false, loading: false, error: undefined, definition: null })
 
     useEffect(() => {
       const created = query?.created
@@ -89,42 +83,26 @@ export default {
       }
     }, [query?.created, query?.editTemplate])
 
-    const openTemplateEditor = (templateName: string | undefined | null) => {
-      if (!templateName || templateName === 'undefined') {
-        return
-      }
-      setTemplateEditorState({ open: true, loading: true, definition: null, error: undefined })
-      setShowCreatedDialog(false)
-      API.get(`/api/core/v1/devicedefinitions/${encodeURIComponent(templateName)}`).then((result) => {
-        if (!result.isError && result.data) {
-          setTemplateEditorState({ open: true, loading: false, definition: result.data, error: undefined })
-        } else {
-          setTemplateEditorState({ open: true, loading: false, definition: null, error: 'Unable to load template' })
-        }
-      })
-    }
-
+    // Handle editTemplate query param
     useEffect(() => {
       const templateToEdit = query?.editTemplate
       if (templateToEdit && typeof templateToEdit === 'string' && templateToEdit !== 'undefined') {
-        openTemplateEditor(templateToEdit)
-      } else {
-        setTemplateEditorState({ open: false, loading: false, definition: null, error: undefined })
+        templateEditor.openEditor(templateToEdit)
       }
     }, [query?.editTemplate])
 
     // Fallback: if editTemplate is missing but deviceDefinition matches the created template name, still open the editor
     useEffect(() => {
-      if (templateEditorState.open) return
+      if (templateEditor.isOpen) return
       if (!showCreatedDialogPending) return
       if (!createdDevice?.data?.deviceDefinition) return
       const templateName = createdDevice.data.deviceDefinition
       const expectedTemplate = `${createdDevice.data.name}_template`
       if (templateName === expectedTemplate) {
         replace('editTemplate', templateName)
-        openTemplateEditor(templateName)
+        templateEditor.openEditor(templateName)
       }
-    }, [createdDevice?.data?.deviceDefinition, createdDevice?.data?.name, templateEditorState.open, showCreatedDialogPending])
+    }, [createdDevice?.data?.deviceDefinition, createdDevice?.data?.name, templateEditor.isOpen, showCreatedDialogPending])
 
     const handleCloseCreatedDialog = () => {
       setShowCreatedDialog(false)
@@ -133,28 +111,13 @@ export default {
       replace('created', undefined)
     }
 
-    const closeTemplateEditor = () => {
+    const handleTemplateEditorClose = () => {
       removeReplace('editTemplate')
-      setTemplateEditorState({ open: false, loading: false, definition: null, error: undefined })
+      templateEditor.closeEditor()
       if (showCreatedDialogPending && createdDevice) {
         setShowCreatedDialog(true)
         setShowCreatedDialogPending(false)
       }
-    }
-
-    const handleSaveTemplateEditor = async (definition: any) => {
-      if (!definition?.name) {
-        setTemplateEditorState(prev => ({ ...prev, error: 'Template data is invalid' }))
-        return
-      }
-      setTemplateEditorState(prev => ({ ...prev, loading: true, error: undefined }))
-      const res = await API.post(`/api/core/v1/devicedefinitions/${encodeURIComponent(definition.name)}`, definition)
-      if (res?.isError) {
-        setTemplateEditorState(prev => ({ ...prev, loading: false, error: res?.error?.message || 'Unable to save template' }))
-        return
-      }
-      toast.show('Template updated', { message: definition.name })
-      closeTemplateEditor()
     }
 
     const extraMenuActions = [
@@ -163,6 +126,18 @@ export default {
         icon: Radio,
         action: (element) => setSubsystemsEditorState({ open: true, device: element }),
         isVisible: (element) => true
+      },
+      {
+        text: "Edit template",
+        icon: BookOpen,
+        action: (element) => templateEditor.openDefinition(element.data.deviceDefinition),
+        isVisible: (element) => Boolean(element.data.deviceDefinition)
+      },
+      {
+        text: "Edit config",
+        icon: Pencil,
+        action: (element) => templateEditor.openDevice(element.data.name),
+        isVisible: (element) => !element.data.deviceDefinition && element.getConfigFile()
       },
       {
         text: "Upload definition file",
@@ -324,36 +299,11 @@ export default {
         boardOptions={boardOptions}
       />
 
-      <AlertDialog
-        open={templateEditorState.open}
-        setOpen={(open) => {
-          if (!open) closeTemplateEditor()
-        }}
-        title={templateEditorState.definition?.name ? `Edit template: ${templateEditorState.definition.name}` : 'Edit template'}
-        description=""
-        hideAccept
-        onOpenChange={(open) => {
-          if (!open) closeTemplateEditor()
-        }}
-      >
-        <YStack width="min(1200px, 90vw)" height="80vh" padding="$2" gap="$3">
-          {templateEditorState.loading ? (
-            <XStack alignItems="center" gap="$2">
-              <Spinner size="small" /> <Text color="$gray10">Loading template…</Text>
-            </XStack>
-          ) : templateEditorState.error ? (
-            <Text color="$red9">{templateEditorState.error}</Text>
-          ) : templateEditorState.definition ? (
-            <ConfigEditor
-              definition={templateEditorState.definition}
-              onSave={handleSaveTemplateEditor}
-              onCancel={closeTemplateEditor}
-            />
-          ) : (
-            <Text color="$gray11">Template not available.</Text>
-          )}
-        </YStack>
-      </AlertDialog>
+      {/* Generic Template Editor */}
+      <TemplateEditor
+        {...templateEditor.editorProps}
+        onClose={handleTemplateEditorClose}
+      />
 
       <DataView
         entityName="devices"
@@ -388,20 +338,25 @@ export default {
             const device = DevicesModel.load(row);
             const hasDefinition = Boolean(device.data.deviceDefinition);
 
-            const buttonLabel = hasDefinition ? "Upload definition" : "Upload config";
-
             return device.data.platform == "esphome" ? (
-              <ButtonSimple
-                onPress={async () => {
-                  if (!hasDefinition) {
-                    await uploadConfigFile(device);
-                    return;
-                  }
-                  flashDevice(device);
-                }}
-              >
-                {buttonLabel}
-              </ButtonSimple>
+              <XStack gap="$2" flexWrap="wrap">
+                <ButtonSimple
+                  onPress={async () => {
+                    if (!hasDefinition) {
+                      await uploadConfigFile(device);
+                      return;
+                    }
+                    flashDevice(device);
+                  }}
+                >
+                  Upload
+                </ButtonSimple>
+                <ButtonSimple
+                  onPress={() => templateEditor.openDevice(device.data.name)}
+                >
+                  Edit
+                </ButtonSimple>
+              </XStack>
             ):(<></>)
           })
         )}

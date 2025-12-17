@@ -52,6 +52,8 @@ import { DevicesModel } from '@extensions/devices/devices/devicesSchemas'
 import { useEsphomeDeviceActions } from '@extensions/esphome/hooks/useEsphomeDeviceActions'
 import { SubsystemsEditor } from 'protodevice/src/SubsystemEditor'
 import { Subsystems } from 'protodevice/src/Subsystem'
+import { TemplateEditor, useTemplateEditor } from '@extensions/devices/components/TemplateEditor'
+import { ButtonSimple } from 'protolib/components/ButtonSimple'
 
 const defaultCardMethod: "post" | "get" = 'post'
 
@@ -219,8 +221,10 @@ type DeviceActions = {
   viewLogs: (device: DevicesModel) => Promise<void>;
 };
 
-const DeviceListItem = ({ device, actions, onSelect }: { device: DevicesModel, actions: DeviceActions, onSelect: (device: DevicesModel) => void }) => {
+const DeviceListItem = ({ device, actions, onSelect, templateEditor }: { device: DevicesModel, actions: DeviceActions, onSelect: (device: DevicesModel) => void, templateEditor: ReturnType<typeof useTemplateEditor> }) => {
   const [subsystemsEditor, setSubsystemsEditor] = useState<{ open: boolean, device: DevicesModel | null }>({ open: false, device: null });
+  const hasDefinition = Boolean(device.data?.deviceDefinition);
+  const isEsphome = device.data?.platform === 'esphome';
 
   const extraMenuActions = [
     {
@@ -252,19 +256,45 @@ const DeviceListItem = ({ device, actions, onSelect }: { device: DevicesModel, a
   return (
     <>
       <Tinted>
-        <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5" jc="space-between" onPress={() => onSelect(device)} cursor="pointer">
-          <XStack ai="center" gap="$3">
+        <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5" jc="space-between">
+          <XStack ai="center" gap="$3" onPress={() => onSelect(device)} cursor="pointer" flex={1}>
             <Router size={16} />
             <Text>{device?.data?.name ?? 'Unknown device'}</Text>
           </XStack>
-          <ItemMenu
-            type="item"
-            sourceUrl="/api/core/v1/devices"
-            element={device}
-            deleteable={() => false}
-            hideDeleteButton
-            extraMenuActions={extraMenuActions}
-          />
+          <XStack ai="center" gap="$2">
+            {isEsphome && (
+              <>
+                <ButtonSimple
+                  onPress={async (e) => {
+                    e.stopPropagation();
+                    if (!hasDefinition) {
+                      await actions.uploadConfigFile(device);
+                      return;
+                    }
+                    await actions.flashDevice(device);
+                  }}
+                >
+                  Upload
+                </ButtonSimple>
+                <ButtonSimple
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    templateEditor.openDevice(device.data.name);
+                  }}
+                >
+                  Edit
+                </ButtonSimple>
+              </>
+            )}
+            <ItemMenu
+              type="item"
+              sourceUrl="/api/core/v1/devices"
+              element={device}
+              deleteable={() => false}
+              hideDeleteButton
+              extraMenuActions={extraMenuActions}
+            />
+          </XStack>
         </XStack>
       </Tinted>
       <SubsystemsEditor
@@ -282,6 +312,7 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
   const [loading, setLoading] = useState(false);
   const [deviceMap, setDeviceMap] = useState<Record<string, DevicesModel | null>>({});
   const [selected, setSelected] = useState<DevicesModel | null>(null);
+  const templateEditor = useTemplateEditor();
 
   useEffect(() => {
     let cancelled = false;
@@ -313,7 +344,7 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
       <XStack ai="center" jc="space-between">
         <Paragraph size="$5" fow="600">Linked devices</Paragraph>
         <Button size="$2" onPress={() => { window.location.href = '/workspace/devices'; }}>
-          Go to devices
+          Go to devices page
         </Button>
       </XStack>
       {selected ? (
@@ -337,18 +368,6 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
                   isVisible: () => true
                 },
                 {
-                  text: "Upload definition",
-                  icon: UploadCloud,
-                  action: async (element: DevicesModel) => { await actions.flashDevice(element); },
-                  isVisible: (element: DevicesModel) => Boolean(element.data?.deviceDefinition)
-                },
-                {
-                  text: "Upload config file",
-                  icon: UploadCloud,
-                  action: async (element: DevicesModel) => { await actions.uploadConfigFile(element); },
-                  isVisible: (element: DevicesModel) => Boolean(element.getConfigFile()) && !element.data?.deviceDefinition
-                },
-                {
                   text: "View logs",
                   icon: Bug,
                   action: async (element: DevicesModel) => { await actions.viewLogs(element); },
@@ -370,7 +389,7 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
           {list.map((dev) => {
             const deviceModel = deviceMap[dev];
             return deviceModel ? (
-              <DeviceListItem key={dev} device={deviceModel} actions={actions} onSelect={(d) => setSelected(d)} />
+              <DeviceListItem key={dev} device={deviceModel} actions={actions} onSelect={(d) => setSelected(d)} templateEditor={templateEditor} />
             ) : (
               <Tinted key={dev}>
                 <XStack ai="center" px="$3" py="$2" bg="$bgContent" br="$3" gap="$3" bw={1} boc="$gray5">
@@ -382,6 +401,7 @@ const DevicesTab = ({ devices, actions }: { devices: string[], actions: DeviceAc
           })}
         </YStack>
       )}
+      <TemplateEditor {...templateEditor.editorProps} />
     </YStack>
   );
 };

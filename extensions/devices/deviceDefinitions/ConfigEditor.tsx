@@ -31,8 +31,13 @@ export const ConfigEditor = ({ definition, onSave, onCancel }) => {
 
   const { resolvedTheme } = useThemeSetting()
   const searchParams = useSearchParams()
-  const pathname = usePathname()
+  
+  // Always use deviceDefinitions path context for correct masks, regardless of current page
+  // This ensures the editor works the same whether opened from /workspace/devices, 
+  // /workspace/boards, or /workspace/deviceDefinitions
+  const pathname = '/workspace/deviceDefinitions'
   const query = Object.fromEntries(searchParams.entries())
+  
   const selectedSdk = definition?.sdk
   const selectedBoard = definition?.board
   const sourceCode = useRef(definition?.config?.components)

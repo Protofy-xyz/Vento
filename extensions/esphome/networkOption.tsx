@@ -22,119 +22,167 @@ type WifiNetwork = {
     password: string
 }
 
-const TemplateSlide = ({ selected, setSelected, definitions }) => {
-    const [search, setSearch] = useState('')
-    const templates = [
-        { id: '__none__', name: 'Blank Device', description: 'Create a device from scratch!', boardIcon: 'cpu', boardImage: undefined },
-        ...(definitions?.data?.items || []).map(def => {
-            const boardName = typeof def.board === 'string' ? def.board : def.board?.name
-            const boardIcon = typeof def.board === 'object' ? def.board?.icon : undefined
-            const boardImage = typeof def.board === 'object' ? def.board?.image : undefined
-            const description = (typeof def.description === 'string' && def.description.trim().length)
-                ? def.description
-                : `Board: ${boardName || 'Unknown'}`
-            return {
-                id: def.name,
-                name: def.name,
-                description,
-                boardIcon,
-                boardImage
-            }
-        })
-    ]
+type SelectableItem = {
+    id: string
+    name: string
+    icon?: string
+    image?: string
+    description?: string
+    extra?: Record<string, any>
+}
 
+// Reusable search input component
+const SearchInput = ({ value, onChange, placeholder }: { 
+    value: string
+    onChange: (text: string) => void
+    placeholder: string 
+}) => (
+    <XStack position="relative">
+        <Search size={18} style={{ position: 'absolute', left: 12, top: 14, opacity: 0.7 }} />
+        <Input
+            value={value}
+            onChangeText={onChange}
+            placeholder={placeholder}
+            size="$4"
+            paddingLeft={40}
+            backgroundColor="$gray3"
+            borderColor="$gray6"
+            borderWidth={1}
+            outlineColor="$gray8"
+        />
+    </XStack>
+)
+
+// Reusable icon renderer
+const ItemIcon = ({ icon, name }: { icon?: string, name: string }) => {
+    if (!icon) return null
+    const isUrl = icon.includes('/') || icon.startsWith('http')
+    return isUrl ? (
+        <img src={icon} alt={name} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }} />
+    ) : (
+        <PublicIcon name={icon} size={22} color="var(--color10)" />
+    )
+}
+
+// Reusable preview image
+const PreviewImage = ({ src, alt }: { src?: string, alt: string }) => {
+    if (!src) return null
+    return (
+        <img
+            src={src}
+            alt={alt}
+            style={{
+                width: 440,
+                maxWidth: "100%",
+                height: "auto",
+                maxHeight: 320,
+                objectFit: "contain",
+                borderRadius: 10,
+                display: "block"
+            }}
+        />
+    )
+}
+
+// Reusable selectable list item
+const SelectableListItem = ({ item, active, onSelect }: {
+    item: SelectableItem
+    active: boolean
+    onSelect: () => void
+}) => (
+    <YStack
+        key={item.id}
+        onPress={onSelect}
+        cursor="pointer"
+        padding="$3"
+        borderRadius="$4"
+        backgroundColor={active ? "$color3" : "$gray2"}
+        borderWidth={1}
+        borderColor={active ? "$color7" : "$gray5"}
+        alignItems="flex-start"
+        hoverStyle={{ borderColor: '$color7', backgroundColor: '$color2' }}
+    >
+        <XStack gap="$3" alignItems="center">
+            <ItemIcon icon={item.icon} name={item.name} />
+            <Text fontWeight="700" color="$color11">{item.name}</Text>
+        </XStack>
+    </YStack>
+)
+
+// Reusable list with preview layout
+const ListPreviewLayout = ({
+    items,
+    selectedId,
+    onSelect,
+    search,
+    onSearchChange,
+    searchPlaceholder,
+    emptyMessage,
+    renderPreview,
+    error,
+    loading,
+    loadingMessage
+}: {
+    items: SelectableItem[]
+    selectedId: string | null
+    onSelect: (id: string) => void
+    search: string
+    onSearchChange: (text: string) => void
+    searchPlaceholder: string
+    emptyMessage: string
+    renderPreview: (item: SelectableItem | undefined) => React.ReactNode
+    error?: string
+    loading?: boolean
+    loadingMessage?: string
+}) => {
     const normalizedQuery = search.trim().toLowerCase()
-    const filteredTemplates = normalizedQuery
-        ? templates.filter((tpl) => {
-            const haystack = `${tpl.name ?? ''} ${tpl.description ?? ''}`.toLowerCase()
-            return haystack.includes(normalizedQuery)
-        })
-        : templates
-    const selectedTemplate =
-        filteredTemplates.find((tpl) => tpl.id === selected) ||
-        (filteredTemplates.length ? filteredTemplates[0] : undefined)
+    const filteredItems = normalizedQuery
+        ? items.filter(item => `${item.name ?? ''} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery))
+        : items
+
+    const selectedItem = filteredItems.find(item => item.id === selectedId) || filteredItems[0]
+
+    if (loading) {
+        return (
+            <XStack alignItems="center" gap="$2">
+                <Spinner size="small" />
+                <Text color="$gray10">{loadingMessage || 'Loading...'}</Text>
+            </XStack>
+        )
+    }
+
+    if (items.length === 0) {
+        return <Text color="$gray11">{emptyMessage}</Text>
+    }
 
     return (
         <YStack gap="$3" width="100%">
-            <XStack position="relative">
-                <Search size={18} style={{ position: 'absolute', left: 12, top: 14, opacity: 0.7 }} />
-                <Input
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholder="Search templates…"
-                    size="$4"
-                    paddingLeft={40}
-                    backgroundColor="$gray3"
-                    borderColor="$gray6"
-                    borderWidth={1}
-                    outlineColor="$gray8"
-                />
-            </XStack>
-
+            {error && <Text color="$red9" fontSize="$2">{error}</Text>}
+            <SearchInput value={search} onChange={onSearchChange} placeholder={searchPlaceholder} />
             <XStack gap="$4" alignItems="flex-start" width="100%" height={520}>
-                {/* LEFT: list */}
-                <YStack width={380} flexShrink={0} gap="$3" height="100%">
-                    <ScrollView
-                        style={{
-                            width: '100%',
-                            flexShrink: 0,
-                            flexGrow: 0,
-                            minHeight: 360
-                        }}
-                    >
+                {/* Left: List */}
+                <YStack width={380} flexShrink={0} height="100%">
+                    <ScrollView style={{ width: '100%', flexShrink: 0, flexGrow: 0, minHeight: 360 }}>
                         <YStack gap="$2" padding="$1">
-                            {filteredTemplates.length === 0 ? (
-                                <YStack
-                                    padding="$3"
-                                    borderRadius="$4"
-                                    borderWidth={1}
-                                    borderColor="$gray5"
-                                    backgroundColor="$gray2"
-                                >
-                                    <Text color="$gray10">No templates match your search.</Text>
+                            {filteredItems.length === 0 ? (
+                                <YStack padding="$3" borderRadius="$4" borderWidth={1} borderColor="$gray5" backgroundColor="$gray2">
+                                    <Text color="$gray10">No items match your search.</Text>
                                 </YStack>
                             ) : (
-                                filteredTemplates.map((template) => {
-                                    const active = selectedTemplate?.id === template.id
-                                    return (
-                                        <YStack
-                                            key={template.id}
-                                            onPress={() => setSelected(template.id)}
-                                            cursor="pointer"
-                                            padding="$3"
-                                            borderRadius="$4"
-                                            backgroundColor={active ? "$color3" : "$gray2"}
-                                            borderWidth={1}
-                                            borderColor={active ? "$color7" : "$gray5"}
-                                            alignItems="flex-start"
-                                            hoverStyle={{ borderColor: '$color7', backgroundColor: '$color2' }}
-                                            transition="all 120ms ease"
-                                        >
-                                            <XStack gap="$3" alignItems="center">
-                                                {template.boardIcon ? (
-                                                    template.boardIcon.includes('/') || template.boardIcon.startsWith('http') ? (
-                                                        <img
-                                                            src={template.boardIcon}
-                                                            alt={template.name}
-                                                            style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }}
-                                                        />
-                                                    ) : (
-                                                        <PublicIcon name={template.boardIcon} size={22} color="var(--color10)" />
-                                                    )
-                                                ) : null}
-                                                <Text fontWeight="700" color="$color11">
-                                                    {template.name}
-                                                </Text>
-                                            </XStack>
-                                        </YStack>
-                                    )
-                                })
+                                filteredItems.map(item => (
+                                    <SelectableListItem
+                                        key={item.id}
+                                        item={item}
+                                        active={selectedItem?.id === item.id}
+                                        onSelect={() => onSelect(item.id)}
+                                    />
+                                ))
                             )}
                         </YStack>
                     </ScrollView>
                 </YStack>
 
-                {/* RIGHT: preview */}
+                {/* Right: Preview */}
                 <YStack
                     flex={1}
                     height="100%"
@@ -146,218 +194,105 @@ const TemplateSlide = ({ selected, setSelected, definitions }) => {
                 >
                     <ScrollView style={{ width: '100%' }}>
                         <YStack gap="$3" alignItems="flex-start" paddingBottom="$2">
-                            {selectedTemplate ? (
-                                <>
-                                    <Text fontSize="$7" fontWeight="700" color="$color11">
-                                        {selectedTemplate.name}
-                                    </Text>
-                                    {(selectedTemplate as any)?.boardImage || (selectedTemplate as any)?.image ? (
-                                        <img
-                                            src={(selectedTemplate as any).boardImage || (selectedTemplate as any).image}
-                                            alt={selectedTemplate.name}
-                                            style={{
-                                                width: 440,
-                                                maxWidth: "100%",
-                                                height: "auto",
-                                                maxHeight: 320,
-                                                objectFit: "contain",
-                                                borderRadius: 10,
-                                                display: "block"
-                                            }}
-                                        />
-                                    ) : null}
-                                    {selectedTemplate.description ? (
-                                        <Text color="$gray10" fontSize="$4">
-                                            {selectedTemplate.description}
-                                        </Text>
-                                    ) : (
-                                        <Text color="$gray9">No description available.</Text>
-                                    )}
-                                </>
-                            ) : (
-                                <Text color="$gray9">Select a template to see details</Text>
-                            )}
+                            {renderPreview(selectedItem)}
                         </YStack>
                     </ScrollView>
                 </YStack>
             </XStack>
+        </YStack>
+    )
+}
+
+const TemplateSlide = ({ selected, setSelected, definitions }: {
+    selected: string
+    setSelected: (id: string) => void
+    definitions: any
+}) => {
+    const [search, setSearch] = useState('')
+    
+    const items: SelectableItem[] = [
+        { id: '__none__', name: 'Blank Device', description: 'Create a device from scratch!', icon: 'cpu' },
+        ...(definitions?.data?.items || []).map((def: any) => ({
+            id: def.name,
+            name: def.name,
+            description: def.description?.trim() || `Board: ${def.board?.name || def.board || 'Unknown'}`,
+            icon: def.board?.icon,
+            image: def.board?.image
+        }))
+    ]
+
+    return (
+        <YStack gap="$3" width="100%">
+            <ListPreviewLayout
+                items={items}
+                selectedId={selected}
+                onSelect={setSelected}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Search templates…"
+                emptyMessage="No templates available."
+                renderPreview={(item) => item ? (
+                    <>
+                        <Text fontSize="$7" fontWeight="700" color="$color11">{item.name}</Text>
+                        <PreviewImage src={item.image} alt={item.name} />
+                        <Text color="$gray10" fontSize="$4">{item.description || 'No description available.'}</Text>
+                    </>
+                ) : (
+                    <Text color="$gray9">Select a template to see details</Text>
+                )}
+            />
             <Spacer marginBottom="$8" />
         </YStack>
     )
 }
 
 const BoardSlide = ({ boards, selectedBoard, setSelectedBoard, error }: {
-    boards: any,
-    selectedBoard: string | null,
-    setSelectedBoard: (value: string) => void,
+    boards: any
+    selectedBoard: string | null
+    setSelectedBoard: (value: string) => void
     error?: string
 }) => {
     const [search, setSearch] = useState('')
-    const boardList = (boards?.data?.items || [])
-        .map((board) => ({
+    
+    const items: SelectableItem[] = (boards?.data?.items || [])
+        .map((board: any) => ({
             id: board.name,
             name: board.name,
-            core: board.core,
+            icon: board.icon,
             image: board.image,
-            icon: board.icon
+            extra: { core: board.core }
         }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-
-    const normalizedQuery = search.trim().toLowerCase()
-    const filteredBoards = normalizedQuery
-        ? boardList.filter((b) => b.name.toLowerCase().includes(normalizedQuery))
-        : boardList
-
-    const selected =
-        filteredBoards.find((b) => b.id === selectedBoard) ||
-        (filteredBoards.length ? filteredBoards[0] : undefined)
+        .sort((a: SelectableItem, b: SelectableItem) => a.name.localeCompare(b.name))
 
     return (
-        <YStack gap="$3" mb="$4" width="100%">
-            {error ? <Text color="$red9" fontSize="$2">{error}</Text> : null}
-            {!boards?.isLoaded ? (
-                <XStack alignItems="center" gap="$2">
-                    <Spinner size="small" /> <Text color="$gray10">Loading boards…</Text>
-                </XStack>
-            ) : (
-                <>
-                    {boardList.length === 0 ? (
-                        <Text color="$gray11">No boards found. Please create a board first.</Text>
-                    ) : (
-                        <XStack
-                            gap="$4"
-                            maxHeight={500}
-                            alignItems="flex-start"
-                            width="100%"
-                        >
-                            {/* LEFT: finder + list */}
-                            <YStack width={380} flexShrink={0} gap="$3">
-                                <XStack position="relative">
-                                    <Search size={18} style={{ position: 'absolute', left: 12, top: 14, opacity: 0.7 }} />
-                                    <Input
-                                        value={search}
-                                        onChangeText={setSearch}
-                                        placeholder="Search boards…"
-                                        size="$4"
-                                        paddingLeft={40}
-                                        backgroundColor="$gray3"
-                                        borderColor="$gray6"
-                                        borderWidth={1}
-                                        outlineColor="$gray8"
-                                    />
-                                </XStack>
-                                <ScrollView
-                                    style={{
-                                        width: '100%',
-                                        flexShrink: 0,
-                                        flexGrow: 0,
-                                        minHeight: 360
-                                    }}
-                                >
-                                    <YStack gap="$2" padding="$1">
-                                        {filteredBoards.length === 0 ? (
-                                            <YStack
-                                                padding="$3"
-                                                borderRadius="$4"
-                                                borderWidth={1}
-                                                borderColor="$gray5"
-                                                backgroundColor="$gray2"
-                                            >
-                                                <Text color="$gray10">No boards match your search.</Text>
-                                            </YStack>
-                                        ) : (
-                                            filteredBoards.map((board) => {
-                                                const active = selected?.id === board.id
-                                                return (
-                                                    <YStack
-                                                        key={board.id}
-                                                        onPress={() => setSelectedBoard(board.id)}
-                                                        cursor="pointer"
-                                                        padding="$3"
-                                                        borderRadius="$4"
-                                                        backgroundColor={active ? "$color3" : "$gray2"}
-                                                        borderWidth={1}
-                                                        borderColor={active ? "$color7" : "$gray5"}
-                                                        alignItems="flex-start"
-                                                        hoverStyle={{ borderColor: '$color7', backgroundColor: '$color2' }}
-                                                        transition="all 120ms ease"
-                                                    >
-                                                        <XStack gap="$3" alignItems="center">
-                                                            {board.icon ? (
-                                                                board.icon.includes('/') || board.icon.startsWith('http') ? (
-                                                                    <img
-                                                                        src={board.icon}
-                                                                        alt={board.name}
-                                                                        style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }}
-                                                                    />
-                                                                ) : (
-                                                                    <PublicIcon name={board.icon} size={22} color="var(--color10)" />
-                                                                )
-                                                            ) : null}
-                                                            <Text fontWeight="700" color="$color11">
-                                                                {board.name}
-                                                            </Text>
-                                                        </XStack>
-                                                    </YStack>
-                                                )
-                                            })
-                                        )}
-                                    </YStack>
-                                </ScrollView>
-                            </YStack>
-
-                            {/* RIGHT: preview */}
-                            <YStack
-                                flex={1}
-                                backgroundColor="$gray2"
-                                borderWidth={1}
-                                borderColor="$gray4"
-                                borderRadius="$4"
-                                padding="$4"
-                                gap="$4"
-                                justifyContent="flex-start"
-                                alignItems="flex-start"
-                            >
-                                <YStack
-                                    width="100%"
-                                    gap="$3"
-                                    alignItems="flex-start"
-                                >
-                                    {selected ? (
-                                        <>
-                                            <Text fontSize="$7" fontWeight="700" color="$color11">
-                                                {selected.name}
-                                            </Text>
-                                            {selected.image ? (
-                                                <img
-                                                    src={selected.image}
-                                                    alt={selected.name}
-                                                    style={{
-                                                        width: 440,
-                                                        maxWidth: "100%",
-                                                        height: "auto",
-                                                        maxHeight: 320,
-                                                        objectFit: "contain",
-                                                        borderRadius: 10,
-                                                        display: "block"
-                                                    }}
-                                                />
-                                            ) : (
-                                                <Text color="$gray9">No image available</Text>
-                                            )}
-                                            {selected.core ? (
-                                                <Text color="$gray10" fontWeight="500">Core: {selected.core}</Text>
-                                            ) : null}
-                                        </>
-                                    ) : (
-                                        <Text color="$gray9">Select a board to see details</Text>
-                                    )}
-                                </YStack>
-                            </YStack>
-                        </XStack>
-                    )}
-                </>
-            )}
+        <YStack gap="$3" marginBottom="$4" width="100%">
+            <ListPreviewLayout
+                items={items}
+                selectedId={selectedBoard}
+                onSelect={setSelectedBoard}
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Search boards…"
+                emptyMessage="No boards found. Please create a board first."
+                error={error}
+                loading={!boards?.isLoaded}
+                loadingMessage="Loading boards…"
+                renderPreview={(item) => item ? (
+                    <>
+                        <Text fontSize="$7" fontWeight="700" color="$color11">{item.name}</Text>
+                        {item.image ? (
+                            <PreviewImage src={item.image} alt={item.name} />
+                        ) : (
+                            <Text color="$gray9">No image available</Text>
+                        )}
+                        {item.extra?.core && (
+                            <Text color="$gray10" fontWeight="500">Core: {item.extra.core}</Text>
+                        )}
+                    </>
+                ) : (
+                    <Text color="$gray9">Select a board to see details</Text>
+                )}
+            />
         </YStack>
     )
 }
@@ -380,11 +315,11 @@ const ConfigureSlide = ({ data, setData, errorMessage = '' }) => {
         setData({ ...data, name: text })
     }
 
-    return <YStack minHeight={"200px"} justifyContent="center" alignItems="center">
+    return <YStack alignItems="center" paddingVertical="$2">
         <YStack width="400px" gap="$2">
-            <Text marginBottom="$2" fontSize="$4" color="$gray11">Device Name</Text>
+            <Text fontSize="$4" color="$gray11">Device Name</Text>
             <Input flex={1} value={data?.name || ''} onChangeText={handleChange} placeholder="my_esp32_device" />
-            <Text marginLeft="$2" height={"$1"} fontSize="$2" color="$red8">{error}</Text>
+            {error ? <Text marginLeft="$2" fontSize="$2" color="$red8">{error}</Text> : null}
         </YStack>
     </YStack>
 }
@@ -576,7 +511,7 @@ const WifiStep = forwardRef<WifiStepHandle, WifiStepProps>(
     }
 
     return (
-        <YStack padding="$4" gap="$4" width="100%" maxWidth={820} alignSelf="center">
+        <YStack paddingHorizontal="$4" paddingTop="$2" paddingBottom="$4" gap="$3" width="100%" maxWidth={820} alignSelf="center">
             {wifiError ? <Text color="$red9" fontSize="$2" marginBottom="$1">{wifiError}</Text> : null}
             {loading ? (
                 <XStack alignItems="center" gap="$2">
@@ -723,14 +658,12 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
     // Template editor
     const templateEditor = useTemplateEditor()
 
-    const needsBoardStep = data.template === '__none__'
-    const needsEditTemplateStep = data.template === '__none__'
+    const isBlankDevice = data.template === '__none__'
     const slides = [
-        { id: 'template', name: "Select Template", title: "Select a Template (optional)" },
-        { id: 'configure', name: "Configure", title: "Configure your Device" },
-        ...(needsBoardStep ? [{ id: 'board', name: "Board", title: "Select the board for your device" }] : []),
-        { id: 'wifi', name: "Wi-Fi", title: "Wi-Fi Setup" },
-        ...(needsEditTemplateStep ? [{ id: 'edit-template', name: "Edit Template", title: "Edit your Device Template" }] : []),
+        { id: 'basics', name: "Basics", title: "Device Basics" },
+        { id: 'template', name: "Template", title: "Select a Template (optional)" },
+        ...(isBlankDevice ? [{ id: 'board', name: "Board", title: "Select the board for your device" }] : []),
+        ...(isBlankDevice ? [{ id: 'edit-template', name: "Edit Template", title: "Edit your Device Template" }] : []),
         { id: 'upload', name: "Upload", title: "Upload Firmware" }
     ]
 
@@ -746,7 +679,7 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
     usePendingEffect((s) => { API.get({ url: boardsSourceUrl }, s) }, setBoards, undefined)
 
     useEffect(() => {
-        if (!needsBoardStep) {
+        if (!isBlankDevice) {
             setSelectedBoard(null)
             setBoardError('')
             return
@@ -757,7 +690,7 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                 setSelectedBoard(items[0].name)
             }
         }
-    }, [needsBoardStep, boards?.isLoaded])
+    }, [isBlankDevice, boards?.isLoaded])
 
     useEffect(() => {
         if (step > slides.length - 1) {
@@ -1034,18 +967,16 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
     }
 
     const handleNext = async () => {
-        // Validation
-        if (currentSlide.id === 'configure' && !isNameValid(data.name)) {
-            setError('Name is required and must use only lowercase letters, numbers or underscores')
-            return
-        }
-        if (currentSlide.id === 'board' && needsBoardStep && !selectedBoard) {
-            setBoardError('Please select a board')
-            return
-        }
-
-        // WiFi step - create template or device
-        if (currentSlide.id === 'wifi') {
+        // Step 1: Basics - validate name and WiFi
+        if (currentSlide.id === 'basics') {
+            // Validate name
+            if (!isNameValid(data.name)) {
+                setError('Name is required and must use only lowercase letters, numbers or underscores')
+                return
+            }
+            setError('')
+            
+            // Validate WiFi
             let wifi: WifiNetwork | null = null
             if (wifiStepRef.current) {
                 wifi = await wifiStepRef.current.ensureSelection()
@@ -1055,35 +986,60 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                 return
             }
             setWifiError('')
+            setSavedWifi(wifi)
+            setStep(step + 1)
+            return
+        }
 
-            const isBlankDevice = data.template === '__none__'
-
-            if (isBlankDevice) {
-                // Create template only, then go to edit step
-                const success = await createTemplateOnly(wifi)
-                if (!success) return
-
-                toast.show('Template created', { message: `${data.name}_template` })
-                
-                // Open template editor and move to edit-template step
-                templateEditor.openDefinition(`${data.name}_template`)
-                setStep(step + 1)
-            } else {
+        // Step 2: Template - create device or continue to board
+        if (currentSlide.id === 'template') {
+            if (!isBlankDevice) {
                 // Create device with existing template, go directly to upload
-                const success = await createDeviceWithExistingTemplate(wifi)
+                if (!savedWifi) {
+                    setError('WiFi credentials not found')
+                    return
+                }
+                const success = await createDeviceWithExistingTemplate(savedWifi)
                 if (!success) return
-
                 setStep(slides.findIndex(s => s.id === 'upload'))
+            } else {
+                // Blank device - go to board selection
+                setStep(step + 1)
             }
             return
         }
 
-        // Edit template step - handled by template editor buttons
+        // Step 4: Board - validate and create template
+        if (currentSlide.id === 'board') {
+            if (!selectedBoard) {
+                setBoardError('Please select a board')
+                return
+            }
+            setBoardError('')
+            
+            if (!savedWifi) {
+                setError('WiFi credentials not found')
+                return
+            }
+            
+            // Create template only, then go to edit step
+            const success = await createTemplateOnly(savedWifi)
+            if (!success) return
+
+            toast.show('Template created', { message: `${data.name}_template` })
+            
+            // Open template editor and move to edit-template step
+            templateEditor.openDefinition(`${data.name}_template`)
+            setStep(step + 1)
+            return
+        }
+
+        // Step 5: Edit template - handled by template editor buttons
         if (currentSlide.id === 'edit-template') {
             return
         }
 
-        // Upload step - finish wizard
+        // Step 6: Upload - finish wizard
         if (currentSlide.id === 'upload') {
             onCreated({ name: data.name, wifi: savedWifi })
             return
@@ -1104,9 +1060,13 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
 
     // Get button text
     const getNextButtonText = () => {
-        if (currentSlide.id === 'wifi') {
+        if (currentSlide.id === 'template') {
             if (isCreating) return 'Creating...'
-            return data.template === '__none__' ? 'Create Template' : 'Create Device'
+            return isBlankDevice ? 'Next' : 'Create Device'
+        }
+        if (currentSlide.id === 'board') {
+            if (isCreating) return 'Creating...'
+            return 'Create Template'
         }
         if (currentSlide.id === 'upload') return 'Done'
         return 'Next'
@@ -1130,10 +1090,17 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
             </Tinted>
 
             <Stack flex={1} marginTop={"$2"}>
+                {/* Basics Step - Name + WiFi combined */}
+                {currentSlide.id === 'basics' && (
+                    <ScrollView style={{ width: '100%' }}>
+                        <YStack gap="$2" width="100%">
+                            <ConfigureSlide data={data} setData={setData} errorMessage={error} />
+                            <WifiStep ref={wifiStepRef} active={currentSlide.id === 'basics'} wifiError={wifiError} onClearError={() => setWifiError('')} />
+                        </YStack>
+                    </ScrollView>
+                )}
                 {currentSlide.id === 'template' && <TemplateSlide selected={data.template} setSelected={(tpl) => setData({ ...data, template: tpl })} definitions={definitions} />}
-                {currentSlide.id === 'configure' && <ConfigureSlide data={data} setData={setData} errorMessage={error} />}
                 {currentSlide.id === 'board' && <BoardSlide boards={boards} selectedBoard={selectedBoard} setSelectedBoard={(board) => { setSelectedBoard(board); setBoardError('') }} error={boardError} />}
-                {currentSlide.id === 'wifi' && <WifiStep ref={wifiStepRef} active={currentSlide.id === 'wifi'} wifiError={wifiError} onClearError={() => setWifiError('')} />}
                 
                 {/* Edit Template Step - shows TemplateEditor modal */}
                 {currentSlide.id === 'edit-template' && (
@@ -1194,7 +1161,7 @@ const DevicesWizard = ({ onCreated, onBack }: { onCreated: (data?: any) => void,
                             id={"admin-devices-add-btn"}
                             width={250}
                             onPress={handleNext}
-                            disabled={isCreating || (currentSlide.id === 'configure' && !isNameValid(data.name))}
+                            disabled={isCreating || (currentSlide.id === 'basics' && !isNameValid(data.name)) || (currentSlide.id === 'template' && !isBlankDevice && !savedWifi)}
                         >
                             {getNextButtonText()}
                         </Button>

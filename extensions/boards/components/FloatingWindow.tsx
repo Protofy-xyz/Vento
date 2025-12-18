@@ -89,12 +89,18 @@ export const FloatingWindow = ({ visible, onChangeTab, selectedTab, tabs, side =
     
     // Calculate the right offset considering the chat panel
     const rightOffset = 25 + chatPanelWidth;
+    
+    // Left sidebar width (collapsed menu)
+    const leftSidebarWidth = 64;
 
+    // Calculate fullscreen width considering both sidebars (left menu + right chat panel)
+    const fullScreenWidth = window.innerWidth - leftSidebarWidth - chatPanelWidth;
+    
     const baseStyle = fullScreen
         ? {
-            ...(isLeft ? { left: visible ? 0 : "-100vw" } : { right: visible ? chatPanelWidth : "-100vw" }),
+            ...(isLeft ? { left: visible ? leftSidebarWidth : "-100vw" } : { right: visible ? chatPanelWidth : "-100vw" }),
             top: "0px",
-            width: winRef.current ? winRef.current.offsetWidth : window.innerWidth,
+            width: fullScreenWidth,
             height: "calc(100vh)"
         }
         : {

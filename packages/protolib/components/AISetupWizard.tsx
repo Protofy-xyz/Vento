@@ -98,7 +98,7 @@ type AISetupWizardProps = {
     onSkip?: () => void
 }
 
-type Step = 'provider' | 'apikey' | 'localmodel' | 'download'
+type Step = 'provider' | 'apikey' | 'localmodel' | 'download' | 'lmstudiohost'
 
 type DownloadStatus = 'idle' | 'starting' | 'downloading' | 'completed' | 'error' | 'retrying'
 
@@ -114,6 +114,7 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
     const [selectedProvider, setSelectedProvider] = useState('chatgpt')
     const [selectedModel, setSelectedModel] = useState('gemma3-12b')
     const [apiKey, setApiKey] = useState('')
+    const [lmstudioHost, setLmstudioHost] = useState('http://localhost:1234')
     const [telemetryEnabled, setTelemetryEnabled] = useState(true)
     const [step, setStep] = useState<Step>('provider')
     const [session] = useSession()
@@ -258,11 +259,18 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
             } else if (selectedProvider === 'llama') {
                 setStep('localmodel')
                 return true // Keep dialog open
+            } else if (selectedProvider === 'lmstudio') {
+                // LM Studio - go to host configuration step
+                setStep('lmstudiohost')
+                return true // Keep dialog open
             } else {
-                // LM Studio - just save and close
+                // Unknown provider - just save and close
                 await saveSettings()
                 onComplete(selectedProvider)
             }
+        } else if (step === 'lmstudiohost') {
+            await saveSettings()
+            onComplete(selectedProvider)
         } else if (step === 'apikey') {
             await saveSettings()
             onComplete(selectedProvider)
@@ -332,6 +340,15 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                 console.log('AISetupWizard: ai.localmodel save result:', modelRes)
             }
 
+            // Save LM Studio host URL
+            if (selectedProvider === 'lmstudio') {
+                const hostRes = await API.post(`/api/core/v1/settings?token=${token}`, {
+                    name: 'ai.lmstudiohost',
+                    value: lmstudioHost || 'http://localhost:1234'
+                })
+                console.log('AISetupWizard: ai.lmstudiohost save result:', hostRes)
+            }
+
             // Save telemetry setting
             const telemetryRes = await API.post(`/api/core/v1/settings?token=${token}`, {
                 name: 'cloud.telemetry',
@@ -373,6 +390,7 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
             case 'apikey': return 'OpenAI API Key'
             case 'localmodel': return 'Select Model Size'
             case 'download': return 'Downloading Model'
+            case 'lmstudiohost': return 'LM Studio Server'
         }
     }
 
@@ -385,11 +403,12 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                 const model = localModels.find(m => m.id === selectedModel)
                 return `Downloading ${model?.name || 'model'}...`
             }
+            case 'lmstudiohost': return 'Enter your LM Studio server address'
         }
     }
 
     const getAcceptCaption = () => {
-        if (step === 'provider' && (selectedProvider === 'chatgpt' || selectedProvider === 'llama')) {
+        if (step === 'provider' && (selectedProvider === 'chatgpt' || selectedProvider === 'llama' || selectedProvider === 'lmstudio')) {
             return 'Next'
         }
         if (step === 'localmodel') {
@@ -717,6 +736,69 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
         )
     }
 
+    const renderLmstudioHostStep = () => (
+        <YStack gap="$8" f={1}>
+            <Input
+                bc="$gray3"
+                placeholder="http://localhost:1234"
+                borderColor="transparent"
+                autoFocus
+                value={lmstudioHost}
+                onChangeText={setLmstudioHost}
+                size="$4"
+            />
+            <YStack gap="$4">
+                <XStack ai="center" gap="$2">
+                    <Info size={18} color="$gray9" />
+                    <Text fontWeight="500" color="$gray9">How to configure LM Studio</Text>
+                </XStack>
+
+                <YStack gap="$2">
+                    {[
+                        { num: '1', text: 'Open LM Studio on your computer' },
+                        { num: '2', text: 'Go to the "Local Server" tab' },
+                        { num: '3', text: 'Start the server (default port is 1234)' },
+                        { num: '4', text: 'Copy the server address above' }
+                    ].map((step) => (
+                        <XStack key={step.num} ai="center" gap="$3">
+                            <XStack
+                                width={24}
+                                height={24}
+                                borderRadius={12}
+                                backgroundColor="$bgPanel"
+                                alignItems="center"
+                                justifyContent="center"
+                            >
+                                <Text fontSize="$2" fontWeight="600">{step.num}</Text>
+                            </XStack>
+                            <Text fontSize="$3">{step.text}</Text>
+                        </XStack>
+                    ))}
+                </YStack>
+
+                <XStack
+                    alignItems="center"
+                    gap="$2"
+                    cursor="pointer"
+                    alignSelf="flex-start"
+                    hoverStyle={{ opacity: 0.8 }}
+                    pressStyle={{ opacity: 0.6 }}
+                    onPress={() => window.open('https://lmstudio.ai/', '_blank')}
+                >
+                    <ExternalLink size={14} color="$blue10" />
+                    <Text fontSize="$2" color="$blue10" fontWeight="600" textDecorationLine="underline">
+                        Download LM Studio
+                    </Text>
+                </XStack>
+                <XStack ai="center" gap="$2" opacity={0.7}>
+                    <Text fontSize="$2" color="$gray9">
+                        💡 For remote servers, use the full URL (e.g., http://192.168.1.100:1234)
+                    </Text>
+                </XStack>
+            </YStack>
+        </YStack>
+    )
+
     return (
         <AlertDialog
             open={open}
@@ -752,6 +834,7 @@ export const AISetupWizard = ({ open, onComplete, onSkip }: AISetupWizardProps) 
                 {step === 'apikey' && renderApiKeyStep()}
                 {step === 'localmodel' && renderLocalModelStep()}
                 {step === 'download' && renderDownloadStep()}
+                {step === 'lmstudiohost' && renderLmstudioHostStep()}
 
                 {step === 'provider' && (
                     <>

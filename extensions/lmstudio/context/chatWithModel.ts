@@ -1,5 +1,6 @@
 import axios from "axios";
-import { getLogger } from "protobase";
+import { API, getLogger } from "protobase";
+import { getServiceToken } from "protonode";
 
 const logger = getLogger();
 
@@ -14,7 +15,25 @@ const estimateTokens = (text: string): number => {
   return Math.ceil(text.length / 3.5);
 };
 
-export const chatWithModel = async (prompt, model, modelParams={}, url='http://localhost:1234/v1/chat/completions') => {
+// Get LM Studio host from settings
+const getLmStudioHost = async (): Promise<string> => {
+  try {
+    const token = getServiceToken();
+    const result = await API.get(`/api/core/v1/settings/ai.lmstudiohost?token=${token}`);
+    if (!result.isError && result.data?.value) {
+      // Remove quotes (from JSON storage) and trailing slashes
+      return String(result.data.value).replace(/^"|"$/g, '').replace(/\/+$/, '');
+    }
+  } catch (err) {
+    // Silently fall back to default
+  }
+  return 'http://localhost:1234';
+};
+
+export const chatWithModel = async (prompt, model, modelParams={}, url?: string) => {
+  // If no URL provided, get from settings
+  const baseUrl = url || await getLmStudioHost();
+  const apiUrl = `${baseUrl}/v1/chat/completions`;
   if (chatWithModelBusy) {
     logger.warn({ _meta: { module: 'lmstudio' } }, 'LMStudio is busy, skipping execution');
     return { error: true, message: 'LMStudio is busy processing another request' };
@@ -36,14 +55,14 @@ export const chatWithModel = async (prompt, model, modelParams={}, url='http://l
     const estimatedTokens = estimateTokens(prompt);
     logger.info({ 
       _meta: { module: 'lmstudio' }, 
-      url, 
+      url: apiUrl, 
       model: model || '(using LMStudio loaded model)',
       promptLength,
       estimatedTokens,
       promptPreview: promptLength > 200 ? `${prompt.substring(0, 100)}...` : prompt
     }, `Calling LMStudio API (~${estimatedTokens} tokens estimated)`);
 
-    const response = await axios.post(url, data, {
+    const response = await axios.post(apiUrl, data, {
       headers: { "Content-Type": "application/json" },
       timeout: 120000 // 2 minute timeout
     });
@@ -75,7 +94,7 @@ export const chatWithModel = async (prompt, model, modelParams={}, url='http://l
       promptLength: promptLen,
       estimatedTokens: estTokens,
       responseData: typeof responseData === 'string' ? responseData : JSON.stringify(responseData || {}).substring(0, 500),
-      url
+      url: apiUrl
     }, `LMStudio API error (~${estTokens} tokens): ${errorMessage}`);
     
     // Build user-friendly error message with token estimate

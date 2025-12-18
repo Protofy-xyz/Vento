@@ -85,6 +85,16 @@ const SETTINGS_DEFINITIONS: SettingDefinition[] = [
     isKey: true
   },
   {
+    key: 'ai.lmstudiohost',
+    label: 'LM Studio Host',
+    description: 'LM Studio server address (e.g., http://localhost:1234)',
+    type: 'text',
+    category: 'ai',
+    defaultValue: 'http://localhost:1234',
+    icon: Cpu,
+    dependsOn: { key: 'ai.provider', value: 'lmstudio' }
+  },
+  {
     key: 'theme.accent',
     label: 'Accent Color',
     description: 'Primary accent color used throughout the interface',
@@ -244,6 +254,58 @@ const SettingSecret = ({ value, onChange, placeholder }: {
   )
 }
 
+const SettingText = ({ value, onChange, placeholder }: { 
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+}) => {
+  const [editing, setEditing] = useState(false)
+  const [tempValue, setTempValue] = useState(value || '')
+  const hasValue = value && value.length > 0
+
+  // Update tempValue when value changes (e.g., on load)
+  useEffect(() => {
+    if (!editing) {
+      setTempValue(value || '')
+    }
+  }, [value, editing])
+
+  if (editing) {
+    return (
+      <XStack gap="$2" alignItems="center">
+        <Input
+          width={200}
+          size="$3"
+          placeholder={placeholder || "Enter value..."}
+          value={tempValue}
+          onChangeText={setTempValue}
+          backgroundColor="$gray3"
+          borderColor="$color6"
+        />
+        <Button size="$2" chromeless onPress={() => { setEditing(false); setTempValue(value || '') }}>
+          <X size={14} />
+        </Button>
+        <Tinted>
+          <Button size="$2" backgroundColor="$color7" color="white" onPress={() => { onChange(tempValue); setEditing(false) }}>
+            <Check size={14} />
+          </Button>
+        </Tinted>
+      </XStack>
+    )
+  }
+
+  return (
+    <XStack gap="$2" alignItems="center">
+      <Text fontSize="$3" color={hasValue ? '$color11' : '$color9'} fontFamily="$mono">
+        {hasValue ? value : (placeholder || '(not set)')}
+      </Text>
+      <Button size="$2" chromeless onPress={() => { setTempValue(value || ''); setEditing(true) }}>
+        <Pencil size={14} color="$color10" />
+      </Button>
+    </XStack>
+  )
+}
+
 const SettingRow = ({ setting, value, onChange, loading }: { 
   setting: SettingDefinition
   value: any
@@ -309,9 +371,7 @@ const SettingRow = ({ setting, value, onChange, loading }: {
                 <SettingSelect value={parsedValue} onChange={handleChange} options={setting.options} />
               )}
               {setting.type === 'text' && (
-                <Text fontSize="$3" color="$color9" fontFamily="$mono">
-                  {parsedValue || '(not set)'}
-                </Text>
+                <SettingText value={parsedValue} onChange={handleChange} placeholder={setting.defaultValue} />
               )}
               {setting.type === 'secret' && (
                 <SettingSecret value={parsedValue} onChange={handleChange} placeholder="sk-..." />

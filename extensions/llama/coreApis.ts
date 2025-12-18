@@ -124,7 +124,8 @@ export default (app, context) => {
             return;
         }
 
-        const name = modelName || filename || url.split('/').pop()?.replace('.gguf', '') || 'model';
+        const rawName = modelName || filename || url.split('/').pop() || 'model';
+        const name = rawName.replace(/\.gguf$/i, ''); // Remove .gguf extension if present
 
         try {
             const result = await llamaStartDownload({ url, modelName: name });

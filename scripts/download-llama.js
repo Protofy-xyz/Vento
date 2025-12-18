@@ -185,6 +185,47 @@ function findDlls(dir) {
 }
 
 /**
+ * Check if a file is actually a symlink stored as text (common with ZIP extraction)
+ * Returns the target filename if it's a symlink, null otherwise
+ */
+function getSymlinkTarget(filePath) {
+    try {
+        const stats = fs.statSync(filePath);
+        // Symlinks stored as text are typically very small (< 100 bytes)
+        if (stats.size > 100) return null;
+        
+        const content = fs.readFileSync(filePath, 'utf8').trim();
+        // Check if content looks like a filename (no newlines, reasonable chars)
+        if (content && !content.includes('\n') && /^[\w.-]+$/.test(content)) {
+            return content;
+        }
+    } catch { }
+    return null;
+}
+
+/**
+ * Copy a library file, handling symlinks stored as text files
+ */
+function copyLibrary(src, destDir) {
+    const basename = path.basename(src);
+    const dest = path.join(destDir, basename);
+    
+    const symlinkTarget = getSymlinkTarget(src);
+    if (symlinkTarget) {
+        // This is a symlink stored as text - create actual symlink
+        if (existsSync(dest)) {
+            fs.unlinkSync(dest);
+        }
+        fs.symlinkSync(symlinkTarget, dest);
+        return { name: basename, isSymlink: true, target: symlinkTarget };
+    } else {
+        // Regular file - copy it
+        fs.copyFileSync(src, dest);
+        return { name: basename, isSymlink: false };
+    }
+}
+
+/**
  * Fix permissions on Unix
  */
 function fixPermissions(binDir) {
@@ -251,12 +292,15 @@ async function downloadLlama(AdmZip, options = {}) {
         fs.copyFileSync(foundBinary, binaryPath);
         console.log(`   ✓ ${release.binary}`);
         
-        // Copy DLLs/shared libs
+        // Copy DLLs/shared libs (handle symlinks stored as text by ZIP extraction)
         const libs = findDlls(extractDir);
         for (const lib of libs) {
-            const destLib = path.join(binDir, path.basename(lib));
-            fs.copyFileSync(lib, destLib);
-            console.log(`   ✓ ${path.basename(lib)}`);
+            const result = copyLibrary(lib, binDir);
+            if (result.isSymlink) {
+                console.log(`   ✓ ${result.name} → ${result.target}`);
+            } else {
+                console.log(`   ✓ ${result.name}`);
+            }
         }
         
         // Download CUDA runtime if needed
@@ -276,9 +320,12 @@ async function downloadLlama(AdmZip, options = {}) {
             
             const cudaDlls = findDlls(cudartExtract);
             for (const dll of cudaDlls) {
-                const destDll = path.join(binDir, path.basename(dll));
-                fs.copyFileSync(dll, destDll);
-                console.log(`   ✓ ${path.basename(dll)}`);
+                const result = copyLibrary(dll, binDir);
+                if (result.isSymlink) {
+                    console.log(`   ✓ ${result.name} → ${result.target}`);
+                } else {
+                    console.log(`   ✓ ${result.name}`);
+                }
             }
             
             fs.rmSync(cudartExtract, { recursive: true });

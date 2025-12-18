@@ -1,8 +1,12 @@
 await executeAction({ name: "agent_input.skip"})
 
 // Obtener el provider y modelo local por defecto desde settings
-const defaultProvider = await context.settings.get({ key: 'ai.provider' }) ?? 'skip'
-const defaultLocalModel = await context.settings.get({ key: 'ai.localmodel' }) ?? ''
+let defaultProvider = await context.settings.get({ key: 'ai.provider' }) ?? 'skip'
+let defaultLocalModel = await context.settings.get({ key: 'ai.localmodel' }) ?? ''
+
+// Clean up values in case they have quotes (from file storage)
+defaultProvider = String(defaultProvider).replace(/^"|"$/g, '')
+defaultLocalModel = String(defaultLocalModel).replace(/^"|"$/g, '')
 
 logger.info(`AI Provider settings - provider: "${defaultProvider}", localModel: "${defaultLocalModel}"`)
 
@@ -19,12 +23,20 @@ provider = (requestProvider && requestProvider !== 'default')
     ? params.provider 
     : defaultProvider
 
-// Usar el modelo del request si existe y no es 'default', sino usar el de params, sino el default
+// Determine model based on provider - only use local model for llama provider
+const getDefaultModelForProvider = (prov) => {
+  if (prov === 'llama') return defaultLocalModel || 'gemma-3-4b-it-Q8_0'
+  if (prov === 'chatgpt') return 'gpt-5.1'
+  if (prov === 'lmstudio') return 'default'
+  return ''
+}
+
+// Usar el modelo del request si existe y no es 'default', sino usar el de params, sino el default del provider
 model = (requestModel && requestModel !== 'default') 
   ? requestModel 
   : (params.model && params.model !== 'default') 
     ? params.model 
-    : defaultLocalModel
+    : getDefaultModelForProvider(provider)
 
 
 // if the provider is skip or not set, return an error
